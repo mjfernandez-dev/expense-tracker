@@ -1,9 +1,13 @@
 # FastAPI es el framework web que maneja las peticiones HTTP
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
 # SQLAlchemy Session para interactuar con la base de datos
 from sqlalchemy.orm import Session
 # Importamos typing para tipar listas
 from typing import List
+from datetime import timedelta
+
+# Para el formulario de login
+from fastapi.security import OAuth2PasswordRequestForm
 
 # CONEXIÓN: Importamos configuración de BD desde database.py
 from database import engine, get_db, Base
@@ -11,6 +15,16 @@ from database import engine, get_db, Base
 import models
 # CONEXIÓN: Importamos los schemas (validación) desde schemas.py
 import schemas
+# CONEXIÓN: Importamos utilidades de autenticación
+from auth import (
+    get_password_hash,
+    authenticate_user,
+    create_access_token,
+    get_current_active_user,
+    get_user_by_username,
+    get_user_by_email,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
 # CORS Middleware para permitir peticiones desde el frontend
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -31,6 +45,62 @@ app.add_middleware(
     allow_methods=["*"],  # Permite GET, POST, PUT, DELETE, etc.
     allow_headers=["*"],  # Permite todos los headers
 )
+
+# ============== ENDPOINTS DE AUTENTICACIÓN ==============
+
+# REGISTRAR usuario - POST /auth/register
+@app.post("/auth/register", response_model=schemas.UserRead)
+def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    # Verificar si el username ya existe
+    if get_user_by_username(db, user.username):
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre de usuario ya está registrado"
+        )
+    # Verificar si el email ya existe
+    if get_user_by_email(db, user.email):
+        raise HTTPException(
+            status_code=400,
+            detail="El email ya está registrado"
+        )
+
+    # Crear el usuario con password hasheado
+    db_user = models.User(
+        username=user.username,
+        email=user.email,
+        hashed_password=get_password_hash(user.password)
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+# LOGIN - POST /auth/login
+@app.post("/auth/login", response_model=schemas.Token)
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario o contraseña incorrectos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+# OBTENER usuario actual - GET /auth/me
+@app.get("/auth/me", response_model=schemas.UserRead)
+def get_me(current_user: models.User = Depends(get_current_active_user)):
+    return current_user
+
 
 # ============== ENDPOINTS DE CATEGORÍAS ==============
 
@@ -119,25 +189,28 @@ def update_category(
     db.refresh(db_category)
     
     return db_category
-# ============== ENDPOINTS DE GASTOS ==============
+# ============== ENDPOINTS DE GASTOS (PROTEGIDOS) ==============
 
 # CREAR gasto - POST /expenses/
 @app.post("/expenses/", response_model=schemas.ExpenseRead)
 def create_expense(
     expense: schemas.ExpenseCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     # VALIDACIÓN: Verificar que la categoría existe
     category_exists = db.query(models.Category).filter(
         models.Category.id == expense.categoria_id
     ).first()
-    
+
     if not category_exists:
-        # HTTP 404: Categoría no encontrada
         raise HTTPException(status_code=404, detail="Categoría no existe")
-    
-    # Crear el gasto
-    db_expense = models.Expense(**expense.dict())  # Desempaqueta todos los campos
+
+    # Crear el gasto asociado al usuario actual
+    db_expense = models.Expense(
+        **expense.model_dump(),
+        user_id=current_user.id
+    )
     db.add(db_expense)
     db.commit()
     db.refresh(db_expense)
@@ -146,17 +219,23 @@ def create_expense(
 
 # ELIMINAR gasto - DELETE /expenses/{expense_id}
 @app.delete("/expenses/{expense_id}")
-def delete_expense(expense_id: int, db: Session = Depends(get_db)):
-    # Buscar el gasto en la BD
-    expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
-    
+def delete_expense(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    # Buscar el gasto del usuario actual
+    expense = db.query(models.Expense).filter(
+        models.Expense.id == expense_id,
+        models.Expense.user_id == current_user.id
+    ).first()
+
     if not expense:
         raise HTTPException(status_code=404, detail="Gasto no encontrado")
-    
-    # Eliminar de la BD
+
     db.delete(expense)
-    db.commit()  # Ejecuta DELETE FROM expenses WHERE id = expense_id
-    
+    db.commit()
+
     return {"message": "Gasto eliminado correctamente"}
 
 
@@ -164,54 +243,69 @@ def delete_expense(expense_id: int, db: Session = Depends(get_db)):
 @app.put("/expenses/{expense_id}", response_model=schemas.ExpenseRead)
 def update_expense(
     expense_id: int,
-    expense_update: schemas.ExpenseCreate,  # Recibe los datos actualizados
-    db: Session = Depends(get_db)
+    expense_update: schemas.ExpenseCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
-    # Buscar el gasto existente
-    db_expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
-    
+    # Buscar el gasto del usuario actual
+    db_expense = db.query(models.Expense).filter(
+        models.Expense.id == expense_id,
+        models.Expense.user_id == current_user.id
+    ).first()
+
     if not db_expense:
         raise HTTPException(status_code=404, detail="Gasto no encontrado")
-    
+
     # Verificar que la categoría existe
     category_exists = db.query(models.Category).filter(
         models.Category.id == expense_update.categoria_id
     ).first()
-    
+
     if not category_exists:
         raise HTTPException(status_code=404, detail="Categoría no existe")
-    
+
     # ACTUALIZAR campos del gasto existente
     db_expense.importe = expense_update.importe
     db_expense.fecha = expense_update.fecha
     db_expense.descripcion = expense_update.descripcion
     db_expense.nota = expense_update.nota
     db_expense.categoria_id = expense_update.categoria_id
-    
-    # Guardar cambios
+
     db.commit()
-    db.refresh(db_expense)  # Recarga el objeto con los datos actualizados
-    
+    db.refresh(db_expense)
+
     return db_expense
 
-# LISTAR todos los gastos - GET /expenses/
-# Devuelve la lista con las categorías relacionadas incluidas
+
+# LISTAR gastos del usuario - GET /expenses/
 @app.get("/expenses/", response_model=List[schemas.ExpenseRead])
-def list_expenses(db: Session = Depends(get_db)):
-    # SELECT * FROM expenses (SQLAlchemy carga automáticamente las relaciones)
-    expenses = db.query(models.Expense).all()
+def list_expenses(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    # Solo devuelve los gastos del usuario actual
+    expenses = db.query(models.Expense).filter(
+        models.Expense.user_id == current_user.id
+    ).all()
     return expenses
 
 
 # OBTENER un gasto por ID - GET /expenses/{expense_id}
 @app.get("/expenses/{expense_id}", response_model=schemas.ExpenseRead)
-def get_expense(expense_id: int, db: Session = Depends(get_db)):
-    # SELECT * FROM expenses WHERE id = expense_id
-    expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
-    
+def get_expense(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    # Solo busca en los gastos del usuario actual
+    expense = db.query(models.Expense).filter(
+        models.Expense.id == expense_id,
+        models.Expense.user_id == current_user.id
+    ).first()
+
     if not expense:
         raise HTTPException(status_code=404, detail="Gasto no encontrado")
-    
+
     return expense
 
 

@@ -5,6 +5,22 @@ from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
 
+
+# MODELO: Tabla de usuarios
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    # RELACIÓN 1-a-N: Un usuario tiene MUCHOS gastos
+    gastos = relationship("Expense", back_populates="usuario")
+
+
 # MODELO 1: Tabla de categorías
 class Category(Base):
     # Nombre real de la tabla en la base de datos
@@ -24,18 +40,22 @@ class Category(Base):
 # MODELO 2: Tabla de gastos
 class Expense(Base):
     __tablename__ = "expenses"
-    
+
     # COLUMNAS principales
     id = Column(Integer, primary_key=True, index=True)
     importe = Column(Float, nullable=False)  # Monto del gasto
     fecha = Column(DateTime, default=datetime.now)  # Se asigna automáticamente la fecha actual
     descripcion = Column(String, nullable=False)  # Obligatoria
     nota = Column(String, nullable=True)  # Opcional (puede ser NULL)
-    
+
     # CLAVE FORÁNEA: Conecta este gasto con una categoría
-    # ForeignKey("categories.id") indica que debe existir ese id en la tabla categories
     categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
-    
+
+    # CLAVE FORÁNEA: Conecta este gasto con un usuario
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
     # RELACIÓN N-a-1: Muchos gastos pertenecen a UNA categoría
-    # Permite acceder a gasto.categoria.nombre desde el código
     categoria = relationship("Category", back_populates="gastos")
+
+    # RELACIÓN N-a-1: Muchos gastos pertenecen a UN usuario
+    usuario = relationship("User", back_populates="gastos")

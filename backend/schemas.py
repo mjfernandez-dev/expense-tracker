@@ -1,7 +1,37 @@
 # Pydantic valida que los datos recibidos/enviados por la API sean correctos
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
+
+
+# ============== SCHEMAS PARA USER ==============
+
+class UserBase(BaseModel):
+    username: str
+    email: EmailStr
+
+
+class UserCreate(UserBase):
+    password: str  # Password en texto plano (se hasheará en el backend)
+
+
+class UserRead(UserBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Schema para el token JWT
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
 
 # ============== SCHEMAS PARA CATEGORY ==============
 
