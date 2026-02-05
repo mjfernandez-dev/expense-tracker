@@ -4,7 +4,7 @@ import axios from 'axios';
 import type { Category, Expense, ExpenseCreate } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
-const API_URL = 'http://127.0.0.1:8000';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Instancia configurada de axios con la URL base
 const api = axios.create({
