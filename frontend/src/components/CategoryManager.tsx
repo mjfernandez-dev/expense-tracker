@@ -4,7 +4,11 @@ import type { FormEvent } from 'react';
 import type { Category } from '../types';
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../services/api';
 
-function CategoryManager() {
+interface CategoryManagerProps {
+  onCategoriesChanged?: () => void;
+}
+
+function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +56,8 @@ function CategoryManager() {
       setNombre('');
       setEditingId(null);
       await fetchCategories();
-      
+      onCategoriesChanged?.();
+
     } catch (err) {
       const error = err as { response?: { data?: { detail?: string } } };
       setFormError(error.response?.data?.detail || 'Error al guardar la categoría');
@@ -82,6 +87,7 @@ function CategoryManager() {
     try {
       await deleteCategory(id);
       await fetchCategories();
+      onCategoriesChanged?.();
     } catch (err) {
       const error = err as { response?: { data?: { detail?: string } } };
       alert(error.response?.data?.detail || 'Error al eliminar la categoría');

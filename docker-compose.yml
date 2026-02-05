@@ -14,6 +14,7 @@ services:
       - backend-data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-for-local-testing}
     restart: unless-stopped
 
   # Frontend (React + Nginx)

@@ -9,6 +9,7 @@ import { useAuth } from './context/AuthContext';
 function App() {
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [refreshKey, setRefreshKey] = useState<number>(0);
+  const [categoriesKey, setCategoriesKey] = useState<number>(0);
   const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
   const { user, logout } = useAuth();
 
@@ -19,6 +20,10 @@ function App() {
   const handleExpenseUpdated = () => {
     setExpenseToEdit(null);
     setRefreshKey(prev => prev + 1);
+  };
+
+  const handleCategoriesChanged = () => {
+    setCategoriesKey(prev => prev + 1);
   };
 
   const handleEdit = (expense: Expense) => {
@@ -69,10 +74,11 @@ function App() {
         </div>
         
         {/* PANEL DE CATEGORÍAS */}
-        {showCategoryManager && <CategoryManager />}
-        
+        {showCategoryManager && <CategoryManager onCategoriesChanged={handleCategoriesChanged} />}
+
         {/* FORMULARIO DE GASTOS */}
-        <ExpenseForm 
+        <ExpenseForm
+          key={categoriesKey}
           onExpenseCreated={handleExpenseCreated}
           onExpenseUpdated={handleExpenseUpdated}
           expenseToEdit={expenseToEdit}
