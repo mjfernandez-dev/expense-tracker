@@ -1,0 +1,16 @@
+{
+  "name": "Registro de Gastos",
+  "short_name": "Gastos",
+  "description": "Aplicación para gestionar gastos personales",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
