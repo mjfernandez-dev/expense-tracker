@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -12,7 +13,8 @@ import models
 import schemas
 
 # Configuración JWT
-SECRET_KEY = "tu-clave-secreta-muy-segura-cambiar-en-produccion"  # Cambiar en producción
+# En producción, usar variable de entorno SECRET_KEY
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -25,12 +27,16 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica si la contraseña en texto plano coincide con el hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    # bcrypt tiene límite de 72 bytes
+    truncated = plain_password[:72]
+    return pwd_context.verify(truncated, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
     """Genera el hash de una contraseña."""
-    return pwd_context.hash(password)
+    # bcrypt tiene límite de 72 bytes
+    truncated = password[:72]
+    return pwd_context.hash(truncated)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

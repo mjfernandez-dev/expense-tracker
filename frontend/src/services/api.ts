@@ -1,7 +1,7 @@
 // SERVICIO: Centraliza todas las llamadas HTTP al backend
 import axios from 'axios';
 // CONEXIÓN: Importamos los tipos definidos en types/index.ts
-import type { Category, Expense, ExpenseCreate } from '../types';
+import type { Category, Expense, ExpenseCreate, User, UserCreate, AuthResponse } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -10,6 +10,49 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 const api = axios.create({
   baseURL: API_URL,
 });
+
+// ============== FUNCIONES PARA MANEJO DE TOKEN ==============
+
+// Agregar token JWT al header de todas las peticiones
+export const setAuthToken = (token: string) => {
+  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+};
+
+// Eliminar token del header
+export const removeAuthToken = () => {
+  delete api.defaults.headers.common['Authorization'];
+};
+
+// ============== FUNCIONES DE AUTENTICACIÓN ==============
+
+// Registrar nuevo usuario
+// POST /auth/register
+export const registerUser = async (userData: UserCreate): Promise<User> => {
+  const response = await api.post('/auth/register', userData);
+  return response.data;
+};
+
+// Login - devuelve token JWT
+// POST /auth/login (usa form-data, no JSON)
+export const loginUser = async (username: string, password: string): Promise<AuthResponse> => {
+  const formData = new URLSearchParams();
+  formData.append('username', username);
+  formData.append('password', password);
+
+  const response = await api.post('/auth/login', formData, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  });
+  return response.data;
+};
+
+// Obtener usuario actual
+// GET /auth/me
+export const getCurrentUser = async (): Promise<User> => {
+  const response = await api.get('/auth/me');
+  return response.data;
+};
 
 // ============== FUNCIONES PARA CATEGORÍAS ==============
 

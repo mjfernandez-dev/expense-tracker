@@ -24,3 +24,8 @@ Thumbs.db
 *.log
 npm-debug.log*
 AWS_EC2_Credenciales.md
+
+# Variables de entorno locales
+.env.local
+.env.*.local
+backend/.env

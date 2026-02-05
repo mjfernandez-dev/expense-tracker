@@ -40,7 +40,10 @@ app = FastAPI(title="Expense Tracker API")
 # Sin esto, el navegador bloquea las llamadas HTTP por seguridad
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # URL del frontend
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],  # Permite GET, POST, PUT, DELETE, etc.
     allow_headers=["*"],  # Permite todos los headers

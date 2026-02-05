@@ -1,6 +1,38 @@
 // TIPOS: Definen la estructura de datos que usaremos en React
 // Deben coincidir con los schemas de Pydantic del backend
 
+// ============== TIPOS DE AUTENTICACIÓN ==============
+
+// Usuario (coincide con UserRead del backend)
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+// Datos para registrar usuario
+export interface UserCreate {
+  username: string;
+  email: string;
+  password: string;
+}
+
+// Datos para login
+export interface LoginData {
+  username: string;
+  password: string;
+}
+
+// Respuesta del login (token JWT)
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+}
+
+// ============== TIPOS DE CATEGORÍAS ==============
+
 // Categoría (coincide con CategoryRead del backend)
 export interface Category {
   id: number;
