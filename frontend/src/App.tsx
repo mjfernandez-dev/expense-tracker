@@ -78,7 +78,7 @@ function App() {
 
         {/* FORMULARIO DE GASTOS */}
         <ExpenseForm
-          key={categoriesKey}
+          categoriesVersion={categoriesKey}
           onExpenseCreated={handleExpenseCreated}
           onExpenseUpdated={handleExpenseUpdated}
           expenseToEdit={expenseToEdit}

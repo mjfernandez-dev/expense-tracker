@@ -9,9 +9,10 @@ interface ExpenseFormProps {
   onExpenseUpdated: () => void;
   expenseToEdit?: Expense | null;
   onCancelEdit?: () => void;
+  categoriesVersion?: number;
 }
 
-function ExpenseForm({ onExpenseCreated, onExpenseUpdated, expenseToEdit, onCancelEdit }: ExpenseFormProps) {
+function ExpenseForm({ onExpenseCreated, onExpenseUpdated, expenseToEdit, onCancelEdit, categoriesVersion }: ExpenseFormProps) {
   const [importe, setImporte] = useState<string>('');
   const [descripcion, setDescripcion] = useState<string>('');
   const [nota, setNota] = useState<string>('');
@@ -35,7 +36,7 @@ function ExpenseForm({ onExpenseCreated, onExpenseUpdated, expenseToEdit, onCanc
     };
 
     fetchCategories();
-  }, [expenseToEdit]);
+  }, [expenseToEdit, categoriesVersion]);
 
   useEffect(() => {
     if (expenseToEdit) {
