@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { loginUser } from '../services/api';
+import authLogo from '../assets/auth-logo.jpeg';
+
+// Cambia este flag a false si quieres usar el icono 📊 en lugar de la imagen
+const SHOW_IMAGE_LOGO = true;
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -34,27 +38,45 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900">
       <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Iniciar Sesión</h1>
-          <p className="text-gray-600 mt-2">Accede a tu cuenta de gastos</p>
+        {/* Icono / imagen circular superior */}
+        <div className="flex justify-center mb-8">
+          <div className="w-20 h-20 rounded-full border-2 border-blue-400/70 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center overflow-hidden shadow-xl shadow-black/40">
+            {SHOW_IMAGE_LOGO ? (
+              <img
+                src={authLogo}
+                alt="Logo de gastos"
+                className="w-16 h-16 object-cover"
+              />
+            ) : (
+              <span className="text-3xl text-blue-400">📊</span>
+            )}
+          </div>
         </div>
 
-        {/* Formulario */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        {/* Tarjeta de login */}
+        <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 px-8 py-10">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-semibold text-white tracking-wide">Iniciar Sesión</h1>
+            <p className="text-slate-300 mt-2 text-sm">
+              Accede a tu cuenta de gastos personales
+            </p>
+          </div>
+
+          {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Error */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
 
             {/* Username */}
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="username" className="block text-sm font-medium text-slate-100 mb-2">
                 Usuario
               </label>
               <input
@@ -63,14 +85,14 @@ export default function Login() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Tu nombre de usuario"
               />
             </div>
 
-            {/* Password */}
+            {/* Password + ¿Olvidaste tu contraseña? */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-100 mb-2">
                 Contraseña
               </label>
               <input
@@ -79,26 +101,38 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Tu contraseña"
               />
+              <div className="mt-3 text-right">
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password')}
+                  className="text-xs font-medium text-blue-300 hover:text-blue-200 transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
             </div>
 
-            {/* Submit */}
+            {/* Botón de login */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+              className="w-full mt-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 disabled:from-slate-700 disabled:to-slate-700 text-white font-semibold py-3 px-4 rounded-full tracking-wide uppercase text-sm shadow-[0_0_25px_rgba(59,130,246,0.6)] border border-blue-300/70 transition-all duration-200"
             >
               {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </button>
           </form>
 
           {/* Link a registro */}
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
+          <div className="mt-8 text-center">
+            <p className="text-slate-100/80 text-sm">
               ¿No tienes cuenta?{' '}
-              <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+              <Link
+                to="/register"
+                className="font-semibold text-white hover:text-slate-100 underline-offset-4 hover:underline"
+              >
                 Regístrate aquí
               </Link>
             </p>

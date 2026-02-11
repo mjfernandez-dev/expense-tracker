@@ -1,7 +1,15 @@
 // SERVICIO: Centraliza todas las llamadas HTTP al backend
 import axios from 'axios';
 // CONEXIÓN: Importamos los tipos definidos en types/index.ts
-import type { Category, Expense, ExpenseCreate, User, UserCreate, AuthResponse } from '../types';
+import type {
+  Category,
+  Expense,
+  ExpenseCreate,
+  User,
+  UserCreate,
+  AuthResponse,
+  PasswordResetResponse,
+} from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -45,6 +53,31 @@ export const loginUser = async (username: string, password: string): Promise<Aut
     },
   });
   return response.data;
+};
+
+// Solicitar restablecimiento de contraseña
+// POST /auth/forgot-password
+export const requestPasswordReset = async (email: string): Promise<PasswordResetResponse> => {
+  const response = await api.post('/auth/forgot-password', { email });
+  return response.data;
+};
+
+// Confirmar restablecimiento de contraseña con token
+// POST /auth/reset-password
+export const resetPassword = async (token: string, newPassword: string): Promise<void> => {
+  await api.post('/auth/reset-password', {
+    token,
+    new_password: newPassword,
+  });
+};
+
+// Cambiar contraseña (usuario autenticado)
+// POST /auth/change-password
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+  await api.post('/auth/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
 };
 
 // Obtener usuario actual

@@ -21,6 +21,21 @@ class User(Base):
     gastos = relationship("Expense", back_populates="usuario")
 
 
+# MODELO: Tabla de tokens para restablecer contraseña
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String, unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+    # RELACIÓN N-a-1: Muchos tokens pertenecen a UN usuario
+    user = relationship("User")
+
+
 # MODELO 1: Tabla de categorías
 class Category(Base):
     # Nombre real de la tabla en la base de datos

@@ -31,6 +31,12 @@ export interface AuthResponse {
   token_type: string;
 }
 
+// Respuesta del endpoint de "olvidé mi contraseña"
+export interface PasswordResetResponse {
+  message: string;
+  reset_token?: string; // Solo se devuelve en desarrollo para pruebas
+}
+
 // ============== TIPOS DE CATEGORÍAS ==============
 
 // Categoría (coincide con CategoryRead del backend)

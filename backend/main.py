@@ -4,7 +4,8 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 # Importamos typing para tipar listas
 from typing import List
-from datetime import timedelta
+from datetime import datetime, timedelta
+from uuid import uuid4
 
 # Para el formulario de login
 from fastapi.security import OAuth2PasswordRequestForm
@@ -18,6 +19,7 @@ import schemas
 # CONEXIÓN: Importamos utilidades de autenticación
 from auth import (
     get_password_hash,
+    verify_password,
     authenticate_user,
     create_access_token,
     get_current_active_user,
@@ -103,6 +105,94 @@ def login(
 @app.get("/auth/me", response_model=schemas.UserRead)
 def get_me(current_user: models.User = Depends(get_current_active_user)):
     return current_user
+
+
+# SOLICITAR restablecimiento de contraseña - POST /auth/forgot-password
+@app.post("/auth/forgot-password")
+def forgot_password(
+    payload: schemas.PasswordResetRequest,
+    db: Session = Depends(get_db),
+):
+    # Buscar usuario por email (pero siempre respondemos 200 por seguridad)
+    user = get_user_by_email(db, payload.email)
+
+    # Mensaje genérico para no filtrar si el email existe o no
+    message = "Si el email existe, se ha enviado un enlace para restablecer la contraseña"
+
+    if not user:
+        return {"message": message}
+
+    # Generar token único y fecha de expiración (1 hora)
+    token_str = uuid4().hex
+    expires_at = datetime.utcnow() + timedelta(hours=1)
+
+    reset_token = models.PasswordResetToken(
+        user_id=user.id,
+        token=token_str,
+        expires_at=expires_at,
+    )
+    db.add(reset_token)
+    db.commit()
+
+    # En producción, este token debería enviarse por email.
+    # Lo devolvemos en la respuesta solo para facilitar pruebas en desarrollo.
+    return {"message": message, "reset_token": token_str}
+
+
+# RESTABLECER contraseña usando token - POST /auth/reset-password
+@app.post("/auth/reset-password")
+def reset_password(
+    payload: schemas.PasswordResetConfirm,
+    db: Session = Depends(get_db),
+):
+    token = (
+        db.query(models.PasswordResetToken)
+        .filter(models.PasswordResetToken.token == payload.token)
+        .first()
+    )
+
+    if not token or token.used or token.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El token de restablecimiento no es válido o ha expirado",
+        )
+
+    user = db.query(models.User).filter(models.User.id == token.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El token de restablecimiento no es válido o ha expirado",
+        )
+
+    # Actualizar contraseña
+    user.hashed_password = get_password_hash(payload.new_password)
+    token.used = True
+
+    db.commit()
+
+    return {"message": "Contraseña restablecida correctamente"}
+
+
+# CAMBIAR contraseña (usuario autenticado) - POST /auth/change-password
+@app.post("/auth/change-password")
+def change_password(
+    payload: schemas.PasswordChange,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    # Verificar contraseña actual
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña actual no es correcta",
+        )
+
+    # Actualizar contraseña
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    db.commit()
+    db.refresh(current_user)
+
+    return {"message": "Contraseña actualizada correctamente"}
 
 
 # ============== ENDPOINTS DE CATEGORÍAS ==============

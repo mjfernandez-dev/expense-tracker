@@ -1,5 +1,6 @@
 // COMPONENTE RAÍZ: Aplicación con diseño moderno usando Tailwind
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Expense } from './types';
 import ExpenseForm from './components/ExpenseForm';
 import ExpenseList from './components/ExpenseList';
@@ -12,6 +13,7 @@ function App() {
   const [categoriesKey, setCategoriesKey] = useState<number>(0);
   const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleExpenseCreated = () => {
     setRefreshKey(prev => prev + 1);
@@ -54,6 +56,12 @@ function App() {
             <span className="text-gray-600">
               Hola, <span className="font-medium text-gray-900">{user?.username}</span>
             </span>
+            <button
+              onClick={() => navigate('/change-password')}
+              className="bg-white border border-gray-300 text-gray-800 font-medium px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            >
+              Cambiar contraseña
+            </button>
             <button
               onClick={logout}
               className="bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200"
