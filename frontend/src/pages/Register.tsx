@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { registerUser, loginUser } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import authLogo from '../assets/auth-logo.jpeg';
+
+// Cambia este flag a false si quieres usar solo el icono 🆕
+const SHOW_IMAGE_LOGO = true;
 
 export default function Register() {
   const [username, setUsername] = useState('');
@@ -53,27 +57,43 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900">
       <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Crear Cuenta</h1>
-          <p className="text-gray-600 mt-2">Registra una nueva cuenta</p>
+        {/* Icono / imagen circular superior (registro) */}
+        <div className="flex justify-center mb-8">
+          <div className="w-20 h-20 rounded-full border-2 border-blue-400/70 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center overflow-hidden shadow-xl shadow-black/40">
+            {SHOW_IMAGE_LOGO ? (
+              <img
+                src={authLogo}
+                alt="Logo de gastos"
+                className="w-16 h-16 object-cover"
+              />
+            ) : (
+              <span className="text-3xl text-blue-400">🆕</span>
+            )}
+          </div>
         </div>
 
-        {/* Formulario */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        {/* Tarjeta de registro */}
+        <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 px-8 py-10">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-semibold text-white tracking-wide">Crear Cuenta</h1>
+            <p className="text-slate-300 mt-2 text-sm">Registra una nueva cuenta para tus gastos</p>
+          </div>
+
+          {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Error */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
 
             {/* Username */}
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="username" className="block text-sm font-medium text-slate-100 mb-2">
                 Usuario
               </label>
               <input
@@ -82,14 +102,14 @@ export default function Register() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Elige un nombre de usuario"
               />
             </div>
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-100 mb-2">
                 Email
               </label>
               <input
@@ -98,14 +118,14 @@ export default function Register() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="tu@email.com"
               />
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-100 mb-2">
                 Contraseña
               </label>
               <input
@@ -114,14 +134,14 @@ export default function Register() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Mínimo 6 caracteres"
               />
             </div>
 
             {/* Confirm Password */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-100 mb-2">
                 Confirmar Contraseña
               </label>
               <input
@@ -130,7 +150,7 @@ export default function Register() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Repite tu contraseña"
               />
             </div>
@@ -139,7 +159,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+              className="w-full mt-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 disabled:from-slate-700 disabled:to-slate-700 text-white font-semibold py-3 px-4 rounded-full tracking-wide uppercase text-sm shadow-[0_0_25px_rgba(59,130,246,0.6)] border border-blue-300/70 transition-all duration-200"
             >
               {isLoading ? 'Registrando...' : 'Crear Cuenta'}
             </button>
@@ -147,9 +167,12 @@ export default function Register() {
 
           {/* Link a login */}
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            <p className="text-slate-100/80 text-sm">
               ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+              <Link
+                to="/login"
+                className="font-semibold text-white hover:text-slate-100 underline-offset-4 hover:underline"
+              >
                 Inicia sesión
               </Link>
             </p>

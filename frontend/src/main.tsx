@@ -1,12 +1,15 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import './index.css'
-import App from './App.tsx'
-import Login from './pages/Login.tsx'
-import Register from './pages/Register.tsx'
-import { AuthProvider } from './context/AuthContext.tsx'
-import ProtectedRoute from './components/ProtectedRoute.tsx'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import './index.css';
+import App from './App.tsx';
+import Login from './pages/Login.tsx';
+import Register from './pages/Register.tsx';
+import ForgotPassword from './pages/ForgotPassword.tsx';
+import ResetPassword from './pages/ResetPassword.tsx';
+import ChangePassword from './pages/ChangePassword.tsx';
+import { AuthProvider } from './context/AuthContext.tsx';
+import ProtectedRoute from './components/ProtectedRoute.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -15,6 +18,16 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route
+            path="/change-password"
+            element={
+              <ProtectedRoute>
+                <ChangePassword />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/"
             element={
@@ -27,7 +40,7 @@ createRoot(document.getElementById('root')!).render(
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
-)
+);
 
 // SERVICE WORKER DESHABILITADO TEMPORALMENTE
 // TODO: Reactivar cuando la app básica esté estable

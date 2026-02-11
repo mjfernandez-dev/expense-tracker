@@ -33,6 +33,23 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
 
+
+# ============== SCHEMAS PARA RESET / CAMBIO DE PASSWORD ==============
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
 # ============== SCHEMAS PARA CATEGORY ==============
 
 # Schema BASE: Campos comunes entre crear y leer categorías
