@@ -12,6 +12,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -42,7 +43,11 @@ export default function Login() {
       <div className="max-w-md w-full">
         {/* Icono / imagen circular superior */}
         <div className="flex justify-center mb-8">
-          <div className="w-20 h-20 rounded-full border-2 border-blue-400/70 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center overflow-hidden shadow-xl shadow-black/40">
+          <button
+            type="button"
+            onClick={() => setIsPreviewOpen(true)}
+            className="w-20 h-20 rounded-full border-2 border-blue-400/70 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center overflow-hidden shadow-xl shadow-black/40 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 transition"
+          >
             {SHOW_IMAGE_LOGO ? (
               <img
                 src={authLogo}
@@ -52,11 +57,11 @@ export default function Login() {
             ) : (
               <span className="text-3xl text-blue-400">📊</span>
             )}
-          </div>
+          </button>
         </div>
 
         {/* Tarjeta de login */}
-        <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 px-8 py-10">
+        <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 px-8 py-10 relative z-10">
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-semibold text-white tracking-wide">Iniciar Sesión</h1>
@@ -138,6 +143,40 @@ export default function Login() {
             </p>
           </div>
         </div>
+
+        {/* Preview de imagen a pantalla casi completa */}
+        {isPreviewOpen && (
+          <div
+            className="fixed inset-0 z-40 flex items-center justify-center bg-black/70"
+            onClick={() => setIsPreviewOpen(false)}
+          >
+            <div
+              className="relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                className="absolute -top-4 -right-4 w-8 h-8 rounded-full bg-black/80 text-white text-sm flex items-center justify-center shadow-md hover:bg-black"
+              >
+                ✕
+              </button>
+              <div className="w-64 h-64 sm:w-72 sm:h-72 rounded-full border-4 border-blue-400 bg-slate-950 overflow-hidden shadow-2xl">
+                {SHOW_IMAGE_LOGO ? (
+                  <img
+                    src={authLogo}
+                    alt="Logo de gastos ampliado"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-7xl text-blue-400">📊</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -42,29 +42,29 @@ function App() {
   };
 
   return (
-    // CONTENEDOR PRINCIPAL: Fondo gris claro, padding, centrado
-    <div className="min-h-screen bg-gray-50 py-8">
+    // CONTENEDOR PRINCIPAL: BlueGlass Design System
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 py-8">
       <div className="max-w-6xl mx-auto px-4">
 
         {/* HEADER CON USUARIO */}
         <div className="flex justify-between items-start mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Registro de Gastos</h1>
-            <p className="text-gray-600">Gestiona tus finanzas personales de forma simple</p>
+            <h1 className="text-4xl font-bold text-white mb-2">Registro de Gastos</h1>
+            <p className="text-slate-300">Gestiona tus finanzas personales de forma simple</p>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-gray-600">
-              Hola, <span className="font-medium text-gray-900">{user?.username}</span>
+            <span className="text-slate-300">
+              Hola, <span className="font-medium text-white">{user?.username}</span>
             </span>
             <button
               onClick={() => navigate('/change-password')}
-              className="bg-white border border-gray-300 text-gray-800 font-medium px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+              className="border border-blue-400/70 bg-slate-800/40 text-blue-300 font-medium px-4 py-2 rounded-lg hover:bg-slate-800/60 transition-all duration-200"
             >
               Cambiar contraseña
             </button>
             <button
               onClick={logout}
-              className="bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200"
+              className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 text-white font-medium px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.4)] border border-red-300/50 transition-all duration-200"
             >
               Cerrar Sesión
             </button>
@@ -75,7 +75,7 @@ function App() {
         <div className="mb-6">
           <button
             onClick={toggleCategoryManager}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-lg transition-colors duration-200"
+            className="border border-blue-400/70 bg-slate-800/40 text-blue-300 font-medium px-5 py-2 rounded-lg hover:bg-slate-800/60 transition-all duration-200"
           >
             {showCategoryManager ? 'Ocultar Categorias' : 'Gestionar Categorias'}
           </button>

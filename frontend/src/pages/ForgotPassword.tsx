@@ -73,7 +73,7 @@ export default function ForgotPassword() {
             )}
 
             {message && (
-              <div className="bg-emerald-500/10 border border-emerald-300/60 text-emerald-100 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-green-500/10 border border-green-300/60 text-green-100 px-4 py-3 rounded-lg text-sm">
                 {message}
               </div>
             )}

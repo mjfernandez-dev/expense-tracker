@@ -101,24 +101,24 @@ function ExpenseForm({ onExpenseCreated, onExpenseUpdated, expenseToEdit, onCanc
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 mb-6">
       {/* TÍTULO con icono y color condicional */}
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">
+      <h2 className="text-2xl font-bold mb-4 text-white">
         {expenseToEdit ? '✏️ Editar Gasto' : '➕ Registrar Nuevo Gasto'}
       </h2>
-      
+
       {/* Mensaje de error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg mb-4 text-sm">
           {error}
         </div>
       )}
-      
+
       <form onSubmit={handleSubmit} className="space-y-4">
-        
+
         {/* Campo: Descripción */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-slate-100 mb-1">
             Descripción *
           </label>
           <input
@@ -126,16 +126,16 @@ function ExpenseForm({ onExpenseCreated, onExpenseUpdated, expenseToEdit, onCanc
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             placeholder="Ej: Almuerzo con cliente"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
         </div>
-        
+
         {/* Grid de 2 columnas para Importe y Categoría */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
+
           {/* Campo: Importe */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-100 mb-1">
               Importe *
             </label>
             <input
@@ -144,19 +144,19 @@ function ExpenseForm({ onExpenseCreated, onExpenseUpdated, expenseToEdit, onCanc
               value={importe}
               onChange={(e) => setImporte(e.target.value)}
               placeholder="0.00"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
           </div>
-          
+
           {/* Campo: Categoría */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-100 mb-1">
               Categoría *
             </label>
             <select
               value={categoriaId}
               onChange={(e) => setCategoriaId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             >
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
@@ -166,10 +166,10 @@ function ExpenseForm({ onExpenseCreated, onExpenseUpdated, expenseToEdit, onCanc
             </select>
           </div>
         </div>
-        
+
         {/* Campo: Nota */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-slate-100 mb-1">
             Nota (opcional)
           </label>
           <input
@@ -177,25 +177,25 @@ function ExpenseForm({ onExpenseCreated, onExpenseUpdated, expenseToEdit, onCanc
             value={nota}
             onChange={(e) => setNota(e.target.value)}
             placeholder="Información adicional"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
         </div>
-        
+
         {/* Botones */}
         <div className="flex gap-3 pt-2">
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium px-6 py-2 rounded-lg transition-colors duration-200"
+            className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 disabled:from-slate-700 disabled:to-slate-700 text-white font-semibold px-6 py-2 rounded-full shadow-[0_0_25px_rgba(59,130,246,0.6)] border border-blue-300/70 tracking-wide uppercase text-sm transition-all duration-200"
           >
             {loading ? 'Guardando...' : (expenseToEdit ? 'Actualizar Gasto' : 'Registrar Gasto')}
           </button>
-          
+
           {expenseToEdit && (
-            <button 
+            <button
               type="button"
               onClick={handleCancel}
-              className="bg-gray-500 hover:bg-gray-600 text-white font-medium px-6 py-2 rounded-lg transition-colors duration-200"
+              className="border border-blue-400/70 bg-slate-800/40 text-blue-300 font-medium px-6 py-2 rounded-lg hover:bg-slate-800/60 transition-all duration-200"
             >
               Cancelar
             </button>

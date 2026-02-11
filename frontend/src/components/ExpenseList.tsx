@@ -98,50 +98,50 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="text-center text-gray-600">Cargando gastos...</div>
+      <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6">
+        <div className="text-center text-slate-300">Cargando gastos...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+      <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg text-sm">
         {error}
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">Lista de Gastos</h2>
+    <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6">
+      <h2 className="text-2xl font-bold mb-4 text-white">Lista de Gastos</h2>
 
       {/* SELECTOR DE MES */}
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={handlePrevMonth}
-          className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg transition-colors"
+          className="border border-blue-400/70 bg-slate-800/40 text-blue-300 px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-all"
         >
           &larr; Anterior
         </button>
-        <h3 className="text-lg font-semibold text-gray-700">
+        <h3 className="text-lg font-semibold text-white">
           {MESES[selectedMonth]} {selectedYear}
         </h3>
         <button
           onClick={handleNextMonth}
-          className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg transition-colors"
+          className="border border-blue-400/70 bg-slate-800/40 text-blue-300 px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-all"
         >
           Siguiente &rarr;
         </button>
       </div>
 
       {/* RESUMEN DEL MES */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+      <div className="bg-blue-500/10 border border-blue-300/60 rounded-lg p-4 mb-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-blue-700">
+          <span className="text-sm font-medium text-blue-200">
             Total {MESES[selectedMonth]}
           </span>
-          <span className="text-2xl font-bold text-blue-900">
+          <span className="text-2xl font-bold text-blue-100">
             ${totalMes.toFixed(2)}
           </span>
         </div>
@@ -150,7 +150,7 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
             {totalesPorCategoria.map(([catName, amount]) => (
               <span
                 key={catName}
-                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-400/30"
               >
                 {catName}: ${amount.toFixed(2)}
               </span>
@@ -160,7 +160,7 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
       </div>
 
       {filteredExpenses.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-slate-400">
           <p className="text-lg">No hay gastos en {MESES[selectedMonth]} {selectedYear}.</p>
           <p className="text-sm mt-2">
             {expenses.length === 0
@@ -172,46 +172,46 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-100 border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Descripcion</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Categoria</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Importe</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nota</th>
-                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">Acciones</th>
+              <tr className="bg-slate-800/60 border-b border-slate-700/70">
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Fecha</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Descripcion</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Categoria</th>
+                <th className="px-4 py-3 text-right text-sm font-semibold text-slate-300 uppercase tracking-wider">Importe</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Nota</th>
+                <th className="px-4 py-3 text-center text-sm font-semibold text-slate-300 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-800/50">
               {filteredExpenses.map((expense) => (
-                <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-600">
+                <tr key={expense.id} className="hover:bg-slate-800/30 transition-colors">
+                  <td className="px-4 py-3 text-sm text-slate-300">
                     {new Date(expense.fecha).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                  <td className="px-4 py-3 text-sm text-slate-100 font-medium">
                     {expense.descripcion}
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-400/30">
                       {expense.categoria.nombre}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                  <td className="px-4 py-3 text-sm text-right font-semibold text-white">
                     ${expense.importe.toFixed(2)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {expense.nota || <span className="text-gray-400">-</span>}
+                  <td className="px-4 py-3 text-sm text-slate-300">
+                    {expense.nota || <span className="text-slate-500">-</span>}
                   </td>
                   <td className="px-4 py-3 text-sm text-center">
                     <div className="flex justify-center gap-2">
                       <button
                         onClick={() => handleEdit(expense)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
+                        className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 px-3 py-1 rounded text-xs font-medium transition-all"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => handleDelete(expense.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
+                        className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-3 py-1 rounded text-xs font-medium transition-all"
                       >
                         Eliminar
                       </button>
@@ -221,11 +221,11 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
               ))}
             </tbody>
             <tfoot>
-              <tr className="bg-gray-100 border-t-2 border-gray-300">
-                <td colSpan={3} className="px-4 py-3 text-sm font-bold text-gray-800 text-right">
+              <tr className="bg-slate-800/40 border-t-2 border-slate-600">
+                <td colSpan={3} className="px-4 py-3 text-sm font-bold text-white text-right">
                   Total:
                 </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-900">
+                <td className="px-4 py-3 text-sm text-right font-bold text-white">
                   ${totalMes.toFixed(2)}
                 </td>
                 <td colSpan={2}></td>
