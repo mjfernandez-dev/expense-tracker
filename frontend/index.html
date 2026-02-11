@@ -12,6 +12,25 @@
   </head>
   <body style="background-color: #020617; margin: 0;">
     <div id="root"></div>
+    <script>
+      // PWA cache-busting: detecta si hay versión nueva y recarga automáticamente
+      (function() {
+        if ('caches' in window) {
+          fetch('/index.html', { cache: 'no-store' })
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+              var match = html.match(/src="([^"]*main[^"]*)"/);
+              if (match && !document.querySelector('script[src="' + match[1] + '"]')) {
+                caches.keys().then(function(names) {
+                  names.forEach(function(name) { caches.delete(name); });
+                });
+                window.location.reload();
+              }
+            })
+            .catch(function() {});
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
