@@ -41,7 +41,8 @@ export default function Register() {
 
       // Login automático después del registro
       const response = await loginUser(username, password);
-      await login(response.access_token);
+      // Después de registrarse asumimos que el usuario quiere mantener la sesión iniciada
+      await login(response.access_token, true);
 
       navigate('/');
     } catch (err: unknown) {

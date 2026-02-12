@@ -18,6 +18,9 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchExpenses = async () => {
     try {
@@ -76,17 +79,21 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('¿Estás seguro de eliminar este gasto?')) {
-      return;
-    }
+  const handleDeleteRequest = (id: number) => {
+    setDeleteTarget(id);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (deleteTarget === null) return;
+    setIsDeleting(true);
     try {
-      await deleteExpense(id);
+      await deleteExpense(deleteTarget);
       await fetchExpenses();
     } catch (err) {
-      alert('Error al eliminar el gasto');
       console.error(err);
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -169,7 +176,9 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        {/* DESKTOP: Tabla clásica */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-slate-800/60 border-b border-slate-700/70">
@@ -210,7 +219,7 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
                         Editar
                       </button>
                       <button
-                        onClick={() => handleDelete(expense.id)}
+                        onClick={() => handleDeleteRequest(expense.id)}
                         className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-3 py-1 rounded text-xs font-medium transition-all"
                       >
                         Eliminar
@@ -232,6 +241,113 @@ function ExpenseList({ onEdit }: ExpenseListProps) {
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* MÓVIL: Lista compacta con acordeón */}
+        <div className="sm:hidden space-y-2">
+          {filteredExpenses.map((expense) => {
+            const isExpanded = expandedId === expense.id;
+            return (
+              <div
+                key={expense.id}
+                className="bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden"
+              >
+                {/* Resumen (siempre visible) */}
+                <button
+                  onClick={() => setExpandedId(isExpanded ? null : expense.id)}
+                  className="w-full px-4 py-3 text-left"
+                >
+                  {/* Línea 1: Descripción + Monto */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-100 truncate mr-3">
+                      {expense.descripcion}
+                    </span>
+                    <span className="text-sm font-bold text-white whitespace-nowrap">
+                      ${expense.importe.toFixed(2)}
+                    </span>
+                  </div>
+                  {/* Línea 2: Fecha + Categoría + Chevron */}
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400">
+                        {new Date(expense.fecha).toLocaleDateString()}
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                        {expense.categoria.nombre}
+                      </span>
+                    </div>
+                    <svg
+                      className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Detalle expandible con animación */}
+                <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="px-4 pb-3 pt-1 border-t border-slate-700/40">
+                    {expense.nota && (
+                      <p className="text-xs text-slate-400 mb-3">
+                        <span className="text-slate-500">Nota:</span> {expense.nota}
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEdit(expense)}
+                        className="flex-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRequest(expense.id)}
+                        className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Total del mes - móvil */}
+          <div className="bg-slate-800/40 border border-slate-600 rounded-xl px-4 py-3 flex items-center justify-between mt-3">
+            <span className="text-sm font-bold text-white">Total:</span>
+            <span className="text-sm font-bold text-white">${totalMes.toFixed(2)}</span>
+          </div>
+        </div>
+        </>
+      )}
+
+      {/* Modal de confirmación de eliminación */}
+      {deleteTarget !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeleting && setDeleteTarget(null)} />
+          <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-white mb-2">Eliminar gasto</h3>
+            <p className="text-sm text-slate-300 mb-6">
+              ¿Estás seguro de que deseas eliminar este gasto? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={isDeleting}
+                className="flex-1 border border-slate-600 bg-slate-800/60 text-slate-300 font-medium py-2.5 rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-all text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="flex-1 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 disabled:from-slate-700 disabled:to-slate-700 text-white font-medium py-2.5 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.4)] border border-red-300/50 transition-all text-sm"
+              >
+                {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

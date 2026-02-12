@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (token: string) => Promise<void>;
+  login: (token: string, remember?: boolean) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -23,7 +23,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Al montar, verificar si hay token guardado
   useEffect(() => {
-    const savedToken = localStorage.getItem('token');
+    const localToken = localStorage.getItem('token');
+    const sessionToken = sessionStorage.getItem('token');
+    const savedToken = localToken || sessionToken;
+
     if (savedToken) {
       setAuthToken(savedToken);
       setToken(savedToken);
@@ -46,8 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Función de login: guarda token y obtiene usuario
-  const login = async (newToken: string) => {
-    localStorage.setItem('token', newToken);
+  const login = async (newToken: string, remember: boolean = true) => {
+    // Limpiar cualquier token previo
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+
+    if (remember) {
+      localStorage.setItem('token', newToken);
+    } else {
+      sessionStorage.setItem('token', newToken);
+    }
+
     setAuthToken(newToken);
     setToken(newToken);
     const userData = await getCurrentUser();
@@ -57,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Función de logout: limpia todo
   const logout = () => {
     localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
     removeAuthToken();
     setToken(null);
     setUser(null);

@@ -17,6 +17,9 @@ function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formLoading, setFormLoading] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchCategories = async () => {
     try {
@@ -79,19 +82,26 @@ function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
     setFormError(null);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('¿Estás seguro de eliminar esta categoría?')) {
-      return;
-    }
+  const handleDeleteRequest = (id: number) => {
+    setDeleteTarget(id);
+    setDeleteError(null);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (deleteTarget === null) return;
+    setIsDeleting(true);
+    setDeleteError(null);
     try {
-      await deleteCategory(id);
+      await deleteCategory(deleteTarget);
       await fetchCategories();
       onCategoriesChanged?.();
+      setDeleteTarget(null);
     } catch (err) {
       const error = err as { response?: { data?: { detail?: string } } };
-      alert(error.response?.data?.detail || 'Error al eliminar la categoría');
+      setDeleteError(error.response?.data?.detail || 'Error al eliminar la categoría');
       console.error(err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -195,7 +205,7 @@ function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
                         Editar
                       </button>
                       <button
-                        onClick={() => handleDelete(category.id)}
+                        onClick={() => handleDeleteRequest(category.id)}
                         className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-3 py-1 rounded text-xs font-medium transition-all"
                       >
                         Eliminar
@@ -206,6 +216,40 @@ function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Modal de confirmación de eliminación */}
+      {deleteTarget !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeleting && setDeleteTarget(null)} />
+          <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-white mb-2">Eliminar categoría</h3>
+            <p className="text-sm text-slate-300 mb-6">
+              ¿Estás seguro de que deseas eliminar esta categoría? Esta acción no se puede deshacer.
+            </p>
+            {deleteError && (
+              <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg mb-4 text-sm">
+                {deleteError}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={isDeleting}
+                className="flex-1 border border-slate-600 bg-slate-800/60 text-slate-300 font-medium py-2.5 rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-all text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="flex-1 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 disabled:from-slate-700 disabled:to-slate-700 text-white font-medium py-2.5 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.4)] border border-red-300/50 transition-all text-sm"
+              >
+                {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

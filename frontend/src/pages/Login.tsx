@@ -13,6 +13,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ export default function Login() {
 
     try {
       const response = await loginUser(username, password);
-      await login(response.access_token);
+      await login(response.access_token, rememberMe);
       navigate('/');
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
@@ -41,33 +43,32 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900">
       <div className="max-w-md w-full">
-        {/* Icono / imagen circular superior */}
-        <div className="flex justify-center mb-8">
+        {/* Branding: Logo + Nombre + Descripción */}
+        <div className="text-center mb-8">
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="w-20 h-20 rounded-full border-2 border-blue-400/70 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center overflow-hidden shadow-xl shadow-black/40 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 transition"
+            className="w-20 h-20 mx-auto mb-4 rounded-full border-2 border-blue-400/70 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center overflow-hidden shadow-xl shadow-black/40 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 transition"
           >
             {SHOW_IMAGE_LOGO ? (
               <img
                 src={authLogo}
-                alt="Logo de gastos"
+                alt="Logo FinanzAPP"
                 className="w-16 h-16 object-cover"
               />
             ) : (
               <span className="text-3xl text-blue-400">📊</span>
             )}
           </button>
+          <h1 className="text-3xl font-bold text-white tracking-wide">FinanzAPP</h1>
+          <p className="text-slate-400 mt-1 text-sm">Gestiona tus finanzas personales</p>
         </div>
 
         {/* Tarjeta de login */}
         <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 px-8 py-10 relative z-10">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-semibold text-white tracking-wide">Iniciar Sesión</h1>
-            <p className="text-slate-300 mt-2 text-sm">
-              Accede a tu cuenta de gastos personales
-            </p>
+            <h2 className="text-2xl font-semibold text-white tracking-wide">Iniciar Sesión</h2>
           </div>
 
           {/* Formulario */}
@@ -100,16 +101,35 @@ export default function Login() {
               <label htmlFor="password" className="block text-sm font-medium text-slate-100 mb-2">
                 Contraseña
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="Tu contraseña"
-              />
-              <div className="mt-3 text-right">
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 pr-11 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Tu contraseña"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-200 focus:outline-none"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <label className="inline-flex items-center text-xs text-slate-200">
+                  <input
+                    type="checkbox"
+                    className="mr-2 h-4 w-4 rounded border-slate-500 bg-slate-800 text-blue-500 focus:ring-blue-500"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  Recordar sesión en este equipo
+                </label>
                 <button
                   type="button"
                   onClick={() => navigate('/forgot-password')}
