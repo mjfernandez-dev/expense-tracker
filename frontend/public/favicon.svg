@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e3a5f"/>
+    </linearGradient>
+    <linearGradient id="wallet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#93c5fd"/>
+    </linearGradient>
+  </defs>
+  <!-- Fondo redondeado -->
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <!-- Billetera cuerpo -->
+  <rect x="40" y="72" width="144" height="112" rx="16" fill="url(#wallet)" opacity="0.9"/>
+  <!-- Solapa de la billetera -->
+  <path d="M40 100 V88 Q40 72 56 72 H160 Q168 72 172 76 L184 88 Q188 92 184 96 L56 96 Q40 96 40 100Z" fill="url(#wallet)" opacity="1"/>
+  <!-- Linea decorativa -->
+  <rect x="40" y="120" width="144" height="3" rx="1.5" fill="#93c5fd" opacity="0.3"/>
+  <!-- Moneda -->
+  <circle cx="192" cy="148" r="40" fill="url(#coin)" opacity="0.85"/>
+  <circle cx="192" cy="148" r="32" fill="none" stroke="#1e3a5f" stroke-width="2" opacity="0.3"/>
+  <!-- Signo $ en la moneda -->
+  <text x="192" y="160" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="#1e3a5f" text-anchor="middle" opacity="0.7">$</text>
+</svg>

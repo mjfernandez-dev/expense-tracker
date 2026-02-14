@@ -1,14 +1,14 @@
 {
-  "name": "Registro de Gastos",
-  "short_name": "Gastos",
-  "description": "Aplicación para gestionar gastos personales",
+  "name": "FinanzaApp",
+  "short_name": "FinanzaApp",
+  "description": "Gestiona tus finanzas personales",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#020617",
   "icons": [
     {
-      "src": "/vite.svg",
+      "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }
