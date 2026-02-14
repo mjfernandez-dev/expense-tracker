@@ -1,7 +1,7 @@
 # Pydantic valida que los datos recibidos/enviados por la API sean correctos
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 # ============== SCHEMAS PARA USER ==============
@@ -19,9 +19,16 @@ class UserRead(UserBase):
     id: int
     is_active: bool
     created_at: datetime
+    alias_bancario: Optional[str] = None
+    cvu: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class PaymentInfoUpdate(BaseModel):
+    alias_bancario: Optional[str] = None
+    cvu: Optional[str] = None
 
 
 # Schema para el token JWT
@@ -95,3 +102,139 @@ class ExpenseRead(ExpenseBase):
     
     class Config:
         from_attributes = True  # Convierte modelos SQLAlchemy a JSON
+
+
+# ============== SCHEMAS PARA CONTACT ==============
+
+class ContactBase(BaseModel):
+    nombre: str
+    alias_bancario: Optional[str] = None
+    cvu: Optional[str] = None
+    linked_user_id: Optional[int] = None
+
+
+class ContactCreate(ContactBase):
+    pass
+
+
+class ContactRead(ContactBase):
+    id: int
+    owner_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============== SCHEMAS PARA SPLIT GROUP ==============
+
+class SplitGroupMemberRead(BaseModel):
+    id: int
+    group_id: int
+    contact_id: Optional[int] = None
+    is_creator: bool
+    display_name: str
+    contact: Optional[ContactRead] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SplitGroupBase(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+
+
+class SplitGroupCreate(SplitGroupBase):
+    member_contact_ids: List[int] = []
+
+
+class SplitGroupRead(SplitGroupBase):
+    id: int
+    creator_id: int
+    is_active: bool
+    created_at: datetime
+    members: List[SplitGroupMemberRead] = []
+
+    class Config:
+        from_attributes = True
+
+
+class AddMemberRequest(BaseModel):
+    contact_id: int
+
+
+class QuickAddMemberRequest(BaseModel):
+    nombre: str
+    alias_bancario: Optional[str] = None
+    cvu: Optional[str] = None
+
+
+# ============== SCHEMAS PARA SPLIT EXPENSE ==============
+
+class SplitExpenseParticipantRead(BaseModel):
+    id: int
+    member_id: int
+    share_amount: float
+    member: SplitGroupMemberRead
+
+    class Config:
+        from_attributes = True
+
+
+class SplitExpenseBase(BaseModel):
+    descripcion: str
+    importe: float
+    paid_by_member_id: int
+    fecha: Optional[datetime] = None
+
+    @field_validator('importe')
+    @classmethod
+    def importe_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError('El importe debe ser mayor a 0')
+        return v
+
+
+class SplitExpenseCreate(SplitExpenseBase):
+    participant_member_ids: List[int]
+
+
+class SplitExpenseRead(SplitExpenseBase):
+    id: int
+    group_id: int
+    created_at: datetime
+    paid_by: SplitGroupMemberRead
+    participants: List[SplitExpenseParticipantRead] = []
+
+    class Config:
+        from_attributes = True
+
+
+# ============== SCHEMAS PARA BALANCES ==============
+
+class MemberBalance(BaseModel):
+    member_id: int
+    display_name: str
+    total_paid: float
+    total_share: float
+    net_balance: float
+    contact: Optional[ContactRead] = None
+
+
+class DebtTransfer(BaseModel):
+    from_member_id: int
+    from_display_name: str
+    to_member_id: int
+    to_display_name: str
+    amount: float
+    to_alias_bancario: Optional[str] = None
+    to_cvu: Optional[str] = None
+
+
+class GroupBalanceSummary(BaseModel):
+    group_id: int
+    group_name: str
+    total_expenses: float
+    balances: List[MemberBalance]
+    simplified_debts: List[DebtTransfer]

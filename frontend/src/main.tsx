@@ -8,6 +8,11 @@ import Register from './pages/Register.tsx';
 import ForgotPassword from './pages/ForgotPassword.tsx';
 import ResetPassword from './pages/ResetPassword.tsx';
 import ChangePassword from './pages/ChangePassword.tsx';
+import Tools from './pages/Tools.tsx';
+import AccountPage from './pages/AccountPage.tsx';
+import ContactsPage from './pages/ContactsPage.tsx';
+import SplitGroupsPage from './pages/SplitGroupsPage.tsx';
+import SplitGroupDetail from './pages/SplitGroupDetail.tsx';
 import { AuthProvider } from './context/AuthContext.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 
@@ -21,10 +26,50 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route
-            path="/change-password"
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <AccountPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account/change-password"
             element={
               <ProtectedRoute>
                 <ChangePassword />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account/contacts"
+            element={
+              <ProtectedRoute>
+                <ContactsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tools"
+            element={
+              <ProtectedRoute>
+                <Tools />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tools/split-groups"
+            element={
+              <ProtectedRoute>
+                <SplitGroupsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tools/split-groups/:groupId"
+            element={
+              <ProtectedRoute>
+                <SplitGroupDetail />
               </ProtectedRoute>
             }
           />

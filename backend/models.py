@@ -16,6 +16,8 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
+    alias_bancario = Column(String, nullable=True)
+    cvu = Column(String, nullable=True)
 
     # RELACIÓN 1-a-N: Un usuario tiene MUCHOS gastos
     gastos = relationship("Expense", back_populates="usuario")
@@ -74,3 +76,87 @@ class Expense(Base):
 
     # RELACIÓN N-a-1: Muchos gastos pertenecen a UN usuario
     usuario = relationship("User", back_populates="gastos")
+
+
+# ============== MODELOS PARA DIVIDIR GASTOS ==============
+
+# MODELO: Contactos/amigos del usuario
+class Contact(Base):
+    __tablename__ = "contacts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    nombre = Column(String, nullable=False)
+    alias_bancario = Column(String, nullable=True)
+    cvu = Column(String, nullable=True)
+    linked_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    # RELACIONES
+    owner = relationship("User", foreign_keys=[owner_id], backref="contacts")
+    linked_user = relationship("User", foreign_keys=[linked_user_id])
+
+
+# MODELO: Grupo para dividir gastos
+class SplitGroup(Base):
+    __tablename__ = "split_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, nullable=False)
+    descripcion = Column(String, nullable=True)
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    is_active = Column(Boolean, default=True)
+
+    # RELACIONES
+    creator = relationship("User", backref="split_groups_created")
+    members = relationship("SplitGroupMember", back_populates="group", cascade="all, delete-orphan")
+    expenses = relationship("SplitExpense", back_populates="group", cascade="all, delete-orphan")
+
+
+# MODELO: Miembro de un grupo (puede ser el creador o un contacto)
+class SplitGroupMember(Base):
+    __tablename__ = "split_group_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
+    is_creator = Column(Boolean, default=False)
+    display_name = Column(String, nullable=False)
+
+    # RELACIONES
+    group = relationship("SplitGroup", back_populates="members")
+    contact = relationship("Contact")
+    expense_participations = relationship("SplitExpenseParticipant", back_populates="member")
+
+
+# MODELO: Gasto dentro de un grupo dividido
+class SplitExpense(Base):
+    __tablename__ = "split_expenses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
+    descripcion = Column(String, nullable=False)
+    importe = Column(Float, nullable=False)
+    paid_by_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
+    fecha = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.now)
+
+    # RELACIONES
+    group = relationship("SplitGroup", back_populates="expenses")
+    paid_by = relationship("SplitGroupMember", foreign_keys=[paid_by_member_id])
+    participants = relationship("SplitExpenseParticipant", back_populates="expense", cascade="all, delete-orphan")
+
+
+# MODELO: Participante en un gasto dividido (quién comparte el gasto)
+class SplitExpenseParticipant(Base):
+    __tablename__ = "split_expense_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    expense_id = Column(Integer, ForeignKey("split_expenses.id"), nullable=False)
+    member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
+    share_amount = Column(Float, nullable=False)
+
+    # RELACIONES
+    expense = relationship("SplitExpense", back_populates="participants")
+    member = relationship("SplitGroupMember", back_populates="expense_participations")

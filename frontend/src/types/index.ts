@@ -10,6 +10,8 @@ export interface User {
   email: string;
   is_active: boolean;
   created_at: string;
+  alias_bancario: string | null;
+  cvu: string | null;
 }
 
 // Datos para registrar usuario
@@ -65,4 +67,114 @@ export interface ExpenseCreate {
   descripcion: string;
   nota: string | null;
   categoria_id: number;
+}
+
+// ============== TIPOS DE CONTACTOS ==============
+
+export interface Contact {
+  id: number;
+  owner_id: number;
+  nombre: string;
+  alias_bancario: string | null;
+  cvu: string | null;
+  linked_user_id: number | null;
+  created_at: string;
+}
+
+export interface ContactCreate {
+  nombre: string;
+  alias_bancario: string | null;
+  cvu: string | null;
+  linked_user_id: number | null;
+}
+
+export interface QuickAddMemberData {
+  nombre: string;
+  alias_bancario: string | null;
+  cvu: string | null;
+}
+
+// ============== TIPOS DE GRUPOS DIVIDIDOS ==============
+
+export interface SplitGroupMember {
+  id: number;
+  group_id: number;
+  contact_id: number | null;
+  is_creator: boolean;
+  display_name: string;
+  contact: Contact | null;
+}
+
+export interface SplitGroup {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  creator_id: number;
+  is_active: boolean;
+  created_at: string;
+  members: SplitGroupMember[];
+}
+
+export interface SplitGroupCreate {
+  nombre: string;
+  descripcion: string | null;
+  member_contact_ids: number[];
+}
+
+// ============== TIPOS DE GASTOS DIVIDIDOS ==============
+
+export interface SplitExpenseParticipant {
+  id: number;
+  member_id: number;
+  share_amount: number;
+  member: SplitGroupMember;
+}
+
+export interface SplitExpense {
+  id: number;
+  group_id: number;
+  descripcion: string;
+  importe: number;
+  paid_by_member_id: number;
+  fecha: string;
+  created_at: string;
+  paid_by: SplitGroupMember;
+  participants: SplitExpenseParticipant[];
+}
+
+export interface SplitExpenseCreate {
+  descripcion: string;
+  importe: number;
+  paid_by_member_id: number;
+  fecha: string | null;
+  participant_member_ids: number[];
+}
+
+// ============== TIPOS DE BALANCES ==============
+
+export interface MemberBalance {
+  member_id: number;
+  display_name: string;
+  total_paid: number;
+  total_share: number;
+  net_balance: number;
+  contact: Contact | null;
+}
+
+export interface DebtTransfer {
+  from_member_id: number;
+  from_display_name: string;
+  to_member_id: number;
+  to_display_name: string;
+  amount: number;
+  to_alias_bancario: string | null;
+  to_cvu: string | null;
+}
+
+export interface GroupBalanceSummary {
+  group_id: number;
+  group_name: string;
+  total_expenses: number;
+  balances: MemberBalance[];
+  simplified_debts: DebtTransfer[];
 }

@@ -142,10 +142,10 @@ export default function ChangePassword() {
           <div className="mt-6 text-center">
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/account')}
               className="text-blue-300 hover:text-blue-200 font-medium transition-colors"
             >
-              ← Volver a mis gastos
+              ← Volver a Mi Cuenta
             </button>
           </div>
         </div>

@@ -101,7 +101,7 @@ function ExpenseForm({ onExpenseCreated, onExpenseUpdated, expenseToEdit, onCanc
   };
 
   return (
-    <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 mb-6">
+    <div className="bg-slate-800/40 rounded-2xl border border-slate-700/70 border-l-4 border-l-blue-500 p-6 mb-6">
       {/* TÍTULO con icono y color condicional */}
       <h2 className="text-2xl font-bold mb-4 text-white">
         {expenseToEdit ? '✏️ Editar Gasto' : '➕ Registrar Nuevo Gasto'}

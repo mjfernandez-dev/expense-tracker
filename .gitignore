@@ -29,3 +29,4 @@ AWS_EC2_Credenciales.md
 .env.local
 .env.*.local
 backend/.env
+ideas.txt

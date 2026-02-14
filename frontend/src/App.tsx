@@ -56,10 +56,16 @@ function App() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <button
-              onClick={() => navigate('/change-password')}
+              onClick={() => navigate('/tools')}
+              className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-3 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base rounded-full shadow-[0_0_25px_rgba(59,130,246,0.6)] border border-blue-300/70 transition-all duration-200"
+            >
+              Herramientas
+            </button>
+            <button
+              onClick={() => navigate('/account')}
               className="border border-blue-400/70 bg-slate-800/40 text-blue-300 font-medium px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg hover:bg-slate-800/60 transition-all duration-200"
             >
-              Cambiar contraseña
+              Mi Cuenta
             </button>
             <button
               onClick={logout}

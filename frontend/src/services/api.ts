@@ -9,6 +9,15 @@ import type {
   UserCreate,
   AuthResponse,
   PasswordResetResponse,
+  Contact,
+  ContactCreate,
+  SplitGroup,
+  SplitGroupCreate,
+  SplitGroupMember,
+  SplitExpense,
+  SplitExpenseCreate,
+  QuickAddMemberData,
+  GroupBalanceSummary,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -87,6 +96,16 @@ export const getCurrentUser = async (): Promise<User> => {
   return response.data;
 };
 
+// Actualizar datos de pago del usuario
+// PUT /auth/payment-info
+export const updatePaymentInfo = async (aliasBancario: string | null, cvu: string | null): Promise<User> => {
+  const response = await api.put('/auth/payment-info', {
+    alias_bancario: aliasBancario,
+    cvu: cvu,
+  });
+  return response.data;
+};
+
 // ============== FUNCIONES PARA CATEGORÍAS ==============
 
 // Obtener todas las categorías
@@ -150,5 +169,99 @@ export const deleteCategory = async (id: number): Promise<void> => {
 // PUT /categories/{id} → envía {nombre}, devuelve Category
 export const updateCategory = async (id: number, nombre: string): Promise<Category> => {
   const response = await api.put(`/categories/${id}`, { nombre });
+  return response.data;
+};
+
+// ============== FUNCIONES PARA CONTACTOS ==============
+
+export const getContacts = async (): Promise<Contact[]> => {
+  const response = await api.get('/contacts/');
+  return response.data;
+};
+
+export const createContact = async (contact: ContactCreate): Promise<Contact> => {
+  const response = await api.post('/contacts/', contact);
+  return response.data;
+};
+
+export const updateContact = async (id: number, contact: ContactCreate): Promise<Contact> => {
+  const response = await api.put(`/contacts/${id}`, contact);
+  return response.data;
+};
+
+export const deleteContact = async (id: number): Promise<void> => {
+  await api.delete(`/contacts/${id}`);
+};
+
+// ============== FUNCIONES PARA GRUPOS DIVIDIDOS ==============
+
+export const getSplitGroups = async (): Promise<SplitGroup[]> => {
+  const response = await api.get('/split-groups/');
+  return response.data;
+};
+
+export const getSplitGroup = async (id: number): Promise<SplitGroup> => {
+  const response = await api.get(`/split-groups/${id}`);
+  return response.data;
+};
+
+export const createSplitGroup = async (group: SplitGroupCreate): Promise<SplitGroup> => {
+  const response = await api.post('/split-groups/', group);
+  return response.data;
+};
+
+export const updateSplitGroup = async (id: number, data: { nombre: string; descripcion: string | null }): Promise<SplitGroup> => {
+  const response = await api.put(`/split-groups/${id}`, data);
+  return response.data;
+};
+
+export const deleteSplitGroup = async (id: number): Promise<void> => {
+  await api.delete(`/split-groups/${id}`);
+};
+
+export const toggleGroupActive = async (id: number): Promise<SplitGroup> => {
+  const response = await api.put(`/split-groups/${id}/toggle-active`);
+  return response.data;
+};
+
+export const addGroupMember = async (groupId: number, contactId: number): Promise<SplitGroupMember> => {
+  const response = await api.post(`/split-groups/${groupId}/members`, { contact_id: contactId });
+  return response.data;
+};
+
+export const removeGroupMember = async (groupId: number, memberId: number): Promise<void> => {
+  await api.delete(`/split-groups/${groupId}/members/${memberId}`);
+};
+
+export const quickAddGroupMember = async (groupId: number, data: QuickAddMemberData): Promise<SplitGroupMember> => {
+  const response = await api.post(`/split-groups/${groupId}/members/quick`, data);
+  return response.data;
+};
+
+// ============== FUNCIONES PARA GASTOS DIVIDIDOS ==============
+
+export const getSplitExpenses = async (groupId: number): Promise<SplitExpense[]> => {
+  const response = await api.get(`/split-groups/${groupId}/expenses`);
+  return response.data;
+};
+
+export const createSplitExpense = async (groupId: number, expense: SplitExpenseCreate): Promise<SplitExpense> => {
+  const response = await api.post(`/split-groups/${groupId}/expenses`, expense);
+  return response.data;
+};
+
+export const updateSplitExpense = async (groupId: number, expenseId: number, expense: SplitExpenseCreate): Promise<SplitExpense> => {
+  const response = await api.put(`/split-groups/${groupId}/expenses/${expenseId}`, expense);
+  return response.data;
+};
+
+export const deleteSplitExpense = async (groupId: number, expenseId: number): Promise<void> => {
+  await api.delete(`/split-groups/${groupId}/expenses/${expenseId}`);
+};
+
+// ============== FUNCIONES PARA BALANCES ==============
+
+export const getGroupBalances = async (groupId: number): Promise<GroupBalanceSummary> => {
+  const response = await api.get(`/split-groups/${groupId}/balances`);
   return response.data;
 };
