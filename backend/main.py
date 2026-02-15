@@ -30,6 +30,10 @@ from auth import (
 )
 # CORS Middleware para permitir peticiones desde el frontend
 from fastapi.middleware.cors import CORSMiddleware
+# Mercado Pago SDK y configuración
+import mercadopago
+from fastapi import Request
+import config
 
 
 # Crear todas las tablas en la base de datos si no existen
@@ -1173,6 +1177,26 @@ def get_group_balances(
         if debtors[j][1] < 0.01:
             j += 1
 
+    # Enriquecer transfers con info de pagos existentes
+    payments = db.query(models.Payment).filter(
+        models.Payment.group_id == group_id,
+        models.Payment.status.in_(["pending", "approved"]),
+    ).all()
+
+    for transfer in transfers:
+        # Buscar pago que coincida con esta deuda (from->to, mismo monto)
+        for payment in payments:
+            if (payment.from_member_id == transfer.from_member_id
+                and payment.to_member_id == transfer.to_member_id):
+                if payment.status == "approved":
+                    transfer.paid_amount = payment.amount
+                    transfer.payment_status = "approved"
+                    transfer.payment_id = payment.id
+                    break
+                elif payment.status == "pending" and not transfer.payment_status:
+                    transfer.payment_status = "pending"
+                    transfer.payment_id = payment.id
+
     total_expenses_amount = sum(e.importe for e in expenses)
 
     return schemas.GroupBalanceSummary(
@@ -1182,6 +1206,220 @@ def get_group_balances(
         balances=balances,
         simplified_debts=transfers,
     )
+
+
+# ============== ENDPOINTS DE PAGOS (MERCADO PAGO) ==============
+
+# Inicializar SDK de Mercado Pago
+def get_mp_sdk():
+    if not config.MP_ACCESS_TOKEN:
+        raise HTTPException(status_code=500, detail="Mercado Pago no está configurado. Falta MP_ACCESS_TOKEN.")
+    return mercadopago.SDK(config.MP_ACCESS_TOKEN)
+
+
+# CREAR preferencia de pago - POST /payments/create-preference
+@app.post("/payments/create-preference", response_model=schemas.PaymentPreferenceResponse)
+def create_payment_preference(
+    payment_data: schemas.PaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    # Validar que el grupo existe y pertenece al usuario
+    group = db.query(models.SplitGroup).filter(
+        models.SplitGroup.id == payment_data.group_id,
+        models.SplitGroup.creator_id == current_user.id,
+    ).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+
+    # Validar que los miembros existen en el grupo
+    from_member = db.query(models.SplitGroupMember).filter(
+        models.SplitGroupMember.id == payment_data.from_member_id,
+        models.SplitGroupMember.group_id == payment_data.group_id,
+    ).first()
+    to_member = db.query(models.SplitGroupMember).filter(
+        models.SplitGroupMember.id == payment_data.to_member_id,
+        models.SplitGroupMember.group_id == payment_data.group_id,
+    ).first()
+
+    if not from_member or not to_member:
+        raise HTTPException(status_code=404, detail="Miembro no encontrado en el grupo")
+
+    # Crear registro de pago en la BD
+    db_payment = models.Payment(
+        group_id=payment_data.group_id,
+        from_member_id=payment_data.from_member_id,
+        to_member_id=payment_data.to_member_id,
+        amount=payment_data.amount,
+        status="pending",
+    )
+    db.add(db_payment)
+    db.commit()
+    db.refresh(db_payment)
+
+    # Crear preferencia en Mercado Pago
+    sdk = get_mp_sdk()
+    preference_data = {
+        "items": [
+            {
+                "title": f"Pago de deuda - {group.nombre}",
+                "description": f"{from_member.display_name} paga a {to_member.display_name}",
+                "quantity": 1,
+                "unit_price": payment_data.amount,
+                "currency_id": "ARS",
+            }
+        ],
+        "notification_url": f"{config.BACKEND_URL}/payments/webhook",
+        "external_reference": f"payment_{db_payment.id}",
+    }
+
+    print(f"[MP] Creando preferencia para payment_id={db_payment.id}, monto={payment_data.amount}")
+    try:
+        preference_response = sdk.preference().create(preference_data)
+        print(f"[MP] Respuesta status={preference_response['status']}")
+    except Exception as e:
+        print(f"[MP] ERROR al llamar a MP: {e}")
+        db.delete(db_payment)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Error de conexión con Mercado Pago: {str(e)}")
+
+    if preference_response["status"] != 201:
+        print(f"[MP] Error response: {preference_response}")
+        db.delete(db_payment)
+        db.commit()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error de Mercado Pago (status {preference_response['status']}): {preference_response.get('response', {})}"
+        )
+
+    preference = preference_response["response"]
+    db_payment.mp_preference_id = preference["id"]
+    db.commit()
+    print(f"[MP] Preferencia creada OK: {preference['id']}")
+
+    return schemas.PaymentPreferenceResponse(
+        payment_id=db_payment.id,
+        init_point=preference["init_point"],
+    )
+
+
+# WEBHOOK de Mercado Pago - POST /payments/webhook
+# Este endpoint NO requiere autenticación JWT (es llamado por MP)
+@app.post("/payments/webhook")
+async def mercadopago_webhook(request: Request, db: Session = Depends(get_db)):
+    try:
+        body = await request.json()
+    except Exception:
+        return {"status": "ok"}
+
+    # MP envía notificaciones de tipo "payment"
+    if body.get("type") != "payment":
+        return {"status": "ok"}
+
+    mp_payment_id = body.get("data", {}).get("id")
+    if not mp_payment_id:
+        return {"status": "ok"}
+
+    # Consultar el pago en Mercado Pago
+    sdk = get_mp_sdk()
+    payment_response = sdk.payment().get(mp_payment_id)
+
+    if payment_response["status"] != 200:
+        return {"status": "error", "message": "No se pudo consultar el pago"}
+
+    mp_payment = payment_response["response"]
+    external_reference = mp_payment.get("external_reference", "")
+    mp_status = mp_payment.get("status", "")
+
+    # Extraer payment_id del external_reference (formato: "payment_123")
+    if not external_reference.startswith("payment_"):
+        return {"status": "ok"}
+
+    try:
+        local_payment_id = int(external_reference.split("_")[1])
+    except (IndexError, ValueError):
+        return {"status": "ok"}
+
+    # Actualizar el pago local
+    db_payment = db.query(models.Payment).filter(
+        models.Payment.id == local_payment_id,
+    ).first()
+
+    if not db_payment:
+        return {"status": "ok"}
+
+    db_payment.mp_payment_id = str(mp_payment_id)
+    db_payment.status = mp_status
+    db_payment.updated_at = datetime.now()
+    db.commit()
+
+    return {"status": "ok"}
+
+
+# OBTENER pagos de un grupo - GET /payments/group/{group_id}
+@app.get("/payments/group/{group_id}", response_model=List[schemas.PaymentRead])
+def get_group_payments(
+    group_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    # Validar que el grupo pertenece al usuario
+    group = db.query(models.SplitGroup).filter(
+        models.SplitGroup.id == group_id,
+        models.SplitGroup.creator_id == current_user.id,
+    ).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+
+    payments = db.query(models.Payment).filter(
+        models.Payment.group_id == group_id,
+    ).order_by(models.Payment.created_at.desc()).all()
+
+    return payments
+
+
+# CONSULTAR estado de un pago - GET /payments/{payment_id}/status
+@app.get("/payments/{payment_id}/status", response_model=schemas.PaymentRead)
+def get_payment_status(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    db_payment = db.query(models.Payment).filter(
+        models.Payment.id == payment_id,
+    ).first()
+
+    if not db_payment:
+        raise HTTPException(status_code=404, detail="Pago no encontrado")
+
+    # Validar que el grupo pertenece al usuario
+    group = db.query(models.SplitGroup).filter(
+        models.SplitGroup.id == db_payment.group_id,
+        models.SplitGroup.creator_id == current_user.id,
+    ).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Pago no encontrado")
+
+    # Si está pending, re-consultar a MP
+    if db_payment.status == "pending" and db_payment.mp_preference_id:
+        try:
+            sdk = get_mp_sdk()
+            # Buscar pagos por external_reference
+            search_result = sdk.payment().search({
+                "external_reference": f"payment_{payment_id}"
+            })
+            if search_result["status"] == 200:
+                results = search_result["response"].get("results", [])
+                if results:
+                    latest = results[0]
+                    db_payment.mp_payment_id = str(latest["id"])
+                    db_payment.status = latest["status"]
+                    db_payment.updated_at = datetime.now()
+                    db.commit()
+        except Exception:
+            pass  # Si falla la consulta a MP, devolver el estado local
+
+    return db_payment
 
 
 # Endpoint raíz para verificar que la API funciona

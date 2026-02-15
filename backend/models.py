@@ -160,3 +160,28 @@ class SplitExpenseParticipant(Base):
     # RELACIONES
     expense = relationship("SplitExpense", back_populates="participants")
     member = relationship("SplitGroupMember", back_populates="expense_participations")
+
+
+# ============== MODELO PARA PAGOS MERCADO PAGO ==============
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
+    from_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
+    to_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+
+    # Mercado Pago
+    mp_preference_id = Column(String, nullable=True)
+    mp_payment_id = Column(String, nullable=True)
+    status = Column(String, default="pending")  # pending, approved, rejected, cancelled
+
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # RELACIONES
+    group = relationship("SplitGroup")
+    from_member = relationship("SplitGroupMember", foreign_keys=[from_member_id])
+    to_member = relationship("SplitGroupMember", foreign_keys=[to_member_id])

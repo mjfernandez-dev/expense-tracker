@@ -18,6 +18,9 @@ import type {
   SplitExpenseCreate,
   QuickAddMemberData,
   GroupBalanceSummary,
+  PaymentCreate,
+  PaymentPreferenceResponse,
+  Payment,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -263,5 +266,22 @@ export const deleteSplitExpense = async (groupId: number, expenseId: number): Pr
 
 export const getGroupBalances = async (groupId: number): Promise<GroupBalanceSummary> => {
   const response = await api.get(`/split-groups/${groupId}/balances`);
+  return response.data;
+};
+
+// ============== FUNCIONES PARA PAGOS (MERCADO PAGO) ==============
+
+export const createPaymentPreference = async (data: PaymentCreate): Promise<PaymentPreferenceResponse> => {
+  const response = await api.post('/payments/create-preference', data);
+  return response.data;
+};
+
+export const getGroupPayments = async (groupId: number): Promise<Payment[]> => {
+  const response = await api.get(`/payments/group/${groupId}`);
+  return response.data;
+};
+
+export const getPaymentStatus = async (paymentId: number): Promise<Payment> => {
+  const response = await api.get(`/payments/${paymentId}/status`);
   return response.data;
 };
