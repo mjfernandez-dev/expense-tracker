@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 # CONEXIÓN: Importamos Base desde database.py (la clase padre de todos los modelos)
 from database import Base
 from datetime import datetime
+from encryption import EncryptedString
 
 
 # MODELO: Tabla de usuarios
@@ -16,8 +17,8 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
-    alias_bancario = Column(String, nullable=True)
-    cvu = Column(String, nullable=True)
+    alias_bancario = Column(EncryptedString, nullable=True)
+    cvu = Column(EncryptedString, nullable=True)
 
     # RELACIÓN 1-a-N: Un usuario tiene MUCHOS gastos
     gastos = relationship("Expense", back_populates="usuario")
@@ -62,8 +63,8 @@ class Expense(Base):
     id = Column(Integer, primary_key=True, index=True)
     importe = Column(Float, nullable=False)  # Monto del gasto
     fecha = Column(DateTime, default=datetime.now)  # Se asigna automáticamente la fecha actual
-    descripcion = Column(String, nullable=False)  # Obligatoria
-    nota = Column(String, nullable=True)  # Opcional (puede ser NULL)
+    descripcion = Column(EncryptedString, nullable=False)  # Obligatoria
+    nota = Column(EncryptedString, nullable=True)  # Opcional (puede ser NULL)
 
     # CLAVE FORÁNEA: Conecta este gasto con una categoría
     categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
@@ -86,9 +87,9 @@ class Contact(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    nombre = Column(String, nullable=False)
-    alias_bancario = Column(String, nullable=True)
-    cvu = Column(String, nullable=True)
+    nombre = Column(EncryptedString, nullable=False)
+    alias_bancario = Column(EncryptedString, nullable=True)
+    cvu = Column(EncryptedString, nullable=True)
     linked_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
 
@@ -122,7 +123,7 @@ class SplitGroupMember(Base):
     group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
     contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
     is_creator = Column(Boolean, default=False)
-    display_name = Column(String, nullable=False)
+    display_name = Column(EncryptedString, nullable=False)
 
     # RELACIONES
     group = relationship("SplitGroup", back_populates="members")
@@ -136,7 +137,7 @@ class SplitExpense(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
-    descripcion = Column(String, nullable=False)
+    descripcion = Column(EncryptedString, nullable=False)
     importe = Column(Float, nullable=False)
     paid_by_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
     fecha = Column(DateTime, default=datetime.now)

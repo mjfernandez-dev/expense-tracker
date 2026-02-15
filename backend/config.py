@@ -3,6 +3,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Encriptación
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
+
 # Mercado Pago
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "")
 
