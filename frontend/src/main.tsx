@@ -13,7 +13,8 @@ import AccountPage from './pages/AccountPage.tsx';
 import ContactsPage from './pages/ContactsPage.tsx';
 import SplitGroupsPage from './pages/SplitGroupsPage.tsx';
 import SplitGroupDetail from './pages/SplitGroupDetail.tsx';
-import { AuthProvider } from './context/AuthContext.tsx';
+import PaymentResultPage from './pages/PaymentResultPage.tsx';
+import { AuthProvider } from './context/AuthProvider.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 
 createRoot(document.getElementById('root')!).render(
@@ -70,6 +71,14 @@ createRoot(document.getElementById('root')!).render(
             element={
               <ProtectedRoute>
                 <SplitGroupDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payments/result"
+            element={
+              <ProtectedRoute>
+                <PaymentResultPage />
               </ProtectedRoute>
             }
           />

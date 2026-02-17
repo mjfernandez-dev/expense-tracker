@@ -1,9 +1,10 @@
 # Importamos tipos de columnas y herramientas de SQLAlchemy
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 # CONEXIÓN: Importamos Base desde database.py (la clase padre de todos los modelos)
 from database import Base
 from datetime import datetime
+from encryption import EncryptedString
 
 
 # MODELO: Tabla de usuarios
@@ -16,8 +17,8 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
-    alias_bancario = Column(String, nullable=True)
-    cvu = Column(String, nullable=True)
+    alias_bancario = Column(EncryptedString, nullable=True)
+    cvu = Column(EncryptedString, nullable=True)
 
     # RELACIÓN 1-a-N: Un usuario tiene MUCHOS gastos
     gastos = relationship("Expense", back_populates="usuario")
@@ -38,20 +39,51 @@ class PasswordResetToken(Base):
     user = relationship("User")
 
 
-# MODELO 1: Tabla de categorías
+# MODELO 1: Tabla de categorías del sistema (predeterminadas)
 class Category(Base):
-    # Nombre real de la tabla en la base de datos
+    """
+    Categorías predeterminadas del sistema (ej: 'Comida', 'Transporte', etc).
+    Estas son de solo lectura para los usuarios.
+    """
     __tablename__ = "categories"
     
-    # COLUMNAS: Definen la estructura de la tabla
-    id = Column(Integer, primary_key=True, index=True)  # Identificador único autoincremental
-    nombre = Column(String, nullable=False, unique=True)  # Nombre único, no puede ser NULL
-    es_predeterminada = Column(Boolean, default=False)  # True si es del sistema, False si la creó el usuario
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, nullable=False, unique=True, index=True)  # Único global
+    descripcion = Column(String, nullable=True)
+    es_predeterminada = Column(Boolean, default=True)  # Siempre True para este modelo
+    created_at = Column(DateTime, default=datetime.now)
     
-    # RELACIÓN 1-a-N: Una categoría tiene MUCHOS gastos
-    # "Expense" es el nombre de la clase relacionada (definida abajo)
-    # back_populates="categoria" conecta bidireccionalmente con el campo 'categoria' de Expense
+    # RELACIÓN: Gastos que usan esta categoría del sistema
     gastos = relationship("Expense", back_populates="categoria")
+
+
+# MODELO: Tabla de categorías personalizadas del usuario (MULTI-TENANCY)
+class UserCategory(Base):
+    """
+    Categorías personalizadas creadas por cada usuario.
+    Cada usuario puede tener sus propias categorías.
+    No interfieren con las de otros usuarios.
+    """
+    __tablename__ = "user_categories"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)  # Vincular al usuario
+    nombre = Column(String, nullable=False)  # NO es unique global
+    descripcion = Column(String, nullable=True)
+    color = Column(String, default="#6366f1", nullable=False)  # Color para UI (hex)
+    icon = Column(String, nullable=True)  # Ícono para UI (emoji o nombre)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # ✅ Unique constraint por usuario: permite mismo nombre en diferentes usuarios
+    __table_args__ = (
+        UniqueConstraint('user_id', 'nombre', name='uq_user_categoria_nombre'),
+    )
+    
+    # RELACIONES
+    usuario = relationship("User", backref="categorias_personalizadas")
+    gastos = relationship("Expense", back_populates="user_category")
+
 
 
 # MODELO 2: Tabla de gastos
@@ -62,20 +94,32 @@ class Expense(Base):
     id = Column(Integer, primary_key=True, index=True)
     importe = Column(Float, nullable=False)  # Monto del gasto
     fecha = Column(DateTime, default=datetime.now)  # Se asigna automáticamente la fecha actual
-    descripcion = Column(String, nullable=False)  # Obligatoria
-    nota = Column(String, nullable=True)  # Opcional (puede ser NULL)
+    descripcion = Column(EncryptedString, nullable=False)  # Obligatoria
+    nota = Column(EncryptedString, nullable=True)  # Opcional (puede ser NULL)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    # CLAVE FORÁNEA: Conecta este gasto con una categoría
-    categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    # CLAVES FORÁNEAS: Un gasto puede estar asociado con:
+    # - Una categoría del sistema (categoria_id) O
+    # - Una categoría personalizada del usuario (user_category_id)
+    # Al menos una DEBE estar definida
+    categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
 
-    # CLAVE FORÁNEA: Conecta este gasto con un usuario
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # CLAVE FORÁNEA: Un gasto siempre pertenece a UN usuario
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
-    # RELACIÓN N-a-1: Muchos gastos pertenecen a UNA categoría
-    categoria = relationship("Category", back_populates="gastos")
-
-    # RELACIÓN N-a-1: Muchos gastos pertenecen a UN usuario
+    # RELACIONES
+    categoria = relationship("Category", back_populates="gastos")  # Categoría del sistema
+    user_category = relationship("UserCategory", back_populates="gastos")  # Categoría personalizada
     usuario = relationship("User", back_populates="gastos")
+
+    def __init__(self, **kwargs):
+        """Validar que al menos una categoría esté definida."""
+        super().__init__(**kwargs)
+        if self.categoria_id is None and self.user_category_id is None:
+            raise ValueError("Un gasto debe tener al menos una categoría (sistema o personalizada)")
+
 
 
 # ============== MODELOS PARA DIVIDIR GASTOS ==============
@@ -86,9 +130,9 @@ class Contact(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    nombre = Column(String, nullable=False)
-    alias_bancario = Column(String, nullable=True)
-    cvu = Column(String, nullable=True)
+    nombre = Column(EncryptedString, nullable=False)
+    alias_bancario = Column(EncryptedString, nullable=True)
+    cvu = Column(EncryptedString, nullable=True)
     linked_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
 
@@ -122,7 +166,7 @@ class SplitGroupMember(Base):
     group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
     contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
     is_creator = Column(Boolean, default=False)
-    display_name = Column(String, nullable=False)
+    display_name = Column(EncryptedString, nullable=False)
 
     # RELACIONES
     group = relationship("SplitGroup", back_populates="members")
@@ -136,7 +180,7 @@ class SplitExpense(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
-    descripcion = Column(String, nullable=False)
+    descripcion = Column(EncryptedString, nullable=False)
     importe = Column(Float, nullable=False)
     paid_by_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
     fecha = Column(DateTime, default=datetime.now)
@@ -160,3 +204,28 @@ class SplitExpenseParticipant(Base):
     # RELACIONES
     expense = relationship("SplitExpense", back_populates="participants")
     member = relationship("SplitGroupMember", back_populates="expense_participations")
+
+
+# ============== MODELO PARA PAGOS MERCADO PAGO ==============
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
+    from_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
+    to_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+
+    # Mercado Pago
+    mp_preference_id = Column(String, nullable=True)
+    mp_payment_id = Column(String, nullable=True)
+    status = Column(String, default="pending")  # pending, approved, rejected, cancelled
+
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # RELACIONES
+    group = relationship("SplitGroup")
+    from_member = relationship("SplitGroupMember", foreign_keys=[from_member_id])
+    to_member = relationship("SplitGroupMember", foreign_keys=[to_member_id])

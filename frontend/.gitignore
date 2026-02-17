@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Variables de entorno (frontend - pueden contener URLs sensibles)
+.env
+.env.local
+.env.*.local
+.env.prod
+.env.production

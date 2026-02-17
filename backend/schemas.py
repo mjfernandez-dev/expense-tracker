@@ -59,24 +59,54 @@ class PasswordChange(BaseModel):
 
 # ============== SCHEMAS PARA CATEGORY ==============
 
-# Schema BASE: Campos comunes entre crear y leer categorías
+# Schema BASE: Categorías del sistema (predeterminadas)
 class CategoryBase(BaseModel):
     nombre: str  # Nombre de la categoría (obligatorio)
+    descripcion: Optional[str] = None
 
-# Schema para CREAR una categoría (lo que recibe el endpoint POST)
-# Hereda de CategoryBase y puede agregar campos adicionales si es necesario
+# Schema para CREAR una categoría del sistema (solo admin)
 class CategoryCreate(CategoryBase):
-    pass  # Por ahora solo necesita 'nombre', lo hereda de CategoryBase
+    pass
 
-# Schema para LEER una categoría (lo que devuelve la API al cliente)
-# Incluye campos que vienen de la BD como 'id' y 'es_predeterminada'
+# Schema para LEER una categoría del sistema
 class CategoryRead(CategoryBase):
-    id: int  # ID asignado por la base de datos
-    es_predeterminada: bool  # Indica si es del sistema o creada por el usuario
+    id: int
+    es_predeterminada: bool
     
-    # CONFIGURACIÓN: Permite que Pydantic convierta objetos SQLAlchemy a JSON
     class Config:
-        from_attributes = True  # Antes se llamaba 'orm_mode = True'
+        from_attributes = True
+
+
+# ============== SCHEMAS PARA USER CATEGORY (Categorías personalizadas) ==============
+
+# Schema BASE: Categorías personalizadas del usuario
+class UserCategoryBase(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+    color: str = "#6366f1"  # Color hexadecimal por defecto
+    icon: Optional[str] = None
+
+# Schema para CREAR una categoría personalizada
+class UserCategoryCreate(UserCategoryBase):
+    pass
+
+# Schema para ACTUALIZAR una categoría personalizada
+class UserCategoryUpdate(BaseModel):
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+
+# Schema para LEER una categoría personalizada
+class UserCategoryRead(UserCategoryBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
 
 
 # ============== SCHEMAS PARA EXPENSE ==============
@@ -87,7 +117,8 @@ class ExpenseBase(BaseModel):
     fecha: datetime  # Fecha y hora del gasto
     descripcion: str  # Descripción obligatoria
     nota: Optional[str] = None  # Nota opcional (puede ser None)
-    categoria_id: int  # ID de la categoría a la que pertenece
+    categoria_id: Optional[int] = None  # ID de categoría del sistema
+    user_category_id: Optional[int] = None  # ID de categoría personalizada
 
 # Schema para CREAR un gasto (POST)
 class ExpenseCreate(ExpenseBase):
@@ -97,8 +128,12 @@ class ExpenseCreate(ExpenseBase):
 # Incluye el ID y la categoría completa relacionada
 class ExpenseRead(ExpenseBase):
     id: int  # ID asignado por la BD
+    user_id: int  # Usuario propietario
+    created_at: datetime
+    updated_at: datetime
     # RELACIÓN: Incluye la categoría completa, no solo el ID
-    categoria: CategoryRead  # Objeto Category completo (con id, nombre, etc.)
+    categoria: Optional[CategoryRead] = None  # Categoría del sistema (si está definida)
+    user_category: Optional[UserCategoryRead] = None  # Categoría personalizada (si está definida)
     
     class Config:
         from_attributes = True  # Convierte modelos SQLAlchemy a JSON
@@ -230,6 +265,9 @@ class DebtTransfer(BaseModel):
     amount: float
     to_alias_bancario: Optional[str] = None
     to_cvu: Optional[str] = None
+    paid_amount: float = 0
+    payment_status: Optional[str] = None
+    payment_id: Optional[int] = None
 
 
 class GroupBalanceSummary(BaseModel):
@@ -238,3 +276,32 @@ class GroupBalanceSummary(BaseModel):
     total_expenses: float
     balances: List[MemberBalance]
     simplified_debts: List[DebtTransfer]
+
+
+# ============== SCHEMAS PARA PAGOS MERCADO PAGO ==============
+
+class PaymentCreate(BaseModel):
+    group_id: int
+    from_member_id: int
+    to_member_id: int
+    amount: float
+
+
+class PaymentRead(BaseModel):
+    id: int
+    group_id: int
+    from_member_id: int
+    to_member_id: int
+    amount: float
+    mp_preference_id: Optional[str] = None
+    mp_payment_id: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PaymentPreferenceResponse(BaseModel):
+    payment_id: int
+    init_point: str

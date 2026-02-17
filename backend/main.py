@@ -7,6 +7,8 @@ from typing import List
 from datetime import datetime, timedelta
 import math
 from uuid import uuid4
+import hmac
+import hashlib
 
 # Para el formulario de login
 from fastapi.security import OAuth2PasswordRequestForm
@@ -30,23 +32,24 @@ from auth import (
 )
 # CORS Middleware para permitir peticiones desde el frontend
 from fastapi.middleware.cors import CORSMiddleware
+# Mercado Pago SDK y configuración
+import mercadopago
+from fastapi import Request
+import config
+from email_service import send_password_reset_email
 
 
 # Crear todas las tablas en la base de datos si no existen
 # Lee los modelos (Category, Expense) y ejecuta CREATE TABLE automáticamente
 Base.metadata.create_all(bind=engine)
 
-# Migrar columnas nuevas en tablas existentes (SQLite no las agrega con create_all)
-from sqlalchemy import inspect, text
-_inspector = inspect(engine)
-_user_columns = [c['name'] for c in _inspector.get_columns('users')]
-with engine.connect() as _conn:
-    if 'alias_bancario' not in _user_columns:
-        _conn.execute(text("ALTER TABLE users ADD COLUMN alias_bancario TEXT"))
-        _conn.commit()
-    if 'cvu' not in _user_columns:
-        _conn.execute(text("ALTER TABLE users ADD COLUMN cvu TEXT"))
-        _conn.commit()
+# ⚠️ NOTA: Las migraciones de esquema ahora se manejan con Alembic (ver carpeta alembic/).
+# Las migraciones manuales de columnas se han eliminado.
+# Para agregar una columna nueva:
+#   1. Actualizar el modelo en models.py
+#   2. Ejecutar: alembic revision --autogenerate -m "Add new column"
+#   3. Revisar la migración generada
+#   4. Ejecutar: alembic upgrade head
 
 # Crear la aplicación FastAPI
 app = FastAPI(title="Expense Tracker API")
@@ -122,10 +125,18 @@ def get_me(current_user: models.User = Depends(get_current_active_user)):
 
 # SOLICITAR restablecimiento de contraseña - POST /auth/forgot-password
 @app.post("/auth/forgot-password")
-def forgot_password(
+async def forgot_password(
     payload: schemas.PasswordResetRequest,
     db: Session = Depends(get_db),
 ):
+    """
+    Solicita restablecimiento de contraseña.
+    
+    Seguridad:
+    - Responde con el mismo mensaje independientemente de si el email existe
+    - El token se envía por email, NO en la respuesta API
+    - El token tiene expiración de 1 hora
+    """
     # Buscar usuario por email (pero siempre respondemos 200 por seguridad)
     user = get_user_by_email(db, payload.email)
 
@@ -147,9 +158,20 @@ def forgot_password(
     db.add(reset_token)
     db.commit()
 
-    # En producción, este token debería enviarse por email.
-    # Lo devolvemos en la respuesta solo para facilitar pruebas en desarrollo.
-    return {"message": message, "reset_token": token_str}
+    # ✅ SEGURO: Enviar por email en background, NO en respuesta API
+    try:
+        await send_password_reset_email(
+            email=user.email,
+            username=user.username,
+            reset_token=token_str,
+            expires_in_hours=1,
+        )
+    except Exception as e:
+        # Log pero no fallar la solicitud
+        print(f"⚠️ Error enviando email a {user.email}: {str(e)}")
+
+    # NO devolver el token en la respuesta
+    return {"message": message}
 
 
 # RESTABLECER contraseña usando token - POST /auth/reset-password
@@ -222,93 +244,184 @@ def update_payment_info(
     return current_user
 
 
-# ============== ENDPOINTS DE CATEGORÍAS ==============
+# ============== ENDPOINTS DE CATEGORÍAS DEL SISTEMA ==============
 
-# CREAR categoría - POST /categories/
-# Recibe: CategoryCreate (nombre)
-# Devuelve: CategoryRead (id, nombre, es_predeterminada)
-@app.post("/categories/", response_model=schemas.CategoryRead)
-def create_category(
-    category: schemas.CategoryCreate,  # Datos validados por Pydantic
-    db: Session = Depends(get_db)  # Inyección de dependencia: obtiene sesión de BD
-):
-    # Crear instancia del modelo Category (SQLAlchemy)
-    db_category = models.Category(
-        nombre=category.nombre,
-        es_predeterminada=False  # Las que crea el usuario no son predeterminadas
-    )
-    # Agregar a la sesión y guardar en BD
-    db.add(db_category)
-    db.commit()  # Ejecuta INSERT INTO categories...
-    db.refresh(db_category)  # Actualiza el objeto con el ID generado
-    return db_category  # FastAPI lo convierte a JSON usando CategoryRead
-
-
-# LISTAR todas las categorías - GET /categories/
-# Devuelve: Lista de CategoryRead
+# LISTAR categorías del sistema (predeterminadas) - GET /categories/
+# Estas son de solo lectura
 @app.get("/categories/", response_model=List[schemas.CategoryRead])
-def list_categories(db: Session = Depends(get_db)):
-    # Consulta SQL: SELECT * FROM categories
-    categories = db.query(models.Category).all()
-    return categories
+def list_system_categories(db: Session = Depends(get_db)):
+    """
+    Devuelve todas las categorías del sistema (predeterminadas).
+    No requiere autenticación - son públicas.
+    """
+    return db.query(models.Category).filter(
+        models.Category.es_predeterminada == True
+    ).all()
 
-# ELIMINAR categoría - DELETE /categories/{category_id}
-@app.delete("/categories/{category_id}")
-def delete_category(category_id: int, db: Session = Depends(get_db)):
-    # Buscar la categoría
-    category = db.query(models.Category).filter(models.Category.id == category_id).first()
+
+# ============== ENDPOINTS DE CATEGORÍAS PERSONALIZADAS DEL USUARIO ==============
+
+# CREAR categoría personalizada - POST /user-categories/
+@app.post("/user-categories/", response_model=schemas.UserCategoryRead)
+def create_user_category(
+    category: schemas.UserCategoryCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Crea una categoría personalizada para el usuario actual.
+    
+    Seguridad:
+    - Requiere autenticación
+    - La categoría se vincula al usuario actual
+    - Nombres únicos por usuario (múltiples usuarios pueden tener 'Comida')
+    """
+    # Validar que no existe una categoría con el mismo nombre para este usuario
+    existing = db.query(models.UserCategory).filter(
+        models.UserCategory.user_id == current_user.id,
+        models.UserCategory.nombre == category.nombre,
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Ya tienes una categoría con este nombre"
+        )
+    
+    # Crear nueva categoría personalizada
+    db_category = models.UserCategory(
+        user_id=current_user.id,
+        nombre=category.nombre,
+        descripcion=category.descripcion,
+        color=category.color,
+        icon=category.icon,
+    )
+    db.add(db_category)
+    db.commit()
+    db.refresh(db_category)
+    return db_category
+
+
+# LISTAR categorías personalizadas - GET /user-categories/
+@app.get("/user-categories/", response_model=List[schemas.UserCategoryRead])
+def list_user_categories(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Devuelve todas las categorías personalizadas del usuario actual.
+    Requiere autenticación.
+    """
+    return db.query(models.UserCategory).filter(
+        models.UserCategory.user_id == current_user.id
+    ).order_by(models.UserCategory.created_at.desc()).all()
+
+
+# OBTENER una categoría personalizada - GET /user-categories/{category_id}
+@app.get("/user-categories/{category_id}", response_model=schemas.UserCategoryRead)
+def get_user_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Obtiene una categoría personalizada específica del usuario.
+    """
+    category = db.query(models.UserCategory).filter(
+        models.UserCategory.id == category_id,
+        models.UserCategory.user_id == current_user.id,  # ✅ Validar propiedad
+    ).first()
     
     if not category:
         raise HTTPException(status_code=404, detail="Categoría no encontrada")
     
-    # VALIDACIÓN: Verificar si hay gastos usando esta categoría
-    # No permitir eliminar categorías con gastos asociados (integridad referencial)
+    return category
+
+
+# ACTUALIZAR categoría personalizada - PUT /user-categories/{category_id}
+@app.put("/user-categories/{category_id}", response_model=schemas.UserCategoryRead)
+def update_user_category(
+    category_id: int,
+    category_update: schemas.UserCategoryUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Actualiza una categoría personalizada del usuario.
+    """
+    category = db.query(models.UserCategory).filter(
+        models.UserCategory.id == category_id,
+        models.UserCategory.user_id == current_user.id,  # ✅ Validar propiedad
+    ).first()
+    
+    if not category:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+    
+    # Si se intenta cambiar el nombre, validar unicidad
+    if category_update.nombre and category_update.nombre != category.nombre:
+        existing = db.query(models.UserCategory).filter(
+            models.UserCategory.user_id == current_user.id,
+            models.UserCategory.nombre == category_update.nombre,
+            models.UserCategory.id != category_id,
+        ).first()
+        
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya tienes una categoría con este nombre"
+            )
+        category.nombre = category_update.nombre
+    
+    # Actualizar otros campos si se proporcionan
+    if category_update.descripcion is not None:
+        category.descripcion = category_update.descripcion
+    if category_update.color is not None:
+        category.color = category_update.color
+    if category_update.icon is not None:
+        category.icon = category_update.icon
+    
+    category.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+# ELIMINAR categoría personalizada - DELETE /user-categories/{category_id}
+@app.delete("/user-categories/{category_id}", status_code=204)
+def delete_user_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Elimina una categoría personalizada del usuario.
+    No permite eliminar si hay gastos asociados.
+    """
+    category = db.query(models.UserCategory).filter(
+        models.UserCategory.id == category_id,
+        models.UserCategory.user_id == current_user.id,  # ✅ Validar propiedad
+    ).first()
+    
+    if not category:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+    
+    # Validar que no haya gastos usando esta categoría
     gastos_count = db.query(models.Expense).filter(
-        models.Expense.categoria_id == category_id
+        models.Expense.user_category_id == category_id
     ).count()
     
     if gastos_count > 0:
         raise HTTPException(
-            status_code=400, 
-            detail=f"No se puede eliminar. Hay {gastos_count} gasto(s) usando esta categoría"
+            status_code=400,
+            detail=f"No se puede eliminar. Hay {gastos_count} gasto(s) usando esta categoría. "
+                   "Asigna esos gastos a otra categoría primero."
         )
     
-    # Eliminar categoría
     db.delete(category)
     db.commit()
     
-    return {"message": "Categoría eliminada correctamente"}
+    return None
 
-
-# ACTUALIZAR categoría - PUT /categories/{category_id}
-@app.put("/categories/{category_id}", response_model=schemas.CategoryRead)
-def update_category(
-    category_id: int,
-    category_update: schemas.CategoryCreate,  # Solo recibe el nombre
-    db: Session = Depends(get_db)
-):
-    # Buscar la categoría existente
-    db_category = db.query(models.Category).filter(models.Category.id == category_id).first()
-    
-    if not db_category:
-        raise HTTPException(status_code=404, detail="Categoría no encontrada")
-    
-    # VALIDACIÓN: Verificar que el nuevo nombre no exista ya
-    existing = db.query(models.Category).filter(
-        models.Category.nombre == category_update.nombre,
-        models.Category.id != category_id  # Excepto la misma categoría
-    ).first()
-    
-    if existing:
-        raise HTTPException(status_code=400, detail="Ya existe una categoría con ese nombre")
-    
-    # Actualizar nombre
-    db_category.nombre = category_update.nombre
-    
-    db.commit()
-    db.refresh(db_category)
-    
-    return db_category
 # ============== ENDPOINTS DE GASTOS (PROTEGIDOS) ==============
 
 # CREAR gasto - POST /expenses/
@@ -1173,6 +1286,26 @@ def get_group_balances(
         if debtors[j][1] < 0.01:
             j += 1
 
+    # Enriquecer transfers con info de pagos existentes
+    payments = db.query(models.Payment).filter(
+        models.Payment.group_id == group_id,
+        models.Payment.status.in_(["pending", "approved"]),
+    ).all()
+
+    for transfer in transfers:
+        # Buscar pago que coincida con esta deuda (from->to, mismo monto)
+        for payment in payments:
+            if (payment.from_member_id == transfer.from_member_id
+                and payment.to_member_id == transfer.to_member_id):
+                if payment.status == "approved":
+                    transfer.paid_amount = payment.amount
+                    transfer.payment_status = "approved"
+                    transfer.payment_id = payment.id
+                    break
+                elif payment.status == "pending" and not transfer.payment_status:
+                    transfer.payment_status = "pending"
+                    transfer.payment_id = payment.id
+
     total_expenses_amount = sum(e.importe for e in expenses)
 
     return schemas.GroupBalanceSummary(
@@ -1182,6 +1315,254 @@ def get_group_balances(
         balances=balances,
         simplified_debts=transfers,
     )
+
+
+# ============== ENDPOINTS DE PAGOS (MERCADO PAGO) ==============
+
+# Inicializar SDK de Mercado Pago
+def get_mp_sdk():
+    if not config.MP_ACCESS_TOKEN:
+        raise HTTPException(status_code=500, detail="Mercado Pago no está configurado. Falta MP_ACCESS_TOKEN.")
+    return mercadopago.SDK(config.MP_ACCESS_TOKEN)
+
+
+# CREAR preferencia de pago - POST /payments/create-preference
+@app.post("/payments/create-preference", response_model=schemas.PaymentPreferenceResponse)
+def create_payment_preference(
+    payment_data: schemas.PaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    # Validar que el grupo existe y pertenece al usuario
+    group = db.query(models.SplitGroup).filter(
+        models.SplitGroup.id == payment_data.group_id,
+        models.SplitGroup.creator_id == current_user.id,
+    ).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+
+    # Validar que los miembros existen en el grupo
+    from_member = db.query(models.SplitGroupMember).filter(
+        models.SplitGroupMember.id == payment_data.from_member_id,
+        models.SplitGroupMember.group_id == payment_data.group_id,
+    ).first()
+    to_member = db.query(models.SplitGroupMember).filter(
+        models.SplitGroupMember.id == payment_data.to_member_id,
+        models.SplitGroupMember.group_id == payment_data.group_id,
+    ).first()
+
+    if not from_member or not to_member:
+        raise HTTPException(status_code=404, detail="Miembro no encontrado en el grupo")
+
+    # Crear registro de pago en la BD
+    db_payment = models.Payment(
+        group_id=payment_data.group_id,
+        from_member_id=payment_data.from_member_id,
+        to_member_id=payment_data.to_member_id,
+        amount=payment_data.amount,
+        status="pending",
+    )
+    db.add(db_payment)
+    db.commit()
+    db.refresh(db_payment)
+
+    # Crear preferencia en Mercado Pago
+    sdk = get_mp_sdk()
+    preference_data = {
+        "items": [
+            {
+                "title": f"Pago de deuda - {group.nombre}",
+                "description": f"{from_member.display_name} paga a {to_member.display_name}",
+                "quantity": 1,
+                "unit_price": payment_data.amount,
+                "currency_id": "ARS",
+            }
+        ],
+        "notification_url": f"{config.BACKEND_URL}/payments/webhook",
+        "external_reference": f"payment_{db_payment.id}",
+    }
+
+    print(f"[MP] Creando preferencia para payment_id={db_payment.id}, monto={payment_data.amount}")
+    try:
+        preference_response = sdk.preference().create(preference_data)
+        print(f"[MP] Respuesta status={preference_response['status']}")
+    except Exception as e:
+        print(f"[MP] ERROR al llamar a MP: {e}")
+        db.delete(db_payment)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Error de conexión con Mercado Pago: {str(e)}")
+
+    if preference_response["status"] != 201:
+        print(f"[MP] Error response: {preference_response}")
+        db.delete(db_payment)
+        db.commit()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error de Mercado Pago (status {preference_response['status']}): {preference_response.get('response', {})}"
+        )
+
+    preference = preference_response["response"]
+    db_payment.mp_preference_id = preference["id"]
+    db.commit()
+    print(f"[MP] Preferencia creada OK: {preference['id']}")
+
+    return schemas.PaymentPreferenceResponse(
+        payment_id=db_payment.id,
+        init_point=preference["init_point"],
+    )
+
+
+# WEBHOOK de Mercado Pago - POST /payments/webhook
+# Este endpoint NO requiere autenticación JWT (es llamado por MP)
+def _is_valid_mp_signature(request: Request, data_id: str) -> bool:
+    # En producción exigimos firma; en desarrollo se permite omitirla para pruebas locales.
+    if not config.MP_WEBHOOK_SECRET:
+        return not config.IS_PRODUCTION
+
+    x_signature = request.headers.get("x-signature", "")
+    x_request_id = request.headers.get("x-request-id", "")
+    if not x_signature or not x_request_id:
+        return False
+
+    signature_parts = {}
+    for part in x_signature.split(","):
+        if "=" in part:
+            key, value = part.split("=", 1)
+            signature_parts[key.strip()] = value.strip()
+
+    ts = signature_parts.get("ts")
+    v1 = signature_parts.get("v1")
+    if not ts or not v1:
+        return False
+
+    manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+    expected = hmac.new(
+        config.MP_WEBHOOK_SECRET.encode("utf-8"),
+        msg=manifest.encode("utf-8"),
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+
+    return hmac.compare_digest(expected, v1)
+
+
+@app.post("/payments/webhook")
+async def mercadopago_webhook(request: Request, db: Session = Depends(get_db)):
+    try:
+        body = await request.json()
+    except Exception:
+        return {"status": "ok"}
+
+    # MP envía notificaciones de tipo "payment"
+    if body.get("type") != "payment":
+        return {"status": "ok"}
+
+    mp_payment_id = body.get("data", {}).get("id")
+    if not mp_payment_id:
+        return {"status": "ok"}
+
+    if not _is_valid_mp_signature(request, str(mp_payment_id)):
+        raise HTTPException(status_code=401, detail="Firma de webhook inválida")
+
+    # Consultar el pago en Mercado Pago
+    sdk = get_mp_sdk()
+    payment_response = sdk.payment().get(mp_payment_id)
+
+    if payment_response["status"] != 200:
+        return {"status": "error", "message": "No se pudo consultar el pago"}
+
+    mp_payment = payment_response["response"]
+    external_reference = mp_payment.get("external_reference", "")
+    mp_status = mp_payment.get("status", "")
+
+    # Extraer payment_id del external_reference (formato: "payment_123")
+    if not external_reference.startswith("payment_"):
+        return {"status": "ok"}
+
+    try:
+        local_payment_id = int(external_reference.split("_")[1])
+    except (IndexError, ValueError):
+        return {"status": "ok"}
+
+    # Actualizar el pago local
+    db_payment = db.query(models.Payment).filter(
+        models.Payment.id == local_payment_id,
+    ).first()
+
+    if not db_payment:
+        return {"status": "ok"}
+
+    db_payment.mp_payment_id = str(mp_payment_id)
+    db_payment.status = mp_status
+    db_payment.updated_at = datetime.now()
+    db.commit()
+
+    return {"status": "ok"}
+
+
+# OBTENER pagos de un grupo - GET /payments/group/{group_id}
+@app.get("/payments/group/{group_id}", response_model=List[schemas.PaymentRead])
+def get_group_payments(
+    group_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    # Validar que el grupo pertenece al usuario
+    group = db.query(models.SplitGroup).filter(
+        models.SplitGroup.id == group_id,
+        models.SplitGroup.creator_id == current_user.id,
+    ).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+
+    payments = db.query(models.Payment).filter(
+        models.Payment.group_id == group_id,
+    ).order_by(models.Payment.created_at.desc()).all()
+
+    return payments
+
+
+# CONSULTAR estado de un pago - GET /payments/{payment_id}/status
+@app.get("/payments/{payment_id}/status", response_model=schemas.PaymentRead)
+def get_payment_status(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    db_payment = db.query(models.Payment).filter(
+        models.Payment.id == payment_id,
+    ).first()
+
+    if not db_payment:
+        raise HTTPException(status_code=404, detail="Pago no encontrado")
+
+    # Validar que el grupo pertenece al usuario
+    group = db.query(models.SplitGroup).filter(
+        models.SplitGroup.id == db_payment.group_id,
+        models.SplitGroup.creator_id == current_user.id,
+    ).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Pago no encontrado")
+
+    # Si está pending, re-consultar a MP
+    if db_payment.status == "pending" and db_payment.mp_preference_id:
+        try:
+            sdk = get_mp_sdk()
+            # Buscar pagos por external_reference
+            search_result = sdk.payment().search({
+                "external_reference": f"payment_{payment_id}"
+            })
+            if search_result["status"] == 200:
+                results = search_result["response"].get("results", [])
+                if results:
+                    latest = results[0]
+                    db_payment.mp_payment_id = str(latest["id"])
+                    db_payment.status = latest["status"]
+                    db_payment.updated_at = datetime.now()
+                    db.commit()
+        except Exception:
+            pass  # Si falla la consulta a MP, devolver el estado local
+
+    return db_payment
 
 
 # Endpoint raíz para verificar que la API funciona

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { GroupBalanceSummary } from '../../types';
+import { createPaymentPreference } from '../../services/api';
 
 interface GroupBalancesProps {
   balances: GroupBalanceSummary | null;
@@ -8,11 +9,29 @@ interface GroupBalancesProps {
 
 function GroupBalances({ balances, loading }: GroupBalancesProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [payingIndex, setPayingIndex] = useState<number | null>(null);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handlePayWithMP = async (debt: GroupBalanceSummary['simplified_debts'][0], index: number) => {
+    if (!balances) return;
+    try {
+      setPayingIndex(index);
+      const response = await createPaymentPreference({
+        group_id: balances.group_id,
+        from_member_id: debt.from_member_id,
+        to_member_id: debt.to_member_id,
+        amount: debt.amount,
+      });
+      // Redirigir a Mercado Pago
+      window.location.href = response.init_point;
+    } catch {
+      setPayingIndex(null);
+    }
   };
 
   if (loading) {
@@ -105,7 +124,11 @@ function GroupBalances({ balances, loading }: GroupBalancesProps) {
             {balances.simplified_debts.map((debt, index) => (
               <div
                 key={index}
-                className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"
+                className={`bg-slate-800/50 border rounded-xl p-4 ${
+                  debt.payment_status === 'approved'
+                    ? 'border-green-400/50'
+                    : 'border-slate-700/50'
+                }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
@@ -119,10 +142,43 @@ function GroupBalances({ balances, loading }: GroupBalancesProps) {
                       <span className="font-semibold text-green-300">{debt.to_display_name}</span>
                     </p>
                   </div>
+
+                  {/* Estado de pago / Botón MP */}
+                  <div className="flex-shrink-0">
+                    {debt.payment_status === 'approved' ? (
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-green-500/20 text-green-300 border border-green-400/30">
+                        Pagado
+                      </span>
+                    ) : debt.payment_status === 'pending' ? (
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-yellow-500/20 text-yellow-300 border border-yellow-400/30">
+                        Pago pendiente
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handlePayWithMP(debt, index)}
+                        disabled={payingIndex === index}
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold px-4 py-2 rounded-lg shadow-[0_0_15px_rgba(56,189,248,0.3)] border border-sky-300/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        {payingIndex === index ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Creando pago...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-1c-1.3-.1-2.5-.5-3.2-1l.6-1.5c.7.4 1.7.8 2.7.8 1 0 1.7-.4 1.7-1.1 0-.7-.6-1.1-1.9-1.5-1.8-.6-3-1.4-3-3 0-1.4 1-2.5 2.7-2.8V6.5h1.4v.9c1.1.1 2 .4 2.5.7l-.5 1.4c-.5-.3-1.3-.6-2.2-.6-.9 0-1.5.4-1.5 1 0 .6.6 1 2.1 1.5 1.9.7 2.8 1.5 2.8 3.1 0 1.5-1.1 2.6-2.8 2.9v1.1H11z"/>
+                            </svg>
+                            Pagar ${debt.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Datos de pago */}
-                {(debt.to_alias_bancario || debt.to_cvu) && (
+                {/* Datos de pago (alias/CVU) - solo si no está pagado */}
+                {debt.payment_status !== 'approved' && (debt.to_alias_bancario || debt.to_cvu) && (
                   <div className="mt-3 pt-3 border-t border-slate-700/50 flex flex-wrap gap-2">
                     {debt.to_alias_bancario && (
                       <button
