@@ -28,8 +28,8 @@ export default function Register() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    if (password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número');
       return;
     }
 
@@ -39,10 +39,9 @@ export default function Register() {
       // Registrar usuario
       await registerUser({ username, email, password });
 
-      // Login automático después del registro
-      const response = await loginUser(username, password);
-      // Después de registrarse asumimos que el usuario quiere mantener la sesión iniciada
-      await login(response.access_token, true);
+      // Login automático después del registro (cookie httpOnly se setea automáticamente)
+      await loginUser(username, password);
+      await login();
 
       navigate('/');
     } catch (err: unknown) {
@@ -136,7 +135,7 @@ export default function Register() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres, mayúscula, minúscula y número"
               />
             </div>
 

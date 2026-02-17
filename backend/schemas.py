@@ -2,6 +2,20 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
 from typing import Optional, List
+import re
+
+
+def _validate_password_strength(password: str) -> str:
+    """Validación reutilizable de fortaleza de contraseña."""
+    if len(password) < 8:
+        raise ValueError('La contraseña debe tener al menos 8 caracteres')
+    if not re.search(r'[A-Z]', password):
+        raise ValueError('La contraseña debe contener al menos una mayúscula')
+    if not re.search(r'[a-z]', password):
+        raise ValueError('La contraseña debe contener al menos una minúscula')
+    if not re.search(r'[0-9]', password):
+        raise ValueError('La contraseña debe contener al menos un número')
+    return password
 
 
 # ============== SCHEMAS PARA USER ==============
@@ -12,7 +26,12 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str  # Password en texto plano (se hasheará en el backend)
+    password: str
+
+    @field_validator('password')
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password_strength(v)
 
 
 class UserRead(UserBase):
@@ -52,10 +71,20 @@ class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str
 
+    @field_validator('new_password')
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password_strength(v)
+
 
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+
+    @field_validator('new_password')
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password_strength(v)
 
 # ============== SCHEMAS PARA CATEGORY ==============
 
