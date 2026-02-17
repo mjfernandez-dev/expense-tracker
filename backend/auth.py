@@ -13,8 +13,15 @@ import models
 import schemas
 
 # Configuración JWT
-# En producción, usar variable de entorno SECRET_KEY
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+# SECRET_KEY es REQUERIDA - debe estar definida en variables de entorno
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "❌ ERROR CRÍTICO: SECRET_KEY no está definida.\n"
+        "Define la variable de entorno: export SECRET_KEY='tu-clave-segura-32-caracteres'\n"
+        "Genera una clave segura: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+    )
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

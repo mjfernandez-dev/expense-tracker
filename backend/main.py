@@ -36,24 +36,20 @@ from fastapi.middleware.cors import CORSMiddleware
 import mercadopago
 from fastapi import Request
 import config
+from email_service import send_password_reset_email
 
 
 # Crear todas las tablas en la base de datos si no existen
 # Lee los modelos (Category, Expense) y ejecuta CREATE TABLE automáticamente
 Base.metadata.create_all(bind=engine)
 
-# Migrar columnas nuevas en tablas existentes (SQLite no las agrega con create_all)
-from sqlalchemy import inspect, text
-from sqlalchemy.exc import IntegrityError
-_inspector = inspect(engine)
-_user_columns = [c['name'] for c in _inspector.get_columns('users')]
-with engine.connect() as _conn:
-    if 'alias_bancario' not in _user_columns:
-        _conn.execute(text("ALTER TABLE users ADD COLUMN alias_bancario TEXT"))
-        _conn.commit()
-    if 'cvu' not in _user_columns:
-        _conn.execute(text("ALTER TABLE users ADD COLUMN cvu TEXT"))
-        _conn.commit()
+# ⚠️ NOTA: Las migraciones de esquema ahora se manejan con Alembic (ver carpeta alembic/).
+# Las migraciones manuales de columnas se han eliminado.
+# Para agregar una columna nueva:
+#   1. Actualizar el modelo en models.py
+#   2. Ejecutar: alembic revision --autogenerate -m "Add new column"
+#   3. Revisar la migración generada
+#   4. Ejecutar: alembic upgrade head
 
 # Crear la aplicación FastAPI
 app = FastAPI(title="Expense Tracker API")
@@ -129,10 +125,18 @@ def get_me(current_user: models.User = Depends(get_current_active_user)):
 
 # SOLICITAR restablecimiento de contraseña - POST /auth/forgot-password
 @app.post("/auth/forgot-password")
-def forgot_password(
+async def forgot_password(
     payload: schemas.PasswordResetRequest,
     db: Session = Depends(get_db),
 ):
+    """
+    Solicita restablecimiento de contraseña.
+    
+    Seguridad:
+    - Responde con el mismo mensaje independientemente de si el email existe
+    - El token se envía por email, NO en la respuesta API
+    - El token tiene expiración de 1 hora
+    """
     # Buscar usuario por email (pero siempre respondemos 200 por seguridad)
     user = get_user_by_email(db, payload.email)
 
@@ -154,10 +158,19 @@ def forgot_password(
     db.add(reset_token)
     db.commit()
 
-    # En producción, este token debe enviarse por email y no exponerse en API.
-    if config.EXPOSE_RESET_TOKEN and not config.IS_PRODUCTION:
-        return {"message": message, "reset_token": token_str}
+    # ✅ SEGURO: Enviar por email en background, NO en respuesta API
+    try:
+        await send_password_reset_email(
+            email=user.email,
+            username=user.username,
+            reset_token=token_str,
+            expires_in_hours=1,
+        )
+    except Exception as e:
+        # Log pero no fallar la solicitud
+        print(f"⚠️ Error enviando email a {user.email}: {str(e)}")
 
+    # NO devolver el token en la respuesta
     return {"message": message}
 
 
@@ -231,113 +244,184 @@ def update_payment_info(
     return current_user
 
 
-# ============== ENDPOINTS DE CATEGORÍAS ==============
+# ============== ENDPOINTS DE CATEGORÍAS DEL SISTEMA ==============
 
-# CREAR categoría - POST /categories/
-# Recibe: CategoryCreate (nombre)
-# Devuelve: CategoryRead (id, nombre, es_predeterminada)
-@app.post("/categories/", response_model=schemas.CategoryRead)
-def create_category(
-    category: schemas.CategoryCreate,  # Datos validados por Pydantic
-    db: Session = Depends(get_db),  # Inyección de dependencia: obtiene sesión de BD
-    current_user: models.User = Depends(get_current_active_user),
-):
-    # Evitar error de unicidad y devolver un 400 controlado
-    existing = db.query(models.Category).filter(
-        models.Category.nombre == category.nombre
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Ya existe una categoría con ese nombre")
-
-    # Crear instancia del modelo Category (SQLAlchemy)
-    db_category = models.Category(
-        nombre=category.nombre,
-        es_predeterminada=False  # Las que crea el usuario no son predeterminadas
-    )
-    # Agregar a la sesión y guardar en BD
-    db.add(db_category)
-    try:
-        db.commit()  # Ejecuta INSERT INTO categories...
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="Ya existe una categoría con ese nombre")
-    db.refresh(db_category)  # Actualiza el objeto con el ID generado
-    return db_category  # FastAPI lo convierte a JSON usando CategoryRead
-
-
-# LISTAR todas las categorías - GET /categories/
-# Devuelve: Lista de CategoryRead
+# LISTAR categorías del sistema (predeterminadas) - GET /categories/
+# Estas son de solo lectura
 @app.get("/categories/", response_model=List[schemas.CategoryRead])
-def list_categories(
+def list_system_categories(db: Session = Depends(get_db)):
+    """
+    Devuelve todas las categorías del sistema (predeterminadas).
+    No requiere autenticación - son públicas.
+    """
+    return db.query(models.Category).filter(
+        models.Category.es_predeterminada == True
+    ).all()
+
+
+# ============== ENDPOINTS DE CATEGORÍAS PERSONALIZADAS DEL USUARIO ==============
+
+# CREAR categoría personalizada - POST /user-categories/
+@app.post("/user-categories/", response_model=schemas.UserCategoryRead)
+def create_user_category(
+    category: schemas.UserCategoryCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    # Consulta SQL: SELECT * FROM categories
-    categories = db.query(models.Category).all()
-    return categories
+    """
+    Crea una categoría personalizada para el usuario actual.
+    
+    Seguridad:
+    - Requiere autenticación
+    - La categoría se vincula al usuario actual
+    - Nombres únicos por usuario (múltiples usuarios pueden tener 'Comida')
+    """
+    # Validar que no existe una categoría con el mismo nombre para este usuario
+    existing = db.query(models.UserCategory).filter(
+        models.UserCategory.user_id == current_user.id,
+        models.UserCategory.nombre == category.nombre,
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Ya tienes una categoría con este nombre"
+        )
+    
+    # Crear nueva categoría personalizada
+    db_category = models.UserCategory(
+        user_id=current_user.id,
+        nombre=category.nombre,
+        descripcion=category.descripcion,
+        color=category.color,
+        icon=category.icon,
+    )
+    db.add(db_category)
+    db.commit()
+    db.refresh(db_category)
+    return db_category
 
-# ELIMINAR categoría - DELETE /categories/{category_id}
-@app.delete("/categories/{category_id}")
-def delete_category(
+
+# LISTAR categorías personalizadas - GET /user-categories/
+@app.get("/user-categories/", response_model=List[schemas.UserCategoryRead])
+def list_user_categories(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Devuelve todas las categorías personalizadas del usuario actual.
+    Requiere autenticación.
+    """
+    return db.query(models.UserCategory).filter(
+        models.UserCategory.user_id == current_user.id
+    ).order_by(models.UserCategory.created_at.desc()).all()
+
+
+# OBTENER una categoría personalizada - GET /user-categories/{category_id}
+@app.get("/user-categories/{category_id}", response_model=schemas.UserCategoryRead)
+def get_user_category(
     category_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    # Buscar la categoría
-    category = db.query(models.Category).filter(models.Category.id == category_id).first()
+    """
+    Obtiene una categoría personalizada específica del usuario.
+    """
+    category = db.query(models.UserCategory).filter(
+        models.UserCategory.id == category_id,
+        models.UserCategory.user_id == current_user.id,  # ✅ Validar propiedad
+    ).first()
     
     if not category:
         raise HTTPException(status_code=404, detail="Categoría no encontrada")
     
-    # VALIDACIÓN: Verificar si hay gastos usando esta categoría
-    # No permitir eliminar categorías con gastos asociados (integridad referencial)
+    return category
+
+
+# ACTUALIZAR categoría personalizada - PUT /user-categories/{category_id}
+@app.put("/user-categories/{category_id}", response_model=schemas.UserCategoryRead)
+def update_user_category(
+    category_id: int,
+    category_update: schemas.UserCategoryUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Actualiza una categoría personalizada del usuario.
+    """
+    category = db.query(models.UserCategory).filter(
+        models.UserCategory.id == category_id,
+        models.UserCategory.user_id == current_user.id,  # ✅ Validar propiedad
+    ).first()
+    
+    if not category:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+    
+    # Si se intenta cambiar el nombre, validar unicidad
+    if category_update.nombre and category_update.nombre != category.nombre:
+        existing = db.query(models.UserCategory).filter(
+            models.UserCategory.user_id == current_user.id,
+            models.UserCategory.nombre == category_update.nombre,
+            models.UserCategory.id != category_id,
+        ).first()
+        
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya tienes una categoría con este nombre"
+            )
+        category.nombre = category_update.nombre
+    
+    # Actualizar otros campos si se proporcionan
+    if category_update.descripcion is not None:
+        category.descripcion = category_update.descripcion
+    if category_update.color is not None:
+        category.color = category_update.color
+    if category_update.icon is not None:
+        category.icon = category_update.icon
+    
+    category.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+# ELIMINAR categoría personalizada - DELETE /user-categories/{category_id}
+@app.delete("/user-categories/{category_id}", status_code=204)
+def delete_user_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Elimina una categoría personalizada del usuario.
+    No permite eliminar si hay gastos asociados.
+    """
+    category = db.query(models.UserCategory).filter(
+        models.UserCategory.id == category_id,
+        models.UserCategory.user_id == current_user.id,  # ✅ Validar propiedad
+    ).first()
+    
+    if not category:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+    
+    # Validar que no haya gastos usando esta categoría
     gastos_count = db.query(models.Expense).filter(
-        models.Expense.categoria_id == category_id
+        models.Expense.user_category_id == category_id
     ).count()
     
     if gastos_count > 0:
         raise HTTPException(
-            status_code=400, 
-            detail=f"No se puede eliminar. Hay {gastos_count} gasto(s) usando esta categoría"
+            status_code=400,
+            detail=f"No se puede eliminar. Hay {gastos_count} gasto(s) usando esta categoría. "
+                   "Asigna esos gastos a otra categoría primero."
         )
     
-    # Eliminar categoría
     db.delete(category)
     db.commit()
     
-    return {"message": "Categoría eliminada correctamente"}
+    return None
 
-
-# ACTUALIZAR categoría - PUT /categories/{category_id}
-@app.put("/categories/{category_id}", response_model=schemas.CategoryRead)
-def update_category(
-    category_id: int,
-    category_update: schemas.CategoryCreate,  # Solo recibe el nombre
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
-):
-    # Buscar la categoría existente
-    db_category = db.query(models.Category).filter(models.Category.id == category_id).first()
-    
-    if not db_category:
-        raise HTTPException(status_code=404, detail="Categoría no encontrada")
-    
-    # VALIDACIÓN: Verificar que el nuevo nombre no exista ya
-    existing = db.query(models.Category).filter(
-        models.Category.nombre == category_update.nombre,
-        models.Category.id != category_id  # Excepto la misma categoría
-    ).first()
-    
-    if existing:
-        raise HTTPException(status_code=400, detail="Ya existe una categoría con ese nombre")
-    
-    # Actualizar nombre
-    db_category.nombre = category_update.nombre
-    
-    db.commit()
-    db.refresh(db_category)
-    
-    return db_category
 # ============== ENDPOINTS DE GASTOS (PROTEGIDOS) ==============
 
 # CREAR gasto - POST /expenses/
