@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { registerUser, loginUser } from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import authLogo from '../assets/auth-logo.jpeg';
 
 // Cambia este flag a false si quieres usar solo el icono 🆕

@@ -7,6 +7,8 @@ from typing import List
 from datetime import datetime, timedelta
 import math
 from uuid import uuid4
+import hmac
+import hashlib
 
 # Para el formulario de login
 from fastapi.security import OAuth2PasswordRequestForm
@@ -42,6 +44,7 @@ Base.metadata.create_all(bind=engine)
 
 # Migrar columnas nuevas en tablas existentes (SQLite no las agrega con create_all)
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 _inspector = inspect(engine)
 _user_columns = [c['name'] for c in _inspector.get_columns('users')]
 with engine.connect() as _conn:
@@ -151,9 +154,11 @@ def forgot_password(
     db.add(reset_token)
     db.commit()
 
-    # En producción, este token debería enviarse por email.
-    # Lo devolvemos en la respuesta solo para facilitar pruebas en desarrollo.
-    return {"message": message, "reset_token": token_str}
+    # En producción, este token debe enviarse por email y no exponerse en API.
+    if config.EXPOSE_RESET_TOKEN and not config.IS_PRODUCTION:
+        return {"message": message, "reset_token": token_str}
+
+    return {"message": message}
 
 
 # RESTABLECER contraseña usando token - POST /auth/reset-password
@@ -234,8 +239,16 @@ def update_payment_info(
 @app.post("/categories/", response_model=schemas.CategoryRead)
 def create_category(
     category: schemas.CategoryCreate,  # Datos validados por Pydantic
-    db: Session = Depends(get_db)  # Inyección de dependencia: obtiene sesión de BD
+    db: Session = Depends(get_db),  # Inyección de dependencia: obtiene sesión de BD
+    current_user: models.User = Depends(get_current_active_user),
 ):
+    # Evitar error de unicidad y devolver un 400 controlado
+    existing = db.query(models.Category).filter(
+        models.Category.nombre == category.nombre
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Ya existe una categoría con ese nombre")
+
     # Crear instancia del modelo Category (SQLAlchemy)
     db_category = models.Category(
         nombre=category.nombre,
@@ -243,7 +256,11 @@ def create_category(
     )
     # Agregar a la sesión y guardar en BD
     db.add(db_category)
-    db.commit()  # Ejecuta INSERT INTO categories...
+    try:
+        db.commit()  # Ejecuta INSERT INTO categories...
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Ya existe una categoría con ese nombre")
     db.refresh(db_category)  # Actualiza el objeto con el ID generado
     return db_category  # FastAPI lo convierte a JSON usando CategoryRead
 
@@ -251,14 +268,21 @@ def create_category(
 # LISTAR todas las categorías - GET /categories/
 # Devuelve: Lista de CategoryRead
 @app.get("/categories/", response_model=List[schemas.CategoryRead])
-def list_categories(db: Session = Depends(get_db)):
+def list_categories(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
     # Consulta SQL: SELECT * FROM categories
     categories = db.query(models.Category).all()
     return categories
 
 # ELIMINAR categoría - DELETE /categories/{category_id}
 @app.delete("/categories/{category_id}")
-def delete_category(category_id: int, db: Session = Depends(get_db)):
+def delete_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
     # Buscar la categoría
     category = db.query(models.Category).filter(models.Category.id == category_id).first()
     
@@ -289,7 +313,8 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 def update_category(
     category_id: int,
     category_update: schemas.CategoryCreate,  # Solo recibe el nombre
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
 ):
     # Buscar la categoría existente
     db_category = db.query(models.Category).filter(models.Category.id == category_id).first()
@@ -1305,6 +1330,37 @@ def create_payment_preference(
 
 # WEBHOOK de Mercado Pago - POST /payments/webhook
 # Este endpoint NO requiere autenticación JWT (es llamado por MP)
+def _is_valid_mp_signature(request: Request, data_id: str) -> bool:
+    # En producción exigimos firma; en desarrollo se permite omitirla para pruebas locales.
+    if not config.MP_WEBHOOK_SECRET:
+        return not config.IS_PRODUCTION
+
+    x_signature = request.headers.get("x-signature", "")
+    x_request_id = request.headers.get("x-request-id", "")
+    if not x_signature or not x_request_id:
+        return False
+
+    signature_parts = {}
+    for part in x_signature.split(","):
+        if "=" in part:
+            key, value = part.split("=", 1)
+            signature_parts[key.strip()] = value.strip()
+
+    ts = signature_parts.get("ts")
+    v1 = signature_parts.get("v1")
+    if not ts or not v1:
+        return False
+
+    manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+    expected = hmac.new(
+        config.MP_WEBHOOK_SECRET.encode("utf-8"),
+        msg=manifest.encode("utf-8"),
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+
+    return hmac.compare_digest(expected, v1)
+
+
 @app.post("/payments/webhook")
 async def mercadopago_webhook(request: Request, db: Session = Depends(get_db)):
     try:
@@ -1319,6 +1375,9 @@ async def mercadopago_webhook(request: Request, db: Session = Depends(get_db)):
     mp_payment_id = body.get("data", {}).get("id")
     if not mp_payment_id:
         return {"status": "ok"}
+
+    if not _is_valid_mp_signature(request, str(mp_payment_id)):
+        raise HTTPException(status_code=401, detail="Firma de webhook inválida")
 
     # Consultar el pago en Mercado Pago
     sdk = get_mp_sdk()

@@ -5,7 +5,7 @@ import type { Expense } from './types';
 import ExpenseForm from './components/ExpenseForm';
 import ExpenseList from './components/ExpenseList';
 import CategoryManager from './components/CategoryManager';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 
 function App() {
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);

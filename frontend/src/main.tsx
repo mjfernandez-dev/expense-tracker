@@ -14,7 +14,7 @@ import ContactsPage from './pages/ContactsPage.tsx';
 import SplitGroupsPage from './pages/SplitGroupsPage.tsx';
 import SplitGroupDetail from './pages/SplitGroupDetail.tsx';
 import PaymentResultPage from './pages/PaymentResultPage.tsx';
-import { AuthProvider } from './context/AuthContext.tsx';
+import { AuthProvider } from './context/AuthProvider.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 
 createRoot(document.getElementById('root')!).render(
