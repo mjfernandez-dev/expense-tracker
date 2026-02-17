@@ -2,9 +2,10 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -29,7 +30,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # OAuth2 con Password Bearer (el token viene en el header Authorization)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+# auto_error=False para no fallar si no hay header, y poder leer la cookie como fallback
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -79,22 +81,35 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[mod
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> models.User:
-    """Dependencia que obtiene el usuario actual desde el token JWT."""
+    """Dependencia que obtiene el usuario actual desde el token JWT.
+
+    Busca el token en este orden:
+    1. Header Authorization: Bearer <token> (OAuth2)
+    2. Cookie httpOnly 'access_token'
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudieron validar las credenciales",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # Fallback: leer de cookie si no vino en header
+    if not token:
+        token = request.cookies.get("access_token")
+    if not token:
+        raise credentials_exception
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
         token_data = schemas.TokenData(username=username)
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
     user = get_user_by_username(db, username=token_data.username)

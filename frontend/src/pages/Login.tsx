@@ -14,8 +14,6 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -25,8 +23,8 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await loginUser(username, password);
-      await login(response.access_token, rememberMe);
+      await loginUser(username, password);
+      await login();
       navigate('/');
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
@@ -120,16 +118,7 @@ export default function Login() {
                   {showPassword ? '🙈' : '👁️'}
                 </button>
               </div>
-              <div className="mt-3 flex items-center justify-between">
-                <label className="inline-flex items-center text-xs text-slate-200">
-                  <input
-                    type="checkbox"
-                    className="mr-2 h-4 w-4 rounded border-slate-500 bg-slate-800 text-blue-500 focus:ring-blue-500"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  />
-                  Recordar sesión en este equipo
-                </label>
+              <div className="mt-3 flex items-center justify-end">
                 <button
                   type="button"
                   onClick={() => navigate('/forgot-password')}

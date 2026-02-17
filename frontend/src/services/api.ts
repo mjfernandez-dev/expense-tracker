@@ -7,7 +7,6 @@ import type {
   ExpenseCreate,
   User,
   UserCreate,
-  AuthResponse,
   PasswordResetResponse,
   Contact,
   ContactCreate,
@@ -27,21 +26,11 @@ import type {
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Instancia configurada de axios con la URL base
+// withCredentials: true envía automáticamente la cookie httpOnly en cada request
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true,
 });
-
-// ============== FUNCIONES PARA MANEJO DE TOKEN ==============
-
-// Agregar token JWT al header de todas las peticiones
-export const setAuthToken = (token: string) => {
-  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-};
-
-// Eliminar token del header
-export const removeAuthToken = () => {
-  delete api.defaults.headers.common['Authorization'];
-};
 
 // ============== FUNCIONES DE AUTENTICACIÓN ==============
 
@@ -52,19 +41,24 @@ export const registerUser = async (userData: UserCreate): Promise<User> => {
   return response.data;
 };
 
-// Login - devuelve token JWT
+// Login - la cookie httpOnly se setea automáticamente por el backend
 // POST /auth/login (usa form-data, no JSON)
-export const loginUser = async (username: string, password: string): Promise<AuthResponse> => {
+export const loginUser = async (username: string, password: string): Promise<void> => {
   const formData = new URLSearchParams();
   formData.append('username', username);
   formData.append('password', password);
 
-  const response = await api.post('/auth/login', formData, {
+  await api.post('/auth/login', formData, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
   });
-  return response.data;
+};
+
+// Logout - elimina la cookie httpOnly
+// POST /auth/logout
+export const logoutUser = async (): Promise<void> => {
+  await api.post('/auth/logout');
 };
 
 // Solicitar restablecimiento de contraseña

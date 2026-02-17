@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__engram__mem_stats",
+      "mcp__engram__mem_session_start",
+      "mcp__engram__mem_save",
+      "mcp__engram__mem_search",
+      "WebSearch",
+      "Bash(git -C \"D:\\\\01_Desarrollo\\\\DesarrolloPersonal\\\\Python\\\\gastos\" ls-files)"
+    ]
+  }
+}

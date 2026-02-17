@@ -12,6 +12,7 @@ import hashlib
 
 # Para el formulario de login
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import JSONResponse
 
 # CONEXIÓN: Importamos configuración de BD desde database.py
 from database import engine, get_db, Base
@@ -52,26 +53,44 @@ Base.metadata.create_all(bind=engine)
 #   4. Ejecutar: alembic upgrade head
 
 # Crear la aplicación FastAPI
-app = FastAPI(title="Expense Tracker API")
+# Deshabilitar docs en producción
+if config.IS_PRODUCTION:
+    app = FastAPI(title="Expense Tracker API", docs_url=None, redoc_url=None)
+else:
+    app = FastAPI(title="Expense Tracker API")
 
-# CONFIGURACIÓN CORS: Permite peticiones desde el frontend
-# Sin esto, el navegador bloquea las llamadas HTTP por seguridad
+# Rate limiting para prevenir brute force
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CONFIGURACIÓN CORS: Configurable por variable de entorno
+# ALLOWED_ORIGINS puede ser una lista separada por comas: "http://localhost:5173,https://midominio.com"
+import os
+ALLOWED_ORIGINS = [
+    o.strip() for o in
+    os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],  # Permite GET, POST, PUT, DELETE, etc.
-    allow_headers=["*"],  # Permite todos los headers
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # ============== ENDPOINTS DE AUTENTICACIÓN ==============
 
 # REGISTRAR usuario - POST /auth/register
 @app.post("/auth/register", response_model=schemas.UserRead)
-def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def register(request: Request, user: schemas.UserCreate, db: Session = Depends(get_db)):
     # Verificar si el username ya existe
     if get_user_by_username(db, user.username):
         raise HTTPException(
@@ -98,8 +117,10 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 # LOGIN - POST /auth/login
-@app.post("/auth/login", response_model=schemas.Token)
+@app.post("/auth/login")
+@limiter.limit("5/minute")
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
@@ -114,7 +135,31 @@ def login(
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    response = JSONResponse(content={"message": "Login exitoso"})
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=config.IS_PRODUCTION,
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    return response
+
+
+# LOGOUT - POST /auth/logout
+@app.post("/auth/logout")
+def logout():
+    response = JSONResponse(content={"message": "Sesión cerrada"})
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        secure=config.IS_PRODUCTION,
+        samesite="lax",
+        path="/",
+    )
+    return response
 
 
 # OBTENER usuario actual - GET /auth/me
@@ -125,7 +170,9 @@ def get_me(current_user: models.User = Depends(get_current_active_user)):
 
 # SOLICITAR restablecimiento de contraseña - POST /auth/forgot-password
 @app.post("/auth/forgot-password")
+@limiter.limit("3/minute")
 async def forgot_password(
+    request: Request,
     payload: schemas.PasswordResetRequest,
     db: Session = Depends(get_db),
 ):

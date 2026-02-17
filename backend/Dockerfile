@@ -13,6 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar código fuente
 COPY . .
 
+# Crear usuario no-root para seguridad
+RUN adduser --disabled-password --no-create-home appuser
+USER appuser
+
 # Exponer puerto 8000
 EXPOSE 8000
 

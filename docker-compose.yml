@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Base de datos PostgreSQL (PRODUCCIÓN)
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.7-alpine
     container_name: expense-postgres
     environment:
       POSTGRES_USER: ${DB_USER:-gastos_user}
@@ -11,8 +11,8 @@ services:
       POSTGRES_DB: ${DB_NAME:-gastos_db}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    ports:
-      - "${DB_PORT:-5432}:5432"
+    # Puerto NO expuesto al host por seguridad — accesible solo entre containers
+    # Para debug local, descomentar: ports: ["${DB_PORT:-5432}:5432"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gastos_user}"]
       interval: 10s
@@ -57,6 +57,9 @@ services:
       # URLs
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
       - BACKEND_URL=${BACKEND_URL:-http://localhost:8000}
+
+      # CORS
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
