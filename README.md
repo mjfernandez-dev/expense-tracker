@@ -1,106 +1,136 @@
-# 💰 Expense Tracker
+# FinanzaApp
 
-Aplicación web progresiva (PWA) para registrar y gestionar gastos personales.
+PWA de gestión de gastos personales y grupales (estilo Splitwise para Argentina).
 
-## 🚀 Tecnologías
+## Stack
 
-### Backend
-- **Python 3.10+**
-- **FastAPI** - Framework web moderno
-- **SQLAlchemy** - ORM para base de datos
-- **SQLite** - Base de datos local
-- **Pydantic** - Validación de datos
+| Capa | Tecnología |
+|------|-----------|
+| Backend | Python 3.10 · FastAPI 0.115 · SQLAlchemy 2.0 · SQLite (dev) / PostgreSQL (prod) |
+| Frontend | React 19 · TypeScript 5.9 · Vite 7 · Tailwind CSS 4 · Axios |
+| Deploy | Docker Compose · Nginx · Let's Encrypt (SSL) |
 
-### Frontend
-- **React 18** - Biblioteca UI
-- **TypeScript** - Tipado estático
-- **Vite** - Build tool
-- **Tailwind CSS** - Framework de estilos
-- **Axios** - Cliente HTTP
+## Funcionalidades
 
-### PWA
-- **Service Worker** - Funcionamiento offline
-- **Web App Manifest** - Instalable en dispositivos
+- Auth completo (registro, login, reset de contraseña por email, JWT 30 min)
+- CRUD de movimientos (gastos e ingresos) con categorías del sistema y personalizadas
+- Grupos de gastos compartidos con cálculo automático de deudas
+- Contactos con información bancaria encriptada (alias, CVU)
+- Integración Mercado Pago (preferencia de pago, webhook, consulta de estado)
+- Datos sensibles encriptados con Fernet (descripciones, notas, contactos)
 
-## 📋 Funcionalidades
-
-- ✅ Crear, editar y eliminar gastos
-- ✅ Gestionar categorías personalizadas
-- ✅ Interfaz moderna y responsive
-- ✅ Funciona offline (interfaz básica)
-- ✅ Relaciones entre gastos y categorías
-- ✅ Validación frontend y backend
-
-## 🛠️ Instalación y Uso
+## Instalación local
 
 ### Requisitos
 - Python 3.10+
-- Node.js 18+
+- Node.js 20+
 - npm
 
 ### Backend
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
-pip install fastapi uvicorn sqlalchemy pydantic
-uvicorn main:app --reload
-```
+venv\Scripts\activate          # Windows
+source venv/bin/activate       # Linux/Mac
+pip install -r requirements.txt
 
-El backend correrá en: http://127.0.0.1:8000
+# Variables mínimas para dev
+export SECRET_KEY=dev-secret-key-change-in-production
+python -m uvicorn main:app --port 8000
+```
 
 ### Frontend
 ```bash
 cd frontend
 npm install
+# Crear frontend/.env.local con:
+# VITE_API_URL=http://localhost:8000
 npm run dev
 ```
 
-El frontend correrá en: http://localhost:5173
-
-## 📁 Estructura del Proyecto
-```
-expense-tracker/
-├── backend/
-│   ├── main.py          # Endpoints de la API
-│   ├── database.py      # Configuración de BD
-│   ├── models.py        # Modelos SQLAlchemy
-│   └── schemas.py       # Schemas Pydantic
-├── frontend/
-│   ├── src/
-│   │   ├── components/  # Componentes React
-│   │   ├── services/    # Llamadas a API
-│   │   └── types/       # Tipos TypeScript
-│   └── public/
-│       ├── sw.js        # Service Worker
-│       └── manifest.json
-└── README.md
+### Tests
+```bash
+cd backend
+SECRET_KEY=test-key python -m pytest tests/ -v
 ```
 
-## 🔄 API Endpoints
+## API Endpoints
 
-### Gastos
-- `GET /expenses/` - Listar todos
-- `GET /expenses/{id}` - Obtener uno
-- `POST /expenses/` - Crear
-- `PUT /expenses/{id}` - Actualizar
-- `DELETE /expenses/{id}` - Eliminar
+### Auth
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/auth/register` | Registrar usuario |
+| POST | `/auth/login` | Iniciar sesión (devuelve cookie httponly) |
+| POST | `/auth/logout` | Cerrar sesión |
+| GET | `/auth/me` | Usuario actual |
+| POST | `/auth/forgot-password` | Solicitar reset de contraseña |
+| POST | `/auth/reset-password` | Resetear contraseña con token |
+| POST | `/auth/change-password` | Cambiar contraseña (autenticado) |
+
+### Movimientos
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/movimientos/` | Listar movimientos del usuario |
+| POST | `/movimientos/` | Crear movimiento |
+| PUT | `/movimientos/{id}` | Actualizar movimiento |
+| DELETE | `/movimientos/{id}` | Eliminar movimiento |
 
 ### Categorías
-- `GET /categories/` - Listar todas
-- `POST /categories/` - Crear
-- `PUT /categories/{id}` - Actualizar
-- `DELETE /categories/{id}` - Eliminar
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/categories/` | Listar categorías del sistema |
+| GET | `/user-categories/` | Listar categorías personalizadas |
+| POST | `/user-categories/` | Crear categoría personalizada |
+| PUT | `/user-categories/{id}` | Actualizar categoría personalizada |
+| DELETE | `/user-categories/{id}` | Eliminar categoría personalizada |
 
-## 📱 PWA
+### Grupos (split)
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/grupos/` | Listar grupos |
+| POST | `/grupos/` | Crear grupo |
+| GET | `/grupos/{id}` | Detalle del grupo |
+| POST | `/grupos/{id}/gastos` | Agregar gasto al grupo |
+| GET | `/grupos/{id}/deudas` | Calcular deudas del grupo |
 
-La aplicación puede instalarse en dispositivos móviles y de escritorio. El Service Worker permite que la interfaz funcione offline (los datos requieren conexión).
+### Contactos
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/contacts/` | Listar contactos |
+| POST | `/contacts/` | Crear contacto |
+| PUT | `/contacts/{id}` | Actualizar contacto |
+| DELETE | `/contacts/{id}` | Eliminar contacto |
 
-## 🤝 Contribuciones
+### Pagos (Mercado Pago)
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/payments/create-preference` | Crear preferencia de pago |
+| POST | `/payments/webhook` | Webhook de Mercado Pago |
+| GET | `/payments/{id}/status` | Consultar estado del pago |
 
-Este es un proyecto de aprendizaje. Pull requests son bienvenidos.
+### Sistema
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/docs` | Swagger UI (solo en desarrollo) |
+| GET | `/health` | Healthcheck |
 
-## 📄 Licencia
+## Deploy con Docker
 
-MIT
+```bash
+cp .env.example .env
+# Editar .env con secretos reales
+docker compose up -d
+```
+
+## Variables de entorno requeridas en producción
+
+| Variable | Descripción |
+|----------|-------------|
+| `SECRET_KEY` | Clave JWT (mínimo 32 chars aleatorios) |
+| `ENCRYPTION_KEY` | Clave Fernet base64 para datos sensibles |
+| `DATABASE_URL` | URL de PostgreSQL |
+| `SMTP_USER` / `SMTP_PASSWORD` | Credenciales de email |
+| `MP_ACCESS_TOKEN` | Token de Mercado Pago |
+| `ALLOWED_ORIGINS` | Orígenes CORS permitidos (separados por coma) |
+
+Ver `.env.example` para la lista completa con documentación.

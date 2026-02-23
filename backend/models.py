@@ -20,8 +20,8 @@ class User(Base):
     alias_bancario = Column(EncryptedString, nullable=True)
     cvu = Column(EncryptedString, nullable=True)
 
-    # RELACIÓN 1-a-N: Un usuario tiene MUCHOS gastos
-    gastos = relationship("Expense", back_populates="usuario")
+    # RELACIÓN 1-a-N: Un usuario tiene MUCHOS movimientos
+    movimientos = relationship("Movimiento", back_populates="usuario")
 
 
 # MODELO: Tabla de tokens para restablecer contraseña
@@ -53,8 +53,8 @@ class Category(Base):
     es_predeterminada = Column(Boolean, default=True)  # Siempre True para este modelo
     created_at = Column(DateTime, default=datetime.now)
     
-    # RELACIÓN: Gastos que usan esta categoría del sistema
-    gastos = relationship("Expense", back_populates="categoria")
+    # RELACIÓN: Movimientos que usan esta categoría del sistema
+    movimientos = relationship("Movimiento", back_populates="categoria")
 
 
 # MODELO: Tabla de categorías personalizadas del usuario (MULTI-TENANCY)
@@ -82,43 +82,44 @@ class UserCategory(Base):
     
     # RELACIONES
     usuario = relationship("User", backref="categorias_personalizadas")
-    gastos = relationship("Expense", back_populates="user_category")
+    movimientos = relationship("Movimiento", back_populates="user_category")
 
 
 
-# MODELO 2: Tabla de gastos
-class Expense(Base):
-    __tablename__ = "expenses"
+# MODELO 2: Tabla de movimientos (gastos e ingresos)
+class Movimiento(Base):
+    __tablename__ = "movimientos"
 
     # COLUMNAS principales
     id = Column(Integer, primary_key=True, index=True)
-    importe = Column(Float, nullable=False)  # Monto del gasto
+    importe = Column(Float, nullable=False)  # Monto del movimiento
     fecha = Column(DateTime, default=datetime.now)  # Se asigna automáticamente la fecha actual
     descripcion = Column(EncryptedString, nullable=False)  # Obligatoria
     nota = Column(EncryptedString, nullable=True)  # Opcional (puede ser NULL)
+    tipo = Column(String, default="gasto", nullable=False)  # "gasto" | "ingreso"
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    # CLAVES FORÁNEAS: Un gasto puede estar asociado con:
+    # CLAVES FORÁNEAS: Un movimiento puede estar asociado con:
     # - Una categoría del sistema (categoria_id) O
     # - Una categoría personalizada del usuario (user_category_id)
     # Al menos una DEBE estar definida
     categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
 
-    # CLAVE FORÁNEA: Un gasto siempre pertenece a UN usuario
+    # CLAVE FORÁNEA: Un movimiento siempre pertenece a UN usuario
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     # RELACIONES
-    categoria = relationship("Category", back_populates="gastos")  # Categoría del sistema
-    user_category = relationship("UserCategory", back_populates="gastos")  # Categoría personalizada
-    usuario = relationship("User", back_populates="gastos")
+    categoria = relationship("Category", back_populates="movimientos")  # Categoría del sistema
+    user_category = relationship("UserCategory", back_populates="movimientos")  # Categoría personalizada
+    usuario = relationship("User", back_populates="movimientos")
 
     def __init__(self, **kwargs):
         """Validar que al menos una categoría esté definida."""
         super().__init__(**kwargs)
         if self.categoria_id is None and self.user_category_id is None:
-            raise ValueError("Un gasto debe tener al menos una categoría (sistema o personalizada)")
+            raise ValueError("Un movimiento debe tener al menos una categoría (sistema o personalizada)")
 
 
 
