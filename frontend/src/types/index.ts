@@ -48,26 +48,45 @@ export interface Category {
   es_predeterminada: boolean;
 }
 
-// Gasto completo (coincide con ExpenseRead del backend)
-export interface Expense {
+// Categoría personalizada del usuario
+export interface UserCategory {
+  id: number;
+  nombre: string;
+  color: string;
+  icon: string | null;
+}
+
+// Movimiento completo (coincide con MovimientoRead del backend)
+export interface Movimiento {
   id: number;
   importe: number;
   fecha: string;  // DateTime viene como string en JSON
   descripcion: string;
-  nota: string | null;  // Puede ser null
-  categoria_id: number;
-  categoria: Category;  // Relación: incluye categoría completa
+  nota: string | null;
+  tipo: 'gasto' | 'ingreso';
+  categoria_id: number | null;
+  user_category_id: number | null;
+  user_id: number;
+  created_at: string;
+  updated_at: string;
+  categoria: Category | null;
+  user_category: UserCategory | null;
 }
 
-// Datos para CREAR un gasto (coincide con ExpenseCreate del backend)
-// No incluye 'id' ni 'categoria' porque aún no existen
-export interface ExpenseCreate {
+// Datos para CREAR un movimiento (coincide con MovimientoCreate del backend)
+export interface MovimientoCreate {
   importe: number;
   fecha: string;
   descripcion: string;
   nota: string | null;
-  categoria_id: number;
+  tipo: 'gasto' | 'ingreso';
+  categoria_id: number | null;
+  user_category_id: number | null;
 }
+
+// Alias de compatibilidad (para no romper imports existentes en split)
+export type Expense = Movimiento;
+export type ExpenseCreate = MovimientoCreate;
 
 // ============== TIPOS DE CONTACTOS ==============
 

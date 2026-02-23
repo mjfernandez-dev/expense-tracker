@@ -6,7 +6,11 @@
       "mcp__engram__mem_save",
       "mcp__engram__mem_search",
       "WebSearch",
-      "Bash(git -C \"D:\\\\01_Desarrollo\\\\DesarrolloPersonal\\\\Python\\\\gastos\" ls-files)"
+      "Bash(git -C \"D:\\\\01_Desarrollo\\\\DesarrolloPersonal\\\\Python\\\\gastos\" ls-files)",
+      "Bash(git checkout:*)",
+      "Bash(curl:*)",
+      "Bash(python -c:*)",
+      "Bash(bash scripts/smoke_test.sh:*)"
     ]
   }
 }

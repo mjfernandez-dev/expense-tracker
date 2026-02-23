@@ -3,8 +3,8 @@ import axios from 'axios';
 // CONEXIÓN: Importamos los tipos definidos en types/index.ts
 import type {
   Category,
-  Expense,
-  ExpenseCreate,
+  Movimiento,
+  MovimientoCreate,
   User,
   UserCreate,
   PasswordResetResponse,
@@ -119,42 +119,49 @@ export const createCategory = async (nombre: string): Promise<Category> => {
   return response.data;
 };
 
-// ============== FUNCIONES PARA GASTOS ==============
+// ============== FUNCIONES PARA MOVIMIENTOS ==============
 
-// Obtener todos los gastos
-// GET /expenses/ → devuelve Expense[]
-export const getExpenses = async (): Promise<Expense[]> => {
-  const response = await api.get('/expenses/');
+// Obtener todos los movimientos (opcionalmente filtrar por tipo)
+// GET /movimientos/ → devuelve Movimiento[]
+export const getMovimientos = async (tipo?: 'gasto' | 'ingreso'): Promise<Movimiento[]> => {
+  const params = tipo ? { tipo } : {};
+  const response = await api.get('/movimientos/', { params });
   return response.data;
 };
 
-// Crear un gasto
-// POST /expenses/ → envía ExpenseCreate, devuelve Expense
-export const createExpense = async (expense: ExpenseCreate): Promise<Expense> => {
-  const response = await api.post('/expenses/', expense);
+// Crear un movimiento
+// POST /movimientos/ → envía MovimientoCreate, devuelve Movimiento
+export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Movimiento> => {
+  const response = await api.post('/movimientos/', movimiento);
   return response.data;
 };
 
-// Obtener un gasto específico por ID
-// GET /expenses/{id} → devuelve Expense
-export const getExpense = async (id: number): Promise<Expense> => {
-  const response = await api.get(`/expenses/${id}`);
+// Obtener un movimiento específico por ID
+// GET /movimientos/{id} → devuelve Movimiento
+export const getMovimiento = async (id: number): Promise<Movimiento> => {
+  const response = await api.get(`/movimientos/${id}`);
   return response.data;
 };
 
-// Eliminar un gasto
-// DELETE /expenses/{id} → devuelve mensaje de confirmación
-export const deleteExpense = async (id: number): Promise<void> => {
-  await api.delete(`/expenses/${id}`);
-  // void porque no necesitamos el body de la respuesta
+// Eliminar un movimiento
+// DELETE /movimientos/{id}
+export const deleteMovimiento = async (id: number): Promise<void> => {
+  await api.delete(`/movimientos/${id}`);
 };
 
-// Actualizar un gasto
-// PUT /expenses/{id} → envía ExpenseCreate, devuelve Expense actualizado
-export const updateExpense = async (id: number, expense: ExpenseCreate): Promise<Expense> => {
-  const response = await api.put(`/expenses/${id}`, expense);
+// Actualizar un movimiento
+// PUT /movimientos/{id} → envía MovimientoCreate, devuelve Movimiento actualizado
+export const updateMovimiento = async (id: number, movimiento: MovimientoCreate): Promise<Movimiento> => {
+  const response = await api.put(`/movimientos/${id}`, movimiento);
   return response.data;
 };
+
+// Alias de compatibilidad para imports existentes
+export const getExpenses = getMovimientos;
+export const createExpense = createMovimiento;
+export const getExpense = getMovimiento;
+export const deleteExpense = deleteMovimiento;
+export const updateExpense = (id: number, expense: MovimientoCreate) => updateMovimiento(id, expense);
 
 // Eliminar una categoría
 // DELETE /categories/{id}

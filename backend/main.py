@@ -1,9 +1,35 @@
+# Cargar variables de entorno desde .env antes de cualquier import local
+from dotenv import load_dotenv
+load_dotenv()
+
+import logging
+import json
+import time
+
+# Logging estructurado (JSON) para producción, legible para desarrollo
+class _JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        log = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+        }
+        if record.exc_info:
+            log["exc"] = self.formatException(record.exc_info)
+        return json.dumps(log, ensure_ascii=False)
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(_JsonFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[_handler])
+logger = logging.getLogger("finanzaapp")
+
 # FastAPI es el framework web que maneja las peticiones HTTP
 from fastapi import FastAPI, Depends, HTTPException, status
 # SQLAlchemy Session para interactuar con la base de datos
 from sqlalchemy.orm import Session, joinedload
 # Importamos typing para tipar listas
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
 import math
 from uuid import uuid4
@@ -84,6 +110,19 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start = time.perf_counter()
+        response = await call_next(request)
+        duration_ms = round((time.perf_counter() - start) * 1000)
+        level = logging.WARNING if response.status_code >= 400 else logging.INFO
+        logger.log(level, "%s %s → %d (%dms)", request.method, request.url.path, response.status_code, duration_ms)
+        return response
+
+app.add_middleware(RequestLoggingMiddleware)
 
 # ============== ENDPOINTS DE AUTENTICACIÓN ==============
 
@@ -452,16 +491,16 @@ def delete_user_category(
     if not category:
         raise HTTPException(status_code=404, detail="Categoría no encontrada")
     
-    # Validar que no haya gastos usando esta categoría
-    gastos_count = db.query(models.Expense).filter(
-        models.Expense.user_category_id == category_id
+    # Validar que no haya movimientos usando esta categoría
+    movimientos_count = db.query(models.Movimiento).filter(
+        models.Movimiento.user_category_id == category_id
     ).count()
-    
-    if gastos_count > 0:
+
+    if movimientos_count > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"No se puede eliminar. Hay {gastos_count} gasto(s) usando esta categoría. "
-                   "Asigna esos gastos a otra categoría primero."
+            detail=f"No se puede eliminar. Hay {movimientos_count} movimiento(s) usando esta categoría. "
+                   "Asigna esos movimientos a otra categoría primero."
         )
     
     db.delete(category)
@@ -469,124 +508,143 @@ def delete_user_category(
     
     return None
 
-# ============== ENDPOINTS DE GASTOS (PROTEGIDOS) ==============
+# ============== ENDPOINTS DE MOVIMIENTOS (PROTEGIDOS) ==============
 
-# CREAR gasto - POST /expenses/
-@app.post("/expenses/", response_model=schemas.ExpenseRead)
-def create_expense(
-    expense: schemas.ExpenseCreate,
+# CREAR movimiento - POST /movimientos/
+@app.post("/movimientos/", response_model=schemas.MovimientoRead)
+def create_movimiento(
+    movimiento: schemas.MovimientoCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    # VALIDACIÓN: Verificar que la categoría existe
-    category_exists = db.query(models.Category).filter(
-        models.Category.id == expense.categoria_id
-    ).first()
+    # VALIDACIÓN: Al menos una categoría debe estar definida
+    if movimiento.categoria_id is None and movimiento.user_category_id is None:
+        raise HTTPException(status_code=400, detail="Se requiere al menos una categoría (sistema o personalizada)")
 
-    if not category_exists:
-        raise HTTPException(status_code=404, detail="Categoría no existe")
+    # VALIDACIÓN: Verificar que la categoría existe (sistema o personalizada)
+    if movimiento.categoria_id is not None:
+        category_exists = db.query(models.Category).filter(
+            models.Category.id == movimiento.categoria_id
+        ).first()
+        if not category_exists:
+            raise HTTPException(status_code=404, detail="Categoría no existe")
+    elif movimiento.user_category_id is not None:
+        user_cat_exists = db.query(models.UserCategory).filter(
+            models.UserCategory.id == movimiento.user_category_id,
+            models.UserCategory.user_id == current_user.id
+        ).first()
+        if not user_cat_exists:
+            raise HTTPException(status_code=404, detail="Categoría personalizada no existe")
 
-    # Crear el gasto asociado al usuario actual
-    db_expense = models.Expense(
-        **expense.model_dump(),
+    # Crear el movimiento asociado al usuario actual
+    db_movimiento = models.Movimiento(
+        **movimiento.model_dump(),
         user_id=current_user.id
     )
-    db.add(db_expense)
+    db.add(db_movimiento)
     db.commit()
-    db.refresh(db_expense)
-    return db_expense
+    db.refresh(db_movimiento)
+    return db_movimiento
 
 
-# ELIMINAR gasto - DELETE /expenses/{expense_id}
-@app.delete("/expenses/{expense_id}")
-def delete_expense(
-    expense_id: int,
+# ELIMINAR movimiento - DELETE /movimientos/{movimiento_id}
+@app.delete("/movimientos/{movimiento_id}")
+def delete_movimiento(
+    movimiento_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    # Buscar el gasto del usuario actual
-    expense = db.query(models.Expense).filter(
-        models.Expense.id == expense_id,
-        models.Expense.user_id == current_user.id
+    movimiento = db.query(models.Movimiento).filter(
+        models.Movimiento.id == movimiento_id,
+        models.Movimiento.user_id == current_user.id
     ).first()
 
-    if not expense:
-        raise HTTPException(status_code=404, detail="Gasto no encontrado")
+    if not movimiento:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
 
-    db.delete(expense)
+    db.delete(movimiento)
     db.commit()
 
-    return {"message": "Gasto eliminado correctamente"}
+    return {"message": "Movimiento eliminado correctamente"}
 
 
-# ACTUALIZAR gasto - PUT /expenses/{expense_id}
-@app.put("/expenses/{expense_id}", response_model=schemas.ExpenseRead)
-def update_expense(
-    expense_id: int,
-    expense_update: schemas.ExpenseCreate,
+# ACTUALIZAR movimiento - PUT /movimientos/{movimiento_id}
+@app.put("/movimientos/{movimiento_id}", response_model=schemas.MovimientoRead)
+def update_movimiento(
+    movimiento_id: int,
+    movimiento_update: schemas.MovimientoCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    # Buscar el gasto del usuario actual
-    db_expense = db.query(models.Expense).filter(
-        models.Expense.id == expense_id,
-        models.Expense.user_id == current_user.id
+    db_movimiento = db.query(models.Movimiento).filter(
+        models.Movimiento.id == movimiento_id,
+        models.Movimiento.user_id == current_user.id
     ).first()
 
-    if not db_expense:
-        raise HTTPException(status_code=404, detail="Gasto no encontrado")
+    if not db_movimiento:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
 
-    # Verificar que la categoría existe
-    category_exists = db.query(models.Category).filter(
-        models.Category.id == expense_update.categoria_id
-    ).first()
+    # Verificar que la categoría existe (sistema o personalizada)
+    if movimiento_update.categoria_id is not None:
+        category_exists = db.query(models.Category).filter(
+            models.Category.id == movimiento_update.categoria_id
+        ).first()
+        if not category_exists:
+            raise HTTPException(status_code=404, detail="Categoría no existe")
+    elif movimiento_update.user_category_id is not None:
+        user_cat_exists = db.query(models.UserCategory).filter(
+            models.UserCategory.id == movimiento_update.user_category_id,
+            models.UserCategory.user_id == current_user.id
+        ).first()
+        if not user_cat_exists:
+            raise HTTPException(status_code=404, detail="Categoría personalizada no existe")
 
-    if not category_exists:
-        raise HTTPException(status_code=404, detail="Categoría no existe")
-
-    # ACTUALIZAR campos del gasto existente
-    db_expense.importe = expense_update.importe
-    db_expense.fecha = expense_update.fecha
-    db_expense.descripcion = expense_update.descripcion
-    db_expense.nota = expense_update.nota
-    db_expense.categoria_id = expense_update.categoria_id
+    # ACTUALIZAR campos del movimiento existente
+    db_movimiento.importe = movimiento_update.importe
+    db_movimiento.fecha = movimiento_update.fecha
+    db_movimiento.descripcion = movimiento_update.descripcion
+    db_movimiento.nota = movimiento_update.nota
+    db_movimiento.tipo = movimiento_update.tipo
+    db_movimiento.categoria_id = movimiento_update.categoria_id
+    db_movimiento.user_category_id = movimiento_update.user_category_id
 
     db.commit()
-    db.refresh(db_expense)
+    db.refresh(db_movimiento)
 
-    return db_expense
+    return db_movimiento
 
 
-# LISTAR gastos del usuario - GET /expenses/
-@app.get("/expenses/", response_model=List[schemas.ExpenseRead])
-def list_expenses(
+# LISTAR movimientos del usuario - GET /movimientos/
+@app.get("/movimientos/", response_model=List[schemas.MovimientoRead])
+def list_movimientos(
+    tipo: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    # Solo devuelve los gastos del usuario actual
-    expenses = db.query(models.Expense).filter(
-        models.Expense.user_id == current_user.id
-    ).all()
-    return expenses
+    query = db.query(models.Movimiento).filter(
+        models.Movimiento.user_id == current_user.id
+    )
+    if tipo:
+        query = query.filter(models.Movimiento.tipo == tipo)
+    return query.all()
 
 
-# OBTENER un gasto por ID - GET /expenses/{expense_id}
-@app.get("/expenses/{expense_id}", response_model=schemas.ExpenseRead)
-def get_expense(
-    expense_id: int,
+# OBTENER un movimiento por ID - GET /movimientos/{movimiento_id}
+@app.get("/movimientos/{movimiento_id}", response_model=schemas.MovimientoRead)
+def get_movimiento(
+    movimiento_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    # Solo busca en los gastos del usuario actual
-    expense = db.query(models.Expense).filter(
-        models.Expense.id == expense_id,
-        models.Expense.user_id == current_user.id
+    movimiento = db.query(models.Movimiento).filter(
+        models.Movimiento.id == movimiento_id,
+        models.Movimiento.user_id == current_user.id
     ).first()
 
-    if not expense:
-        raise HTTPException(status_code=404, detail="Gasto no encontrado")
+    if not movimiento:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
 
-    return expense
+    return movimiento
 
 
 # ============== ENDPOINTS DE CONTACTOS (PROTEGIDOS) ==============

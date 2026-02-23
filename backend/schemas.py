@@ -138,32 +138,33 @@ class UserCategoryRead(UserCategoryBase):
 
 
 
-# ============== SCHEMAS PARA EXPENSE ==============
+# ============== SCHEMAS PARA MOVIMIENTO ==============
 
 # Schema BASE: Campos comunes
-class ExpenseBase(BaseModel):
-    importe: float  # Monto del gasto
-    fecha: datetime  # Fecha y hora del gasto
+class MovimientoBase(BaseModel):
+    importe: float  # Monto del movimiento
+    fecha: datetime  # Fecha y hora del movimiento
     descripcion: str  # Descripción obligatoria
     nota: Optional[str] = None  # Nota opcional (puede ser None)
+    tipo: str = "gasto"  # "gasto" | "ingreso"
     categoria_id: Optional[int] = None  # ID de categoría del sistema
     user_category_id: Optional[int] = None  # ID de categoría personalizada
 
-# Schema para CREAR un gasto (POST)
-class ExpenseCreate(ExpenseBase):
-    pass  # Hereda todos los campos de ExpenseBase
+# Schema para CREAR un movimiento (POST)
+class MovimientoCreate(MovimientoBase):
+    pass  # Hereda todos los campos de MovimientoBase
 
-# Schema para LEER un gasto (GET)
+# Schema para LEER un movimiento (GET)
 # Incluye el ID y la categoría completa relacionada
-class ExpenseRead(ExpenseBase):
+class MovimientoRead(MovimientoBase):
     id: int  # ID asignado por la BD
     user_id: int  # Usuario propietario
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     # RELACIÓN: Incluye la categoría completa, no solo el ID
     categoria: Optional[CategoryRead] = None  # Categoría del sistema (si está definida)
     user_category: Optional[UserCategoryRead] = None  # Categoría personalizada (si está definida)
-    
+
     class Config:
         from_attributes = True  # Convierte modelos SQLAlchemy a JSON
 

@@ -1,26 +1,26 @@
 // COMPONENTE RAÍZ: Aplicación con diseño moderno usando Tailwind
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Expense } from './types';
-import ExpenseForm from './components/ExpenseForm';
-import ExpenseList from './components/ExpenseList';
+import type { Movimiento } from './types';
+import MovimientoForm from './components/MovimientoForm';
+import MovimientoList from './components/MovimientoList';
 import CategoryManager from './components/CategoryManager';
 import { useAuth } from './context/useAuth';
 
 function App() {
-  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
+  const [movimientoToEdit, setMovimientoToEdit] = useState<Movimiento | null>(null);
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [categoriesKey, setCategoriesKey] = useState<number>(0);
   const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleExpenseCreated = () => {
+  const handleMovimientoCreated = () => {
     setRefreshKey(prev => prev + 1);
   };
 
-  const handleExpenseUpdated = () => {
-    setExpenseToEdit(null);
+  const handleMovimientoUpdated = () => {
+    setMovimientoToEdit(null);
     setRefreshKey(prev => prev + 1);
   };
 
@@ -28,13 +28,13 @@ function App() {
     setCategoriesKey(prev => prev + 1);
   };
 
-  const handleEdit = (expense: Expense) => {
-    setExpenseToEdit(expense);
+  const handleEdit = (movimiento: Movimiento) => {
+    setMovimientoToEdit(movimiento);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
-    setExpenseToEdit(null);
+    setMovimientoToEdit(null);
   };
 
   const toggleCategoryManager = () => {
@@ -49,7 +49,7 @@ function App() {
         {/* HEADER CON USUARIO */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-2xl sm:text-4xl font-bold text-white">Registro de Gastos</h1>
+            <h1 className="text-2xl sm:text-4xl font-bold text-white">Mis Finanzas</h1>
             <span className="text-slate-300 text-sm sm:text-base">
               Hola, <span className="font-medium text-white">{user?.username}</span>
             </span>
@@ -85,21 +85,21 @@ function App() {
             {showCategoryManager ? 'Ocultar Categorias' : 'Gestionar Categorias'}
           </button>
         </div>
-        
+
         {/* PANEL DE CATEGORÍAS */}
         {showCategoryManager && <CategoryManager onCategoriesChanged={handleCategoriesChanged} />}
 
-        {/* FORMULARIO DE GASTOS */}
-        <ExpenseForm
+        {/* FORMULARIO DE MOVIMIENTOS */}
+        <MovimientoForm
           categoriesVersion={categoriesKey}
-          onExpenseCreated={handleExpenseCreated}
-          onExpenseUpdated={handleExpenseUpdated}
-          expenseToEdit={expenseToEdit}
+          onMovimientoCreated={handleMovimientoCreated}
+          onMovimientoUpdated={handleMovimientoUpdated}
+          movimientoToEdit={movimientoToEdit}
           onCancelEdit={handleCancelEdit}
         />
-        
-        {/* LISTA DE GASTOS */}
-        <ExpenseList 
+
+        {/* LISTA DE MOVIMIENTOS */}
+        <MovimientoList
           key={refreshKey}
           onEdit={handleEdit}
         />
