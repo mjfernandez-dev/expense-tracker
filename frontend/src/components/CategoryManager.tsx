@@ -107,23 +107,21 @@ function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
 
   if (loading) {
     return (
-      <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 mb-6">
-        <div className="text-center text-slate-300">Cargando categorías...</div>
-      </div>
+      <div className="text-center py-6 text-slate-300">Cargando categorías...</div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg mb-6 text-sm">
+      <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg text-sm">
         {error}
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 mb-6">
-      <h2 className="text-2xl font-bold mb-4 text-white">🏷️ Gestión de Categorías</h2>
+    <div>
+      <h2 className="text-2xl font-bold mb-4 text-white">Categorías</h2>
 
       {/* FORMULARIO */}
       <form onSubmit={handleSubmit} className="mb-6 pb-6 border-b border-slate-700/70">

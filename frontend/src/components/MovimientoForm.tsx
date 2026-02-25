@@ -18,6 +18,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [nota, setNota] = useState<string>('');
   const [categoriaId, setCategoriaId] = useState<string>('');
 
+  const [esGastoFijo, setEsGastoFijo] = useState<boolean>(false);
+
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setImporte('');
       setDescripcion('');
       setNota('');
+      setEsGastoFijo(false);
       if (categories.length > 0) {
         setCategoriaId(categories[0].id.toString());
       }
@@ -77,6 +80,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         tipo,
         categoria_id: null,
         user_category_id: parseInt(categoriaId) || null,
+        es_fijo: !movimientoToEdit && esGastoFijo,
       };
 
       if (movimientoToEdit) {
@@ -90,6 +94,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setImporte('');
       setDescripcion('');
       setNota('');
+      setEsGastoFijo(false);
 
     } catch (err) {
       setError(movimientoToEdit ? 'Error al actualizar el movimiento' : 'Error al registrar el movimiento');
@@ -212,6 +217,31 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
         </div>
+
+        {/* Toggle: Marcar como gasto fijo (solo en creación, solo para gastos) */}
+        {!movimientoToEdit && tipo === 'gasto' && (
+          <div
+            onClick={() => setEsGastoFijo(prev => !prev)}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all select-none ${
+              esGastoFijo
+                ? 'bg-purple-500/15 border-purple-400/50'
+                : 'bg-slate-800/40 border-slate-600/50 hover:border-slate-500'
+            }`}
+          >
+            {/* Switch visual */}
+            <div className={`relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0 ${esGastoFijo ? 'bg-purple-500' : 'bg-slate-600'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${esGastoFijo ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </div>
+            <div>
+              <span className={`text-sm font-medium ${esGastoFijo ? 'text-purple-300' : 'text-slate-300'}`}>
+                Marcar como gasto fijo
+              </span>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Se generará automáticamente el 1° de cada mes
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Botones */}
         <div className="flex gap-3 pt-2">

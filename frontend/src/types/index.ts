@@ -71,6 +71,8 @@ export interface Movimiento {
   updated_at: string;
   categoria: Category | null;
   user_category: UserCategory | null;
+  gasto_fijo_id: number | null;      // ID del template de gasto fijo (si aplica)
+  is_auto_generated: boolean;        // true si fue generado automáticamente
 }
 
 // Datos para CREAR un movimiento (coincide con MovimientoCreate del backend)
@@ -82,6 +84,24 @@ export interface MovimientoCreate {
   tipo: 'gasto' | 'ingreso';
   categoria_id: number | null;
   user_category_id: number | null;
+  es_fijo?: boolean;  // Si true, crea un GastoFijo template asociado
+}
+
+// ============== TIPOS DE GASTO FIJO ==============
+
+export interface GastoFijo {
+  id: number;
+  user_id: number;
+  descripcion: string;
+  categoria_id: number | null;
+  user_category_id: number | null;
+  activo: boolean;
+  created_at: string;
+  categoria: Category | null;
+  user_category: UserCategory | null;
+  max_importe: number | null;     // Máximo histórico (calculado)
+  ultimo_importe: number | null;  // Importe del último mes (calculado)
+  total_meses: number;            // Cantidad de meses registrados
 }
 
 // Alias de compatibilidad (para no romper imports existentes en split)

@@ -86,6 +86,25 @@ class UserCategory(Base):
 
 
 
+# MODELO: Gastos fijos recurrentes (template mensual)
+class GastoFijo(Base):
+    __tablename__ = "gastos_fijos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    descripcion = Column(EncryptedString, nullable=False)
+    categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+    # RELACIONES
+    usuario = relationship("User")
+    categoria = relationship("Category")
+    user_category = relationship("UserCategory")
+    instancias = relationship("Movimiento", back_populates="gasto_fijo")
+
+
 # MODELO 2: Tabla de movimientos (gastos e ingresos)
 class Movimiento(Base):
     __tablename__ = "movimientos"
@@ -110,10 +129,15 @@ class Movimiento(Base):
     # CLAVE FORÁNEA: Un movimiento siempre pertenece a UN usuario
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
+    # GASTO FIJO: FK opcional al template (si fue generado automáticamente)
+    gasto_fijo_id = Column(Integer, ForeignKey("gastos_fijos.id"), nullable=True, index=True)
+    is_auto_generated = Column(Boolean, default=False, nullable=False)
+
     # RELACIONES
     categoria = relationship("Category", back_populates="movimientos")  # Categoría del sistema
     user_category = relationship("UserCategory", back_populates="movimientos")  # Categoría personalizada
     usuario = relationship("User", back_populates="movimientos")
+    gasto_fijo = relationship("GastoFijo", back_populates="instancias")
 
     def __init__(self, **kwargs):
         """Validar que al menos una categoría esté definida."""

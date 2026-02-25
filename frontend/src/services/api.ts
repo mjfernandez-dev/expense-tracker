@@ -6,6 +6,7 @@ import type {
   UserCategory,
   Movimiento,
   MovimientoCreate,
+  GastoFijo,
   User,
   UserCreate,
   PasswordResetResponse,
@@ -275,6 +276,35 @@ export const deleteSplitExpense = async (groupId: number, expenseId: number): Pr
 
 export const getGroupBalances = async (groupId: number): Promise<GroupBalanceSummary> => {
   const response = await api.get(`/split-groups/${groupId}/balances`);
+  return response.data;
+};
+
+// ============== FUNCIONES PARA GASTOS FIJOS ==============
+
+// Listar gastos fijos del usuario con stats históricos
+// GET /gastos-fijos/ → devuelve GastoFijo[]
+export const getGastosFijos = async (): Promise<GastoFijo[]> => {
+  const response = await api.get('/gastos-fijos/');
+  return response.data;
+};
+
+// Activar o pausar un gasto fijo
+// PUT /gastos-fijos/{id} → envía {activo}, devuelve GastoFijo actualizado
+export const toggleGastoFijo = async (id: number, activo: boolean): Promise<GastoFijo> => {
+  const response = await api.put(`/gastos-fijos/${id}`, { activo });
+  return response.data;
+};
+
+// Eliminar un gasto fijo (los movimientos existentes quedan desvinculados)
+// DELETE /gastos-fijos/{id}
+export const deleteGastoFijo = async (id: number): Promise<void> => {
+  await api.delete(`/gastos-fijos/${id}`);
+};
+
+// Triggerear generación manual del mes actual (idempotente)
+// POST /gastos-fijos/generar-mes
+export const generarGastosFijosMes = async (): Promise<{ message: string }> => {
+  const response = await api.post('/gastos-fijos/generar-mes');
   return response.data;
 };
 

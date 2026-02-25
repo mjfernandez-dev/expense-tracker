@@ -152,7 +152,7 @@ class MovimientoBase(BaseModel):
 
 # Schema para CREAR un movimiento (POST)
 class MovimientoCreate(MovimientoBase):
-    pass  # Hereda todos los campos de MovimientoBase
+    es_fijo: bool = False  # Si True, crea un GastoFijo template asociado
 
 # Schema para LEER un movimiento (GET)
 # Incluye el ID y la categoría completa relacionada
@@ -161,12 +161,38 @@ class MovimientoRead(MovimientoBase):
     user_id: int  # Usuario propietario
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    gasto_fijo_id: Optional[int] = None  # ID del template de gasto fijo (si aplica)
+    is_auto_generated: bool = False  # True si fue generado automáticamente por el scheduler
     # RELACIÓN: Incluye la categoría completa, no solo el ID
     categoria: Optional[CategoryRead] = None  # Categoría del sistema (si está definida)
     user_category: Optional[UserCategoryRead] = None  # Categoría personalizada (si está definida)
 
     class Config:
         from_attributes = True  # Convierte modelos SQLAlchemy a JSON
+
+
+# ============== SCHEMAS PARA GASTO FIJO ==============
+
+class GastoFijoRead(BaseModel):
+    id: int
+    user_id: int
+    descripcion: str
+    categoria_id: Optional[int] = None
+    user_category_id: Optional[int] = None
+    activo: bool
+    created_at: datetime
+    categoria: Optional[CategoryRead] = None
+    user_category: Optional[UserCategoryRead] = None
+    max_importe: Optional[float] = None    # Máximo histórico (calculado en endpoint)
+    ultimo_importe: Optional[float] = None  # Importe del último mes (calculado en endpoint)
+    total_meses: int = 0                   # Cantidad de meses registrados
+
+    class Config:
+        from_attributes = True
+
+
+class GastoFijoUpdate(BaseModel):
+    activo: bool
 
 
 # ============== SCHEMAS PARA CONTACT ==============

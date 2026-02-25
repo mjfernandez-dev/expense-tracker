@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import type { Movimiento } from '../types';
-import { getMovimientos, deleteMovimiento } from '../services/api';
+import { getMovimientos, deleteMovimiento, toggleGastoFijo, deleteGastoFijo } from '../services/api';
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -20,7 +20,8 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);  // modal normal
+  const [autoDeleteTarget, setAutoDeleteTarget] = useState<Movimiento | null>(null);  // modal 3 opciones
   const [isDeleting, setIsDeleting] = useState(false);
   const [tabActivo, setTabActivo] = useState<TabActivo>('gastos');
 
@@ -79,6 +80,14 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     else setSelectedMonth((m) => m + 1);
   };
 
+  const handleDeleteRequest = (mov: Movimiento) => {
+    if (mov.is_auto_generated) {
+      setAutoDeleteTarget(mov);
+    } else {
+      setDeleteTarget(mov.id);
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     if (deleteTarget === null) return;
     setIsDeleting(true);
@@ -93,6 +102,49 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     }
   };
 
+  const handleAutoDeleteSoloEsteMes = async () => {
+    if (!autoDeleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteMovimiento(autoDeleteTarget.id);
+      await fetchMovimientos();
+      setAutoDeleteTarget(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleAutoDeletePausar = async () => {
+    if (!autoDeleteTarget?.gasto_fijo_id) return;
+    setIsDeleting(true);
+    try {
+      await toggleGastoFijo(autoDeleteTarget.gasto_fijo_id, false);
+      await deleteMovimiento(autoDeleteTarget.id);
+      await fetchMovimientos();
+      setAutoDeleteTarget(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleAutoDeleteEliminarTemplate = async () => {
+    if (!autoDeleteTarget?.gasto_fijo_id) return;
+    setIsDeleting(true);
+    try {
+      await deleteGastoFijo(autoDeleteTarget.gasto_fijo_id);
+      await fetchMovimientos();
+      setAutoDeleteTarget(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const listaActiva = tabActivo === 'gastos' ? gastosMes : ingresosMes;
   const esIngreso = tabActivo === 'ingresos';
 
@@ -102,7 +154,14 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         {new Date(mov.fecha).toLocaleDateString()}
       </td>
       <td className="px-4 py-3 text-sm text-slate-100 font-medium">
-        {mov.descripcion}
+        <div className="flex items-center gap-2">
+          {mov.descripcion}
+          {mov.is_auto_generated && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-400/30 whitespace-nowrap">
+              Auto
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3 text-sm">
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
@@ -128,7 +187,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
             Editar
           </button>
           <button
-            onClick={() => setDeleteTarget(mov.id)}
+            onClick={() => handleDeleteRequest(mov)}
             className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-3 py-1 rounded text-xs font-medium transition-all"
           >
             Eliminar
@@ -153,7 +212,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
             </span>
           </div>
           <div className="flex items-center justify-between mt-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-slate-400">{new Date(mov.fecha).toLocaleDateString()}</span>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
                 esIngreso
@@ -162,6 +221,11 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
               }`}>
                 {getNombreCategoria(mov)}
               </span>
+              {mov.is_auto_generated && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                  Auto
+                </span>
+              )}
             </div>
             <svg className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -182,7 +246,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                 Editar
               </button>
               <button
-                onClick={() => setDeleteTarget(mov.id)}
+                onClick={() => handleDeleteRequest(mov)}
                 className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-3 py-2 rounded-lg text-xs font-medium transition-all"
               >
                 Eliminar
@@ -358,14 +422,14 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         </>
       )}
 
-      {/* Modal de confirmación de eliminación */}
+      {/* Modal normal: eliminar movimiento regular */}
       {deleteTarget !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeleting && setDeleteTarget(null)} />
           <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 max-w-sm w-full">
             <h3 className="text-lg font-semibold text-white mb-2">Eliminar movimiento</h3>
             <p className="text-sm text-slate-300 mb-6">
-              ¿Estás seguro de que deseas eliminar este movimiento? Esta acción no se puede deshacer.
+              ¿Estás seguro? Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-3">
               <button
@@ -383,6 +447,56 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                 {isDeleting ? 'Eliminando...' : 'Eliminar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3 opciones: eliminar movimiento auto-generado */}
+      {autoDeleteTarget !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeleting && setAutoDeleteTarget(null)} />
+          <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 max-w-sm w-full">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-400/30">Auto</span>
+              <h3 className="text-lg font-semibold text-white">Movimiento automático</h3>
+            </div>
+            <p className="text-sm text-slate-300 mb-5">
+              Este movimiento fue generado automáticamente. ¿Qué querés hacer?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleAutoDeleteSoloEsteMes}
+                disabled={isDeleting}
+                className="w-full border border-slate-600 bg-slate-800/60 text-slate-200 font-medium py-2.5 rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-all text-sm text-left px-4"
+              >
+                <span className="font-semibold">Solo este mes</span>
+                <span className="block text-xs text-slate-400 mt-0.5">Borra el movimiento. El gasto fijo sigue activo.</span>
+              </button>
+              <button
+                onClick={handleAutoDeletePausar}
+                disabled={isDeleting}
+                className="w-full border border-amber-500/40 bg-amber-500/10 text-amber-200 font-medium py-2.5 rounded-lg hover:bg-amber-500/20 disabled:opacity-50 transition-all text-sm text-left px-4"
+              >
+                <span className="font-semibold">Pausar gasto fijo</span>
+                <span className="block text-xs text-amber-300/70 mt-0.5">Borra el movimiento y pausa la generación automática.</span>
+              </button>
+              <button
+                onClick={handleAutoDeleteEliminarTemplate}
+                disabled={isDeleting}
+                className="w-full border border-red-500/40 bg-red-500/10 text-red-200 font-medium py-2.5 rounded-lg hover:bg-red-500/20 disabled:opacity-50 transition-all text-sm text-left px-4"
+              >
+                <span className="font-semibold">Eliminar gasto fijo</span>
+                <span className="block text-xs text-red-300/70 mt-0.5">Elimina el template definitivamente. Los movimientos previos quedan intactos.</span>
+              </button>
+              <button
+                onClick={() => setAutoDeleteTarget(null)}
+                disabled={isDeleting}
+                className="w-full border border-slate-700 bg-transparent text-slate-400 font-medium py-2 rounded-lg hover:bg-slate-800/40 disabled:opacity-50 transition-all text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+            {isDeleting && <p className="text-xs text-slate-400 text-center mt-3">Procesando...</p>}
           </div>
         </div>
       )}

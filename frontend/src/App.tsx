@@ -5,13 +5,15 @@ import type { Movimiento } from './types';
 import MovimientoForm from './components/MovimientoForm';
 import MovimientoList from './components/MovimientoList';
 import CategoryManager from './components/CategoryManager';
+import GastoFijoManager from './components/GastoFijoManager';
 import { useAuth } from './context/useAuth';
 
 function App() {
   const [movimientoToEdit, setMovimientoToEdit] = useState<Movimiento | null>(null);
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [categoriesKey, setCategoriesKey] = useState<number>(0);
-  const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
+  const [showConfig, setShowConfig] = useState<boolean>(false);
+  const [configTab, setConfigTab] = useState<'categorias' | 'gastos-fijos'>('categorias');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -37,8 +39,8 @@ function App() {
     setMovimientoToEdit(null);
   };
 
-  const toggleCategoryManager = () => {
-    setShowCategoryManager(prev => !prev);
+  const toggleConfig = () => {
+    setShowConfig(prev => !prev);
   };
 
   return (
@@ -76,18 +78,52 @@ function App() {
           </div>
         </div>
 
-        {/* BOTÓN GESTIONAR CATEGORÍAS */}
+        {/* BOTÓN CONFIGURACIÓN */}
         <div className="mb-6">
           <button
-            onClick={toggleCategoryManager}
+            onClick={toggleConfig}
             className="border border-blue-400/70 bg-slate-800/40 text-blue-300 font-medium px-5 py-2 rounded-lg hover:bg-slate-800/60 transition-all duration-200"
           >
-            {showCategoryManager ? 'Ocultar Categorias' : 'Gestionar Categorias'}
+            {showConfig ? 'Ocultar Configuración' : 'Configuración'}
           </button>
         </div>
 
-        {/* PANEL DE CATEGORÍAS */}
-        {showCategoryManager && <CategoryManager onCategoriesChanged={handleCategoriesChanged} />}
+        {/* PANEL DE CONFIGURACIÓN con tabs */}
+        {showConfig && (
+          <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 mb-6">
+            {/* Tabs */}
+            <div className="flex gap-1 mb-6 p-1 bg-slate-950/50 rounded-xl w-fit">
+              <button
+                onClick={() => setConfigTab('categorias')}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  configTab === 'categorias'
+                    ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Categorías
+              </button>
+              <button
+                onClick={() => setConfigTab('gastos-fijos')}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  configTab === 'gastos-fijos'
+                    ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.4)]'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Gastos Fijos
+              </button>
+            </div>
+
+            {/* Contenido del tab activo */}
+            {configTab === 'categorias' && (
+              <CategoryManager onCategoriesChanged={handleCategoriesChanged} />
+            )}
+            {configTab === 'gastos-fijos' && (
+              <GastoFijoManager />
+            )}
+          </div>
+        )}
 
         {/* FORMULARIO DE MOVIMIENTOS */}
         <MovimientoForm

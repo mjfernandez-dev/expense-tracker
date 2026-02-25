@@ -28,13 +28,18 @@ logger = logging.getLogger("finanzaapp")
 from fastapi import FastAPI, Depends, HTTPException, status
 # SQLAlchemy Session para interactuar con la base de datos
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 # Importamos typing para tipar listas
 from typing import List, Optional
 from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
 import math
 from uuid import uuid4
 import hmac
 import hashlib
+
+# Scheduler para gastos fijos recurrentes
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # Para el formulario de login
 from fastapi.security import OAuth2PasswordRequestForm
@@ -78,12 +83,99 @@ Base.metadata.create_all(bind=engine)
 #   3. Revisar la migración generada
 #   4. Ejecutar: alembic upgrade head
 
+
+# ============== LÓGICA DE GASTOS FIJOS RECURRENTES ==============
+
+def _ejecutar_generacion_mensual(db: Session) -> int:
+    """
+    Genera los movimientos automáticos del mes actual para todos los gastos fijos activos.
+    Es idempotente: no crea duplicados si ya existe un movimiento del gasto fijo para el mes.
+    Retorna la cantidad de movimientos creados.
+    """
+    ahora = datetime.now()
+    inicio_mes = ahora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # Calcular inicio del próximo mes sin dateutil
+    fin_mes = (inicio_mes + timedelta(days=32)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    gastos_fijos = db.query(models.GastoFijo).filter(models.GastoFijo.activo == True).all()
+
+    creados = 0
+    for gf in gastos_fijos:
+        # Deduplicación: saltar si ya existe un movimiento para este mes
+        ya_existe = db.query(models.Movimiento).filter(
+            models.Movimiento.gasto_fijo_id == gf.id,
+            models.Movimiento.fecha >= inicio_mes,
+            models.Movimiento.fecha < fin_mes
+        ).first()
+        if ya_existe:
+            continue
+
+        # Importe = máximo histórico de todas las instancias del template
+        max_importe = db.query(func.max(models.Movimiento.importe)).filter(
+            models.Movimiento.gasto_fijo_id == gf.id
+        ).scalar()
+        if max_importe is None:
+            continue  # Sin historial previo, no generar
+
+        nuevo = models.Movimiento(
+            importe=max_importe,
+            fecha=inicio_mes,
+            descripcion=gf.descripcion,
+            nota="Generado automáticamente",
+            tipo="gasto",
+            categoria_id=gf.categoria_id,
+            user_category_id=gf.user_category_id,
+            user_id=gf.user_id,
+            gasto_fijo_id=gf.id,
+            is_auto_generated=True,
+        )
+        db.add(nuevo)
+        creados += 1
+
+    if creados:
+        db.commit()
+    return creados
+
+
+_scheduler = AsyncIOScheduler()
+
+
+def _job_generar_gastos_fijos():
+    """Job del scheduler: se ejecuta el día 1 de cada mes."""
+    db = next(get_db())
+    try:
+        creados = _ejecutar_generacion_mensual(db)
+        logger.info(json.dumps({"msg": "gastos_fijos_generados", "creados": creados}))
+    except Exception as e:
+        logger.error(json.dumps({"msg": "error_generando_gastos_fijos", "error": str(e)}))
+    finally:
+        db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Al arrancar: ejecutar generación como catch-up (idempotente)
+    db = next(get_db())
+    try:
+        _ejecutar_generacion_mensual(db)
+    finally:
+        db.close()
+
+    # Programar job: día 1 de cada mes a las 00:01
+    _scheduler.add_job(_job_generar_gastos_fijos, 'cron', day=1, hour=0, minute=1)
+    _scheduler.start()
+
+    yield
+
+    _scheduler.shutdown()
+
+
 # Crear la aplicación FastAPI
 # Deshabilitar docs en producción
 if config.IS_PRODUCTION:
-    app = FastAPI(title="Expense Tracker API", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Expense Tracker API", docs_url=None, redoc_url=None, lifespan=lifespan)
 else:
-    app = FastAPI(title="Expense Tracker API")
+    app = FastAPI(title="Expense Tracker API", lifespan=lifespan)
 
 # Rate limiting para prevenir brute force
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -537,11 +629,24 @@ def create_movimiento(
             raise HTTPException(status_code=404, detail="Categoría personalizada no existe")
 
     # Crear el movimiento asociado al usuario actual
-    db_movimiento = models.Movimiento(
-        **movimiento.model_dump(),
-        user_id=current_user.id
-    )
+    # Excluir 'es_fijo' del dump ya que no es columna del modelo
+    datos = movimiento.model_dump(exclude={"es_fijo"})
+    db_movimiento = models.Movimiento(**datos, user_id=current_user.id)
     db.add(db_movimiento)
+    db.flush()  # Obtener ID sin hacer commit todavía
+
+    # Si se marcó como gasto fijo, crear el template y vincularlo
+    if movimiento.es_fijo:
+        db_gasto_fijo = models.GastoFijo(
+            user_id=current_user.id,
+            descripcion=movimiento.descripcion,
+            categoria_id=movimiento.categoria_id,
+            user_category_id=movimiento.user_category_id,
+        )
+        db.add(db_gasto_fijo)
+        db.flush()
+        db_movimiento.gasto_fijo_id = db_gasto_fijo.id
+
     db.commit()
     db.refresh(db_movimiento)
     return db_movimiento
@@ -1668,6 +1773,140 @@ def get_payment_status(
             pass  # Si falla la consulta a MP, devolver el estado local
 
     return db_payment
+
+
+# ============== ENDPOINTS DE GASTOS FIJOS ==============
+
+# LISTAR gastos fijos del usuario - GET /gastos-fijos/
+@app.get("/gastos-fijos/", response_model=List[schemas.GastoFijoRead])
+def list_gastos_fijos(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    gastos_fijos = (
+        db.query(models.GastoFijo)
+        .filter(models.GastoFijo.user_id == current_user.id)
+        .options(joinedload(models.GastoFijo.categoria), joinedload(models.GastoFijo.user_category))
+        .all()
+    )
+
+    result = []
+    for gf in gastos_fijos:
+        # Calcular stats desde el historial de instancias
+        stats = db.query(
+            func.max(models.Movimiento.importe).label("max_importe"),
+            func.count(models.Movimiento.id).label("total_meses"),
+        ).filter(models.Movimiento.gasto_fijo_id == gf.id).one()
+
+        # Último importe: el del movimiento con fecha más reciente
+        ultimo = (
+            db.query(models.Movimiento.importe)
+            .filter(models.Movimiento.gasto_fijo_id == gf.id)
+            .order_by(models.Movimiento.fecha.desc())
+            .first()
+        )
+
+        gf_dict = {
+            "id": gf.id,
+            "user_id": gf.user_id,
+            "descripcion": gf.descripcion,
+            "categoria_id": gf.categoria_id,
+            "user_category_id": gf.user_category_id,
+            "activo": gf.activo,
+            "created_at": gf.created_at,
+            "categoria": gf.categoria,
+            "user_category": gf.user_category,
+            "max_importe": stats.max_importe,
+            "ultimo_importe": ultimo[0] if ultimo else None,
+            "total_meses": stats.total_meses,
+        }
+        result.append(gf_dict)
+
+    return result
+
+
+# ACTUALIZAR gasto fijo (toggle activo) - PUT /gastos-fijos/{id}
+@app.put("/gastos-fijos/{gasto_fijo_id}", response_model=schemas.GastoFijoRead)
+def update_gasto_fijo(
+    gasto_fijo_id: int,
+    update: schemas.GastoFijoUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    gf = db.query(models.GastoFijo).filter(
+        models.GastoFijo.id == gasto_fijo_id,
+        models.GastoFijo.user_id == current_user.id
+    ).first()
+    if not gf:
+        raise HTTPException(status_code=404, detail="Gasto fijo no encontrado")
+
+    gf.activo = update.activo
+    db.commit()
+    db.refresh(gf)
+
+    # Recalcular stats para el response
+    stats = db.query(
+        func.max(models.Movimiento.importe).label("max_importe"),
+        func.count(models.Movimiento.id).label("total_meses"),
+    ).filter(models.Movimiento.gasto_fijo_id == gf.id).one()
+
+    ultimo = (
+        db.query(models.Movimiento.importe)
+        .filter(models.Movimiento.gasto_fijo_id == gf.id)
+        .order_by(models.Movimiento.fecha.desc())
+        .first()
+    )
+
+    return {
+        "id": gf.id,
+        "user_id": gf.user_id,
+        "descripcion": gf.descripcion,
+        "categoria_id": gf.categoria_id,
+        "user_category_id": gf.user_category_id,
+        "activo": gf.activo,
+        "created_at": gf.created_at,
+        "categoria": gf.categoria,
+        "user_category": gf.user_category,
+        "max_importe": stats.max_importe,
+        "ultimo_importe": ultimo[0] if ultimo else None,
+        "total_meses": stats.total_meses,
+    }
+
+
+# ELIMINAR gasto fijo - DELETE /gastos-fijos/{id}
+# Los movimientos existentes quedan intactos (gasto_fijo_id se pone en NULL por la DB)
+@app.delete("/gastos-fijos/{gasto_fijo_id}")
+def delete_gasto_fijo(
+    gasto_fijo_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    gf = db.query(models.GastoFijo).filter(
+        models.GastoFijo.id == gasto_fijo_id,
+        models.GastoFijo.user_id == current_user.id
+    ).first()
+    if not gf:
+        raise HTTPException(status_code=404, detail="Gasto fijo no encontrado")
+
+    # Desvincular instancias antes de eliminar (poner gasto_fijo_id en NULL)
+    db.query(models.Movimiento).filter(
+        models.Movimiento.gasto_fijo_id == gasto_fijo_id
+    ).update({"gasto_fijo_id": None, "is_auto_generated": False})
+
+    db.delete(gf)
+    db.commit()
+    return {"message": "Gasto fijo eliminado correctamente"}
+
+
+# TRIGGER MANUAL de generación mensual - POST /gastos-fijos/generar-mes
+# Útil para testing y catch-up; es idempotente
+@app.post("/gastos-fijos/generar-mes")
+def generar_mes(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    creados = _ejecutar_generacion_mensual(db)
+    return {"message": f"Generación completada. Movimientos creados: {creados}"}
 
 
 # Endpoint raíz para verificar que la API funciona
