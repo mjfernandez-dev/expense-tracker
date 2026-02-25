@@ -29,8 +29,20 @@ export default function ResetPassword() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    if (newPassword.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      setError('La contraseña debe contener al menos una mayúscula');
+      return;
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      setError('La contraseña debe contener al menos una minúscula');
+      return;
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      setError('La contraseña debe contener al menos un número');
       return;
     }
 
