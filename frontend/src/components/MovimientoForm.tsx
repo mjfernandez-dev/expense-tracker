@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import type { Category, MovimientoCreate, Movimiento } from '../types';
-import { getCategories, createMovimiento, updateMovimiento } from '../services/api';
+import type { UserCategory, MovimientoCreate, Movimiento } from '../types';
+import { getUserCategories, createMovimiento, updateMovimiento } from '../services/api';
 
 interface MovimientoFormProps {
   onMovimientoCreated: () => void;
@@ -18,14 +18,14 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [nota, setNota] = useState<string>('');
   const [categoriaId, setCategoriaId] = useState<string>('');
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const data = await getCategories();
+        const data = await getUserCategories();
         setCategories(data);
         if (data.length > 0 && !movimientoToEdit) {
           setCategoriaId(data[0].id.toString());
@@ -75,8 +75,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         descripcion,
         nota: nota || null,
         tipo,
-        categoria_id: parseInt(categoriaId),
-        user_category_id: null,
+        categoria_id: null,
+        user_category_id: parseInt(categoriaId) || null,
       };
 
       if (movimientoToEdit) {
