@@ -58,6 +58,9 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
       - BACKEND_URL=${BACKEND_URL:-http://localhost:8000}
 
+      # Encriptación (requerida para campos sensibles)
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+
       # CORS
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
     restart: unless-stopped
