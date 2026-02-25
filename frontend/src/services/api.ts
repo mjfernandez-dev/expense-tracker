@@ -112,10 +112,10 @@ export const getCategories = async (): Promise<Category[]> => {
   return response.data;  // axios.data contiene el body de la respuesta
 };
 
-// Crear una categoría
-// POST /categories/ → envía {nombre}, devuelve Category
+// Crear una categoría personalizada
+// POST /user-categories/ → envía {nombre}, devuelve Category
 export const createCategory = async (nombre: string): Promise<Category> => {
-  const response = await api.post('/categories/', { nombre });
+  const response = await api.post('/user-categories/', { nombre });
   return response.data;
 };
 
@@ -163,16 +163,16 @@ export const getExpense = getMovimiento;
 export const deleteExpense = deleteMovimiento;
 export const updateExpense = (id: number, expense: MovimientoCreate) => updateMovimiento(id, expense);
 
-// Eliminar una categoría
-// DELETE /categories/{id}
+// Eliminar una categoría personalizada
+// DELETE /user-categories/{id}
 export const deleteCategory = async (id: number): Promise<void> => {
-  await api.delete(`/categories/${id}`);
+  await api.delete(`/user-categories/${id}`);
 };
 
-// Actualizar una categoría
-// PUT /categories/{id} → envía {nombre}, devuelve Category
+// Actualizar una categoría personalizada
+// PUT /user-categories/{id} → envía {nombre}, devuelve Category
 export const updateCategory = async (id: number, nombre: string): Promise<Category> => {
-  const response = await api.put(`/categories/${id}`, { nombre });
+  const response = await api.put(`/user-categories/${id}`, { nombre });
   return response.data;
 };
 
