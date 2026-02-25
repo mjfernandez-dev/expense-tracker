@@ -3,6 +3,7 @@ import axios from 'axios';
 // CONEXIÓN: Importamos los tipos definidos en types/index.ts
 import type {
   Category,
+  UserCategory,
   Movimiento,
   MovimientoCreate,
   User,
@@ -105,16 +106,23 @@ export const updatePaymentInfo = async (aliasBancario: string | null, cvu: strin
 
 // ============== FUNCIONES PARA CATEGORÍAS ==============
 
-// Obtener todas las categorías
+// Obtener categorías del sistema (predeterminadas, solo lectura)
 // GET /categories/ → devuelve Category[]
 export const getCategories = async (): Promise<Category[]> => {
   const response = await api.get('/categories/');
-  return response.data;  // axios.data contiene el body de la respuesta
+  return response.data;
+};
+
+// Obtener categorías personalizadas del usuario autenticado
+// GET /user-categories/ → devuelve UserCategory[]
+export const getUserCategories = async (): Promise<UserCategory[]> => {
+  const response = await api.get('/user-categories/');
+  return response.data;
 };
 
 // Crear una categoría personalizada
-// POST /user-categories/ → envía {nombre}, devuelve Category
-export const createCategory = async (nombre: string): Promise<Category> => {
+// POST /user-categories/ → envía {nombre}, devuelve UserCategory
+export const createCategory = async (nombre: string): Promise<UserCategory> => {
   const response = await api.post('/user-categories/', { nombre });
   return response.data;
 };
@@ -170,8 +178,8 @@ export const deleteCategory = async (id: number): Promise<void> => {
 };
 
 // Actualizar una categoría personalizada
-// PUT /user-categories/{id} → envía {nombre}, devuelve Category
-export const updateCategory = async (id: number, nombre: string): Promise<Category> => {
+// PUT /user-categories/{id} → envía {nombre}, devuelve UserCategory
+export const updateCategory = async (id: number, nombre: string): Promise<UserCategory> => {
   const response = await api.put(`/user-categories/${id}`, { nombre });
   return response.data;
 };

@@ -1,15 +1,15 @@
 // COMPONENTE: Gestión de categorías con diseño moderno
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import type { Category } from '../types';
-import { getCategories, createCategory, updateCategory, deleteCategory } from '../services/api';
+import type { UserCategory } from '../types';
+import { getUserCategories, createCategory, updateCategory, deleteCategory } from '../services/api';
 
 interface CategoryManagerProps {
   onCategoriesChanged?: () => void;
 }
 
 function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -24,7 +24,7 @@ function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const data = await getCategories();
+      const data = await getUserCategories();
       setCategories(data);
     } catch (err) {
       setError('Error al cargar categorías');
@@ -70,7 +70,7 @@ function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
     }
   };
 
-  const handleEdit = (category: Category) => {
+  const handleEdit = (category: UserCategory) => {
     setNombre(category.nombre);
     setEditingId(category.id);
     setFormError(null);
@@ -188,12 +188,8 @@ function CategoryManager({ onCategoriesChanged }: CategoryManagerProps) {
                     {category.nombre}
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      category.es_predeterminada
-                        ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30'
-                        : 'bg-green-500/20 text-green-300 border border-green-400/30'
-                    }`}>
-                      {category.es_predeterminada ? 'Predeterminada' : 'Personalizada'}
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-300 border border-green-400/30">
+                      Personalizada
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-center">
