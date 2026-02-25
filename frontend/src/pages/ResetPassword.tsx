@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { resetPassword } from '../services/api';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const tokenFromUrl = searchParams.get('token') || '';
 
+  const navigate = useNavigate();
   const [token, setToken] = useState(tokenFromUrl);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -37,13 +38,19 @@ export default function ResetPassword() {
 
     try {
       await resetPassword(token, newPassword);
-      setMessage('Tu contraseña se ha restablecido correctamente. Ahora puedes iniciar sesión con la nueva contraseña.');
+      setMessage('Tu contraseña se ha restablecido correctamente. Redirigiendo al login...');
       setNewPassword('');
       setConfirmPassword('');
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { detail?: string } } };
-        setError(axiosError.response?.data?.detail || 'Error al restablecer la contraseña');
+        const axiosError = err as { response?: { data?: { detail?: unknown } } };
+        const detail = axiosError.response?.data?.detail;
+        if (typeof detail === 'string') {
+          setError(detail);
+        } else {
+          setError('Token inválido o expirado. Solicitá un nuevo enlace de recuperación.');
+        }
       } else {
         setError('Error al restablecer la contraseña');
       }
