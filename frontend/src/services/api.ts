@@ -34,6 +34,62 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// ============== INTERCEPTOR: REFRESH TOKEN AUTOMÁTICO ==============
+// Cuando el backend devuelve 401, intenta renovar el access_token usando el
+// refresh_token (cookie httpOnly). Si lo renueva, reintenta el request original
+// transparentemente. Si el refresh también falla, redirige al login.
+
+let isRefreshing = false;
+let refreshSubscribers: Array<() => void> = [];
+
+function notifyRefreshDone() {
+  refreshSubscribers.forEach((cb) => cb());
+  refreshSubscribers = [];
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    const isAuthEndpoint =
+      originalRequest?.url?.includes('/auth/refresh') ||
+      originalRequest?.url?.includes('/auth/login');
+
+    if (error.response?.status === 401 && !originalRequest?._retry && !isAuthEndpoint) {
+      if (isRefreshing) {
+        // Si ya hay un refresh en curso, encolar este request y esperar
+        return new Promise((resolve, reject) => {
+          refreshSubscribers.push(() => {
+            api(originalRequest).then(resolve).catch(reject);
+          });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        await api.post('/auth/refresh');
+        notifyRefreshDone();
+        isRefreshing = false;
+        return api(originalRequest);
+      } catch {
+        isRefreshing = false;
+        refreshSubscribers = [];
+        // Solo redirigir si no estamos ya en una página pública
+        const publicPaths = ['/login', '/register', '/reset-password', '/forgot-password'];
+        const isPublicPage = publicPaths.some((p) => window.location.pathname.startsWith(p));
+        if (!isPublicPage) {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // ============== FUNCIONES DE AUTENTICACIÓN ==============
 
 // Registrar nuevo usuario

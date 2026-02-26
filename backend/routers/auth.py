@@ -15,10 +15,14 @@ from auth import (
     verify_password,
     authenticate_user,
     create_access_token,
+    create_refresh_token,
+    validate_and_rotate_refresh_token,
+    revoke_refresh_token,
     get_current_active_user,
     get_user_by_username,
     get_user_by_email,
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS,
 )
 from database import get_db
 from dependencies import limiter
@@ -64,6 +68,8 @@ def login(
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
+    refresh_token = create_refresh_token(db, user.id)
+
     response = JSONResponse(content={"message": "Login exitoso"})
     response.set_cookie(
         key="access_token",
@@ -74,17 +80,67 @@ def login(
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=config.IS_PRODUCTION,
+        samesite="lax",
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/",
+    )
     return response
 
 
 @router.post("/logout")
-def logout():
+def logout(request: Request, db: Session = Depends(get_db)):
+    raw_refresh = request.cookies.get("refresh_token")
+    if raw_refresh:
+        revoke_refresh_token(db, raw_refresh)
+
     response = JSONResponse(content={"message": "Sesión cerrada"})
-    response.delete_cookie(
+    response.delete_cookie(key="access_token", httponly=True, secure=config.IS_PRODUCTION, samesite="lax", path="/")
+    response.delete_cookie(key="refresh_token", httponly=True, secure=config.IS_PRODUCTION, samesite="lax", path="/")
+    return response
+
+
+@router.post("/refresh")
+def refresh_token(request: Request, db: Session = Depends(get_db)):
+    """Renueva el access_token usando el refresh_token de la cookie.
+
+    Implementa rotación: el refresh token viejo se revoca y se emite uno nuevo.
+    """
+    raw_refresh = request.cookies.get("refresh_token")
+    if not raw_refresh:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token no encontrado",
+        )
+
+    user, new_raw_refresh = validate_and_rotate_refresh_token(db, raw_refresh)
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    new_access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+
+    response = JSONResponse(content={"message": "Token renovado"})
+    response.set_cookie(
         key="access_token",
+        value=new_access_token,
         httponly=True,
         secure=config.IS_PRODUCTION,
         samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=new_raw_refresh,
+        httponly=True,
+        secure=config.IS_PRODUCTION,
+        samesite="lax",
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         path="/",
     )
     return response

@@ -24,6 +24,20 @@ class User(Base):
     movimientos = relationship("Movimiento", back_populates="usuario")
 
 
+# MODELO: Tabla de refresh tokens (para renovar access tokens sin re-login)
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = Column(String, unique=True, index=True, nullable=False)  # SHA256 del token raw
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+    user = relationship("User")
+
+
 # MODELO: Tabla de tokens para restablecer contraseña
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
