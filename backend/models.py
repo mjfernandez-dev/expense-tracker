@@ -1,5 +1,5 @@
 # Importamos tipos de columnas y herramientas de SQLAlchemy
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Numeric, DateTime, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 # CONEXIÓN: Importamos Base desde database.py (la clase padre de todos los modelos)
 from database import Base
@@ -111,7 +111,7 @@ class Movimiento(Base):
 
     # COLUMNAS principales
     id = Column(Integer, primary_key=True, index=True)
-    importe = Column(Float, nullable=False)  # Monto del movimiento
+    importe = Column(Numeric(10, 2), nullable=False)  # Monto del movimiento
     fecha = Column(DateTime, default=datetime.now)  # Se asigna automáticamente la fecha actual
     descripcion = Column(EncryptedString, nullable=False)  # Obligatoria
     nota = Column(EncryptedString, nullable=True)  # Opcional (puede ser NULL)
@@ -206,7 +206,7 @@ class SplitExpense(Base):
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
     descripcion = Column(EncryptedString, nullable=False)
-    importe = Column(Float, nullable=False)
+    importe = Column(Numeric(10, 2), nullable=False)
     paid_by_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
     fecha = Column(DateTime, default=datetime.now)
     created_at = Column(DateTime, default=datetime.now)
@@ -224,7 +224,7 @@ class SplitExpenseParticipant(Base):
     id = Column(Integer, primary_key=True, index=True)
     expense_id = Column(Integer, ForeignKey("split_expenses.id"), nullable=False)
     member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
-    share_amount = Column(Float, nullable=False)
+    share_amount = Column(Numeric(10, 2), nullable=False)
 
     # RELACIONES
     expense = relationship("SplitExpense", back_populates="participants")
@@ -240,7 +240,7 @@ class Payment(Base):
     group_id = Column(Integer, ForeignKey("split_groups.id"), nullable=False)
     from_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
     to_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(10, 2), nullable=False)
 
     # Mercado Pago
     mp_preference_id = Column(String, nullable=True)
