@@ -1,8 +1,12 @@
 # Pydantic valida que los datos recibidos/enviados por la API sean correctos
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, PlainSerializer
 from datetime import datetime
-from typing import Optional, List
+from decimal import Decimal
+from typing import Annotated, Optional, List
 import re
+
+# Tipo para montos de dinero: precisión Decimal internamente, serializa como float en JSON
+MoneyDecimal = Annotated[Decimal, PlainSerializer(lambda x: float(x), return_type=float)]
 
 
 def _validate_password_strength(password: str) -> str:
@@ -142,7 +146,7 @@ class UserCategoryRead(UserCategoryBase):
 
 # Schema BASE: Campos comunes
 class MovimientoBase(BaseModel):
-    importe: float  # Monto del movimiento
+    importe: MoneyDecimal  # Monto del movimiento
     fecha: datetime  # Fecha y hora del movimiento
     descripcion: str  # Descripción obligatoria
     nota: Optional[str] = None  # Nota opcional (puede ser None)
@@ -183,8 +187,8 @@ class GastoFijoRead(BaseModel):
     created_at: datetime
     categoria: Optional[CategoryRead] = None
     user_category: Optional[UserCategoryRead] = None
-    max_importe: Optional[float] = None    # Máximo histórico (calculado en endpoint)
-    ultimo_importe: Optional[float] = None  # Importe del último mes (calculado en endpoint)
+    max_importe: Optional[MoneyDecimal] = None    # Máximo histórico (calculado en endpoint)
+    ultimo_importe: Optional[MoneyDecimal] = None  # Importe del último mes (calculado en endpoint)
     total_meses: int = 0                   # Cantidad de meses registrados
 
     class Config:
@@ -266,7 +270,7 @@ class QuickAddMemberRequest(BaseModel):
 class SplitExpenseParticipantRead(BaseModel):
     id: int
     member_id: int
-    share_amount: float
+    share_amount: MoneyDecimal
     member: SplitGroupMemberRead
 
     class Config:
@@ -275,13 +279,13 @@ class SplitExpenseParticipantRead(BaseModel):
 
 class SplitExpenseBase(BaseModel):
     descripcion: str
-    importe: float
+    importe: MoneyDecimal
     paid_by_member_id: int
     fecha: Optional[datetime] = None
 
     @field_validator('importe')
     @classmethod
-    def importe_must_be_positive(cls, v: float) -> float:
+    def importe_must_be_positive(cls, v: Decimal) -> Decimal:
         if v <= 0:
             raise ValueError('El importe debe ser mayor a 0')
         return v
@@ -307,9 +311,9 @@ class SplitExpenseRead(SplitExpenseBase):
 class MemberBalance(BaseModel):
     member_id: int
     display_name: str
-    total_paid: float
-    total_share: float
-    net_balance: float
+    total_paid: MoneyDecimal
+    total_share: MoneyDecimal
+    net_balance: MoneyDecimal
     contact: Optional[ContactRead] = None
 
 
@@ -318,10 +322,10 @@ class DebtTransfer(BaseModel):
     from_display_name: str
     to_member_id: int
     to_display_name: str
-    amount: float
+    amount: MoneyDecimal
     to_alias_bancario: Optional[str] = None
     to_cvu: Optional[str] = None
-    paid_amount: float = 0
+    paid_amount: MoneyDecimal = Decimal('0')
     payment_status: Optional[str] = None
     payment_id: Optional[int] = None
 
@@ -329,7 +333,7 @@ class DebtTransfer(BaseModel):
 class GroupBalanceSummary(BaseModel):
     group_id: int
     group_name: str
-    total_expenses: float
+    total_expenses: MoneyDecimal
     balances: List[MemberBalance]
     simplified_debts: List[DebtTransfer]
 
@@ -340,7 +344,7 @@ class PaymentCreate(BaseModel):
     group_id: int
     from_member_id: int
     to_member_id: int
-    amount: float
+    amount: MoneyDecimal
 
 
 class PaymentRead(BaseModel):
@@ -348,7 +352,7 @@ class PaymentRead(BaseModel):
     group_id: int
     from_member_id: int
     to_member_id: int
-    amount: float
+    amount: MoneyDecimal
     mp_preference_id: Optional[str] = None
     mp_payment_id: Optional[str] = None
     status: str
