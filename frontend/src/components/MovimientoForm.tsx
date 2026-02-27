@@ -20,6 +20,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [nota, setNota] = useState<string>('');
   const [categoriaId, setCategoriaId] = useState<string>('');
 
+  const [fecha, setFecha] = useState<string>(new Date().toISOString().split('T')[0]);
   const [esGastoFijo, setEsGastoFijo] = useState<boolean>(false);
 
   const [categories, setCategories] = useState<UserCategory[]>([]);
@@ -48,6 +49,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setImporte(movimientoToEdit.importe.toString());
       setDescripcion(movimientoToEdit.descripcion);
       setNota(movimientoToEdit.nota || '');
+      setFecha(movimientoToEdit.fecha.split('T')[0]);
       const catId = movimientoToEdit.categoria_id ?? movimientoToEdit.user_category_id;
       setCategoriaId(catId ? catId.toString() : '');
     } else {
@@ -55,6 +57,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setImporte('');
       setDescripcion('');
       setNota('');
+      setFecha(new Date().toISOString().split('T')[0]);
       setEsGastoFijo(false);
       if (categories.length > 0) {
         setCategoriaId(categories[0].id.toString());
@@ -76,7 +79,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
       const movimientoData: MovimientoCreate = {
         importe: parseFloat(importe),
-        fecha: movimientoToEdit ? movimientoToEdit.fecha : new Date().toISOString(),
+        fecha: fecha + 'T00:00:00',
         descripcion,
         nota: nota || null,
         tipo,
@@ -211,6 +214,22 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               ¿No encontrás la categoría? Administrar categorías →
             </button>
           </div>
+        </div>
+
+        {/* Campo: Fecha */}
+        <div>
+          <label className="block text-sm font-medium text-slate-100 mb-1">
+            Fecha
+          </label>
+          <input
+            type="date"
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+            className={`w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all [color-scheme:dark]`}
+          />
+          <p className="text-xs text-slate-400 mt-1">
+            Cambiá la fecha para asignar el movimiento a otro mes
+          </p>
         </div>
 
         {/* Campo: Nota */}
