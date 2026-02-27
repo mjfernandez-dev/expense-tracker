@@ -38,6 +38,34 @@ function Tools() {
             </p>
           </div>
 
+          {/* Card: Categorías */}
+          <div
+            onClick={() => navigate('/tools/categorias')}
+            className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 hover:border-blue-400/50 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all duration-300 cursor-pointer group"
+          >
+            <div className="text-4xl mb-4">🏷️</div>
+            <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
+              Categorías
+            </h3>
+            <p className="text-sm text-slate-400">
+              Administrá tus categorías personalizadas para clasificar movimientos.
+            </p>
+          </div>
+
+          {/* Card: Recurrentes */}
+          <div
+            onClick={() => navigate('/tools/recurrentes')}
+            className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 hover:border-blue-400/50 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all duration-300 cursor-pointer group"
+          >
+            <div className="text-4xl mb-4">🔄</div>
+            <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
+              Gastos Recurrentes
+            </h3>
+            <p className="text-sm text-slate-400">
+              Gastos fijos que se generan automáticamente el 1° de cada mes.
+            </p>
+          </div>
+
         </div>
       </div>
     </div>

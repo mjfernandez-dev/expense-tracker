@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { UserCategory, MovimientoCreate, Movimiento } from '../types';
 import { getUserCategories, createMovimiento, updateMovimiento } from '../services/api';
 
@@ -12,6 +13,7 @@ interface MovimientoFormProps {
 }
 
 function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoToEdit, onCancelEdit, categoriesVersion }: MovimientoFormProps) {
+  const navigate = useNavigate();
   const [tipo, setTipo] = useState<'gasto' | 'ingreso'>('gasto');
   const [importe, setImporte] = useState<string>('');
   const [descripcion, setDescripcion] = useState<string>('');
@@ -201,6 +203,13 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => navigate('/tools/categorias')}
+              className="mt-1.5 text-xs text-slate-500 hover:text-blue-400 transition-colors text-left"
+            >
+              ¿No encontrás la categoría? Administrar categorías →
+            </button>
           </div>
         </div>
 

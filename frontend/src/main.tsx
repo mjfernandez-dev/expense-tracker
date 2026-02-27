@@ -14,6 +14,8 @@ import ContactsPage from './pages/ContactsPage.tsx';
 import SplitGroupsPage from './pages/SplitGroupsPage.tsx';
 import SplitGroupDetail from './pages/SplitGroupDetail.tsx';
 import PaymentResultPage from './pages/PaymentResultPage.tsx';
+import CategoriasPage from './pages/CategoriasPage.tsx';
+import RecurrentesPage from './pages/RecurrentesPage.tsx';
 import { AuthProvider } from './context/AuthProvider.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 
@@ -55,6 +57,22 @@ createRoot(document.getElementById('root')!).render(
             element={
               <ProtectedRoute>
                 <Tools />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tools/categorias"
+            element={
+              <ProtectedRoute>
+                <CategoriasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tools/recurrentes"
+            element={
+              <ProtectedRoute>
+                <RecurrentesPage />
               </ProtectedRoute>
             }
           />
