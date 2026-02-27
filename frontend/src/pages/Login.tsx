@@ -5,7 +5,7 @@ import { loginUser } from '../services/api';
 import authLogo from '../assets/auth-logo.jpeg';
 
 // Cambia este flag a false si quieres usar el icono 📊 en lugar de la imagen
-const SHOW_IMAGE_LOGO = true;
+const SHOW_IMAGE_LOGO = false;
 
 export default function Login() {
   const [username, setUsername] = useState('');

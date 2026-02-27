@@ -281,9 +281,9 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         {(['gastos', 'ingresos', 'balance'] as TabActivo[]).map((tab) => {
           const labels: Record<TabActivo, string> = { gastos: 'Gastos', ingresos: 'Ingresos', balance: 'Balance' };
           const activeStyles: Record<TabActivo, string> = {
-            gastos: 'bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]',
+            gastos: 'bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]',
             ingresos: 'bg-green-600 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]',
-            balance: 'bg-slate-600 text-white shadow-[0_0_10px_rgba(148,163,184,0.3)]',
+            balance: 'bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]',
           };
           return (
             <button
@@ -354,7 +354,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
           <div className={`rounded-lg p-4 mb-4 border ${
             esIngreso
               ? 'bg-green-500/10 border-green-300/60'
-              : 'bg-blue-500/10 border-blue-300/60'
+              : 'bg-red-500/10 border-red-300/60'
           }`}>
             <div className="flex items-center justify-between">
               <span className={`text-sm font-medium ${esIngreso ? 'text-green-200' : 'text-blue-200'}`}>

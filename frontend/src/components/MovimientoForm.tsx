@@ -105,10 +105,10 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   };
 
   const isIngreso = tipo === 'ingreso';
-  const accentColor = isIngreso ? 'green' : 'blue';
+  const accentColor = isIngreso ? 'green' : 'red';
 
   return (
-    <div className={`bg-slate-800/40 rounded-2xl border border-slate-700/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-blue-500'} p-6 mb-6`}>
+    <div className={`bg-slate-800/40 rounded-2xl border border-slate-700/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-6 mb-6`}>
       {/* Título */}
       <h2 className="text-2xl font-bold mb-4 text-white">
         {movimientoToEdit
@@ -124,7 +124,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             onClick={() => setTipo('gasto')}
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
               tipo === 'gasto'
-                ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]'
+                ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -251,7 +251,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             className={`${
               isIngreso
                 ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 shadow-[0_0_25px_rgba(34,197,94,0.5)] border-green-300/70'
-                : 'bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 shadow-[0_0_25px_rgba(59,130,246,0.6)] border-blue-300/70'
+                : 'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 shadow-[0_0_25px_rgba(239,68,68,0.5)] border-red-300/70'
             } disabled:from-slate-700 disabled:to-slate-700 text-white font-semibold px-6 py-2 rounded-full border tracking-wide uppercase text-sm transition-all duration-200`}
           >
             {loading ? 'Guardando...' : movimientoToEdit

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Movimiento } from './types';
-import MovimientoForm from './components/MovimientoForm';
+import MovimientoModal from './components/MovimientoModal';
 import MovimientoList from './components/MovimientoList';
 import CategoryManager from './components/CategoryManager';
 import GastoFijoManager from './components/GastoFijoManager';
@@ -14,14 +14,17 @@ function App() {
   const [categoriesKey, setCategoriesKey] = useState<number>(0);
   const [showConfig, setShowConfig] = useState<boolean>(false);
   const [configTab, setConfigTab] = useState<'categorias' | 'gastos-fijos'>('categorias');
+  const [showModal, setShowModal] = useState<boolean>(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleMovimientoCreated = () => {
+    setShowModal(false);
     setRefreshKey(prev => prev + 1);
   };
 
   const handleMovimientoUpdated = () => {
+    setShowModal(false);
     setMovimientoToEdit(null);
     setRefreshKey(prev => prev + 1);
   };
@@ -32,10 +35,11 @@ function App() {
 
   const handleEdit = (movimiento: Movimiento) => {
     setMovimientoToEdit(movimiento);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowModal(true);
   };
 
-  const handleCancelEdit = () => {
+  const handleCloseModal = () => {
+    setShowModal(false);
     setMovimientoToEdit(null);
   };
 
@@ -71,7 +75,7 @@ function App() {
             </button>
             <button
               onClick={logout}
-              className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 text-white font-medium px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.4)] border border-red-300/50 transition-all duration-200"
+              className="border border-slate-600/70 bg-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500 font-medium px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg transition-all duration-200"
             >
               Cerrar Sesión
             </button>
@@ -125,14 +129,16 @@ function App() {
           </div>
         )}
 
-        {/* FORMULARIO DE MOVIMIENTOS */}
-        <MovimientoForm
-          categoriesVersion={categoriesKey}
-          onMovimientoCreated={handleMovimientoCreated}
-          onMovimientoUpdated={handleMovimientoUpdated}
-          movimientoToEdit={movimientoToEdit}
-          onCancelEdit={handleCancelEdit}
-        />
+        {/* ACCIÓN PRINCIPAL desktop: encima de la lista */}
+        <div className="hidden sm:flex justify-end mb-4">
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-5 py-2.5 rounded-xl shadow-[0_0_25px_rgba(59,130,246,0.5)] border border-blue-300/50 transition-all duration-200 hover:-translate-y-px"
+          >
+            <span className="text-xl leading-none font-light">+</span>
+            Registrar movimiento
+          </button>
+        </div>
 
         {/* LISTA DE MOVIMIENTOS */}
         <MovimientoList
@@ -140,6 +146,26 @@ function App() {
           onEdit={handleEdit}
         />
       </div>
+
+      {/* FAB mobile: centrado en el fondo, solo visible en mobile */}
+      <button
+        onClick={() => setShowModal(true)}
+        className="sm:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-7 py-3.5 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold shadow-[0_0_28px_rgba(59,130,246,0.6)] border border-blue-300/30 active:scale-95 transition-all duration-150"
+        aria-label="Registrar movimiento"
+      >
+        <span className="text-xl leading-none font-light">+</span>
+        Registrar
+      </button>
+
+      {/* MODAL: Registrar / Editar movimiento */}
+      <MovimientoModal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        movimientoToEdit={movimientoToEdit}
+        categoriesVersion={categoriesKey}
+        onMovimientoCreated={handleMovimientoCreated}
+        onMovimientoUpdated={handleMovimientoUpdated}
+      />
     </div>
   );
 }
