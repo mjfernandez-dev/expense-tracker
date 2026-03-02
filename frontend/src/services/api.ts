@@ -1,5 +1,12 @@
 // SERVICIO: Centraliza todas las llamadas HTTP al backend
 import axios from 'axios';
+import {
+  getCachedMovimientos, saveMovimientos,
+  getCachedCategories, saveCategories,
+  getCachedUserCategories, saveUserCategories,
+  getCachedUser, saveUser,
+  enqueueOperation,
+} from './offlineDB';
 // CONEXIÓN: Importamos los tipos definidos en types/index.ts
 import type {
   Category,
@@ -147,8 +154,20 @@ export const changePassword = async (currentPassword: string, newPassword: strin
 // Obtener usuario actual
 // GET /auth/me
 export const getCurrentUser = async (): Promise<User> => {
-  const response = await api.get('/auth/me');
-  return response.data;
+  if (!navigator.onLine) {
+    const cached = await getCachedUser();
+    if (cached) return cached;
+    throw new Error('Sin conexión y sin datos guardados');
+  }
+  try {
+    const response = await api.get('/auth/me');
+    await saveUser(response.data);
+    return response.data;
+  } catch (error) {
+    const cached = await getCachedUser();
+    if (cached) return cached;
+    throw error;
+  }
 };
 
 // Actualizar datos de pago del usuario
@@ -166,15 +185,31 @@ export const updatePaymentInfo = async (aliasBancario: string | null, cvu: strin
 // Obtener categorías del sistema (predeterminadas, solo lectura)
 // GET /categories/ → devuelve Category[]
 export const getCategories = async (): Promise<Category[]> => {
-  const response = await api.get('/categories/');
-  return response.data;
+  if (!navigator.onLine) return getCachedCategories();
+  try {
+    const response = await api.get('/categories/');
+    await saveCategories(response.data);
+    return response.data;
+  } catch (error) {
+    const cached = await getCachedCategories();
+    if (cached.length > 0) return cached;
+    throw error;
+  }
 };
 
 // Obtener categorías personalizadas del usuario autenticado
 // GET /user-categories/ → devuelve UserCategory[]
 export const getUserCategories = async (): Promise<UserCategory[]> => {
-  const response = await api.get('/user-categories/');
-  return response.data;
+  if (!navigator.onLine) return getCachedUserCategories();
+  try {
+    const response = await api.get('/user-categories/');
+    await saveUserCategories(response.data);
+    return response.data;
+  } catch (error) {
+    const cached = await getCachedUserCategories();
+    if (cached.length > 0) return cached;
+    throw error;
+  }
 };
 
 // Crear una categoría personalizada
@@ -189,16 +224,54 @@ export const createCategory = async (nombre: string): Promise<UserCategory> => {
 // Obtener todos los movimientos (opcionalmente filtrar por tipo)
 // GET /movimientos/ → devuelve Movimiento[]
 export const getMovimientos = async (tipo?: 'gasto' | 'ingreso'): Promise<Movimiento[]> => {
-  const params = tipo ? { tipo } : {};
-  const response = await api.get('/movimientos/', { params });
-  return response.data;
+  if (!navigator.onLine) {
+    const cached = await getCachedMovimientos();
+    return tipo ? cached.filter(m => m.tipo === tipo) : cached;
+  }
+  try {
+    const params = tipo ? { tipo } : {};
+    const response = await api.get('/movimientos/', { params });
+    if (!tipo) await saveMovimientos(response.data); // solo guardar snapshot completo
+    return response.data;
+  } catch (error) {
+    const cached = await getCachedMovimientos();
+    if (cached.length > 0) return tipo ? cached.filter(m => m.tipo === tipo) : cached;
+    throw error;
+  }
 };
 
 // Crear un movimiento
 // POST /movimientos/ → envía MovimientoCreate, devuelve Movimiento
+// Si no hay conexión (navigator.onLine=false O error de red sin respuesta del servidor),
+// encola el movimiento para sincronizar cuando vuelva la conexión.
 export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Movimiento> => {
-  const response = await api.post('/movimientos/', movimiento);
-  return response.data;
+  const enqueueAndReturn = async (): Promise<Movimiento> => {
+    await enqueueOperation({ type: 'createMovimiento', payload: movimiento, createdAt: new Date().toISOString() });
+    return {
+      ...movimiento,
+      id: -(Date.now()),
+      user_id: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      categoria: null,
+      user_category: null,
+      gasto_fijo_id: null,
+      is_auto_generated: false,
+    } as Movimiento;
+  };
+
+  if (!navigator.onLine) return enqueueAndReturn();
+
+  try {
+    const response = await api.post('/movimientos/', movimiento);
+    return response.data;
+  } catch (error) {
+    // Error de red sin respuesta del servidor (offline real, timeout, etc.)
+    if (axios.isAxiosError(error) && !error.response) {
+      return enqueueAndReturn();
+    }
+    throw error;
+  }
 };
 
 // Obtener un movimiento específico por ID
