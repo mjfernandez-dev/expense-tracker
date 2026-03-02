@@ -30,6 +30,7 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <AuthProvider>
           <Suspense fallback={<div style={{ background: '#020617', minHeight: '100vh' }} />}>
+            <main id="main-content" tabIndex={-1} style={{ outline: 'none' }}>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
@@ -116,6 +117,7 @@ createRoot(document.getElementById('root')!).render(
                 }
               />
             </Routes>
+            </main>
           </Suspense>
         </AuthProvider>
       </BrowserRouter>

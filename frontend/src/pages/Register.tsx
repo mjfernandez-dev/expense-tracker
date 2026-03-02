@@ -67,6 +67,9 @@ export default function Register() {
                 src={authLogo}
                 alt="Logo de gastos"
                 className="w-16 h-16 object-cover"
+                width="64"
+                height="64"
+                loading="lazy"
               />
             ) : (
               <span className="text-3xl text-blue-400">🆕</span>

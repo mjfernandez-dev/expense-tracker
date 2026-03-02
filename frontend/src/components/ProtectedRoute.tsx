@@ -12,8 +12,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto"></div>
+        <div className="text-center" role="status" aria-live="polite" aria-label="Cargando">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto" aria-hidden="true"></div>
           <p className="mt-4 text-slate-300">Cargando...</p>
         </div>
       </div>

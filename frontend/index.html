@@ -4,13 +4,19 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FinanzaApp</title>
-    
+    <title>FinanzaApp – Gestión de finanzas personales</title>
+    <meta name="description" content="Gestioná tus gastos e ingresos personales y compartidos con FinanzaApp." />
+    <meta name="robots" content="noindex, nofollow" />
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#020617" />
+
+    <!-- Preconnect al API (actualizar URL en producción) -->
+    <link rel="preconnect" href="%VITE_API_URL%" crossorigin />
   </head>
   <body style="background-color: #020617; margin: 0;">
+    <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
     <div id="root"></div>
     <script>
       // PWA cache-busting: detecta si hay versión nueva y recarga automáticamente

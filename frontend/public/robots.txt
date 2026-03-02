@@ -1,0 +1,3 @@
+# FinanzaApp – app privada, sin indexación
+User-agent: *
+Disallow: /

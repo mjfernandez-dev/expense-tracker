@@ -53,6 +53,9 @@ export default function Login() {
                 src={authLogo}
                 alt="Logo FinanzAPP"
                 className="w-16 h-16 object-cover"
+                width="64"
+                height="64"
+                loading="lazy"
               />
             ) : (
               <span className="text-3xl text-blue-400">📊</span>
@@ -176,6 +179,9 @@ export default function Login() {
                     src={authLogo}
                     alt="Logo de gastos ampliado"
                     className="w-full h-full object-cover"
+                    width="288"
+                    height="288"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
