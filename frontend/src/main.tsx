@@ -125,25 +125,4 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// SERVICE WORKER DESHABILITADO TEMPORALMENTE
-// TODO: Reactivar cuando la app básica esté estable
-// if ('serviceWorker' in navigator && import.meta.env.PROD) {
-//   window.addEventListener('load', () => {
-//     navigator.serviceWorker.register('/sw.js')
-//       .then((registration) => {
-//         console.log('Service Worker registrado:', registration);
-//       })
-//       .catch((error) => {
-//         console.log('Error al registrar Service Worker:', error);
-//       });
-//   });
-// }
-
-// Desregistrar cualquier Service Worker existente
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
-    }
-  });
-}
+// Service Worker gestionado por vite-plugin-pwa (registerType: 'autoUpdate')

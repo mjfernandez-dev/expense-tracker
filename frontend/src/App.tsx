@@ -1,10 +1,13 @@
 // COMPONENTE RAÍZ: Aplicación con diseño moderno usando Tailwind
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Movimiento } from './types';
 import MovimientoModal from './components/MovimientoModal';
 import MovimientoList from './components/MovimientoList';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './context/useAuth';
+import { createMovimiento } from './services/api';
+import { getPendingOperations, removePendingOperation } from './services/offlineDB';
 
 function App() {
   const [movimientoToEdit, setMovimientoToEdit] = useState<Movimiento | null>(null);
@@ -34,8 +37,30 @@ function App() {
     setMovimientoToEdit(null);
   };
 
+  const syncPendingQueue = useCallback(async () => {
+    const pending = await getPendingOperations();
+    if (pending.length === 0) return;
+    for (const op of pending) {
+      try {
+        if (op.type === 'createMovimiento') {
+          await createMovimiento(op.payload); // navigator.onLine=true, no encolará de nuevo
+          await removePendingOperation(op.id!);
+        }
+      } catch {
+        break; // parar en el primer error (ej: sesión expirada)
+      }
+    }
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('online', syncPendingQueue);
+    return () => window.removeEventListener('online', syncPendingQueue);
+  }, [syncPendingQueue]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 py-4 sm:py-8">
+      <OfflineIndicator />
       <div className="max-w-6xl mx-auto px-3 sm:px-4">
 
         {/* HEADER */}

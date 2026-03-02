@@ -26,6 +26,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineQueued, setOfflineQueued] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -92,7 +93,13 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         await updateMovimiento(movimientoToEdit.id, movimientoData);
         onMovimientoUpdated();
       } else {
-        await createMovimiento(movimientoData);
+        const resultado = await createMovimiento(movimientoData);
+        if (resultado.id < 0) {
+          // Fue encolado offline: mostrar panel con botón de confirmación
+          setOfflineQueued(true);
+          setImporte(''); setDescripcion(''); setNota(''); setEsGastoFijo(false);
+          return;
+        }
         onMovimientoCreated();
       }
 
@@ -153,6 +160,31 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       {error && (
         <div role="alert" className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg mb-4 text-sm">
           {error}
+        </div>
+      )}
+
+      {/* Panel de guardado offline */}
+      {offlineQueued && (
+        <div role="status" className="bg-amber-500/10 border border-amber-400/50 rounded-xl mb-4 overflow-hidden">
+          <div className="flex items-start gap-3 px-4 pt-4 pb-3">
+            <span className="text-amber-400 text-xl leading-none mt-0.5" aria-hidden="true">📶</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-amber-200 font-semibold text-sm mb-1">Guardado sin conexión</p>
+              <p className="text-amber-300/80 text-xs leading-relaxed">
+                El movimiento fue guardado localmente en tu dispositivo.
+                Cuando recuperes internet, se sincronizará automáticamente con el servidor.
+              </p>
+            </div>
+          </div>
+          <div className="px-4 pb-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => { setOfflineQueued(false); onMovimientoCreated(); }}
+              className="text-xs font-semibold text-amber-950 bg-amber-400 hover:bg-amber-300 px-4 py-1.5 rounded-lg transition-colors"
+            >
+              Entendido
+            </button>
+          </div>
         </div>
       )}
 
