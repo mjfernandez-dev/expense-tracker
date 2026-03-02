@@ -1,116 +1,125 @@
-import { StrictMode } from 'react';
+import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './index.css';
-import App from './App.tsx';
+import { AuthProvider } from './context/AuthProvider.tsx';
+import ProtectedRoute from './components/ProtectedRoute.tsx';
+import ErrorBoundary from './components/ErrorBoundary.tsx';
+
+// Páginas públicas: carga estática (son el punto de entrada)
 import Login from './pages/Login.tsx';
 import Register from './pages/Register.tsx';
 import ForgotPassword from './pages/ForgotPassword.tsx';
 import ResetPassword from './pages/ResetPassword.tsx';
-import ChangePassword from './pages/ChangePassword.tsx';
-import Tools from './pages/Tools.tsx';
-import AccountPage from './pages/AccountPage.tsx';
-import ContactsPage from './pages/ContactsPage.tsx';
-import SplitGroupsPage from './pages/SplitGroupsPage.tsx';
-import SplitGroupDetail from './pages/SplitGroupDetail.tsx';
-import PaymentResultPage from './pages/PaymentResultPage.tsx';
-import CategoriasPage from './pages/CategoriasPage.tsx';
-import RecurrentesPage from './pages/RecurrentesPage.tsx';
-import { AuthProvider } from './context/AuthProvider.tsx';
-import ProtectedRoute from './components/ProtectedRoute.tsx';
+
+// Páginas protegidas: lazy loading (solo las ve el usuario autenticado)
+const App = lazy(() => import('./App.tsx'));
+const AccountPage = lazy(() => import('./pages/AccountPage.tsx'));
+const ChangePassword = lazy(() => import('./pages/ChangePassword.tsx'));
+const ContactsPage = lazy(() => import('./pages/ContactsPage.tsx'));
+const Tools = lazy(() => import('./pages/Tools.tsx'));
+const CategoriasPage = lazy(() => import('./pages/CategoriasPage.tsx'));
+const RecurrentesPage = lazy(() => import('./pages/RecurrentesPage.tsx'));
+const SplitGroupsPage = lazy(() => import('./pages/SplitGroupsPage.tsx'));
+const SplitGroupDetail = lazy(() => import('./pages/SplitGroupDetail.tsx'));
+const PaymentResultPage = lazy(() => import('./pages/PaymentResultPage.tsx'));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route
-            path="/account"
-            element={
-              <ProtectedRoute>
-                <AccountPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/account/change-password"
-            element={
-              <ProtectedRoute>
-                <ChangePassword />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/account/contacts"
-            element={
-              <ProtectedRoute>
-                <ContactsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tools"
-            element={
-              <ProtectedRoute>
-                <Tools />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tools/categorias"
-            element={
-              <ProtectedRoute>
-                <CategoriasPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tools/recurrentes"
-            element={
-              <ProtectedRoute>
-                <RecurrentesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tools/split-groups"
-            element={
-              <ProtectedRoute>
-                <SplitGroupsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tools/split-groups/:groupId"
-            element={
-              <ProtectedRoute>
-                <SplitGroupDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/payments/result"
-            element={
-              <ProtectedRoute>
-                <PaymentResultPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <App />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <Suspense fallback={<div style={{ background: '#020617', minHeight: '100vh' }} />}>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route
+                path="/account"
+                element={
+                  <ProtectedRoute>
+                    <AccountPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/account/change-password"
+                element={
+                  <ProtectedRoute>
+                    <ChangePassword />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/account/contacts"
+                element={
+                  <ProtectedRoute>
+                    <ContactsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tools"
+                element={
+                  <ProtectedRoute>
+                    <Tools />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tools/categorias"
+                element={
+                  <ProtectedRoute>
+                    <CategoriasPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tools/recurrentes"
+                element={
+                  <ProtectedRoute>
+                    <RecurrentesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tools/split-groups"
+                element={
+                  <ProtectedRoute>
+                    <SplitGroupsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tools/split-groups/:groupId"
+                element={
+                  <ProtectedRoute>
+                    <SplitGroupDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payments/result"
+                element={
+                  <ProtectedRoute>
+                    <PaymentResultPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <App />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Suspense>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 );
 

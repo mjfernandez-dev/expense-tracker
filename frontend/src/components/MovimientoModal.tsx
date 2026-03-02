@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Movimiento } from '../types';
 import MovimientoForm from './MovimientoForm';
 
@@ -11,6 +11,8 @@ interface MovimientoModalProps {
   categoriesVersion?: number;
 }
 
+const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
 function MovimientoModal({
   isOpen,
   onClose,
@@ -19,11 +21,51 @@ function MovimientoModal({
   onMovimientoUpdated,
   categoriesVersion,
 }: MovimientoModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
+  // Guardar el elemento enfocado antes de abrir y restaurarlo al cerrar
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [isOpen]);
+
+  // Mover foco al primer elemento del modal al abrir
+  useEffect(() => {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(() => {
+      const first = modalRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE)[0];
+      first?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
+
+  // Escape y focus trap
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(
+        modalRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
@@ -40,10 +82,16 @@ function MovimientoModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
       onClick={onClose}
+      aria-hidden="true"
     >
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={movimientoToEdit ? 'Editar movimiento' : 'Nuevo movimiento'}
         className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
+        aria-hidden={undefined}
       >
         <button
           onClick={onClose}
