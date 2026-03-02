@@ -109,6 +109,7 @@ class GastoFijo(Base):
     descripcion = Column(EncryptedString, nullable=False)
     categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
+    tipo = Column(String, default="gasto", nullable=False)  # "gasto" | "ingreso"
     activo = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
 

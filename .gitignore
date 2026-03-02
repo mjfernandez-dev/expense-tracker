@@ -127,6 +127,13 @@ alembic/*.pyc
 .dockerignore
 
 # ============================================
+# AGENT SKILLS (instalados localmente via npx skills)
+# ============================================
+.agent/
+.agents/
+skills-lock.json
+
+# ============================================
 # OTROS
 # ============================================
 .env.sh

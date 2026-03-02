@@ -46,7 +46,7 @@ def ejecutar_generacion_mensual(db: Session) -> int:
             fecha=inicio_mes,
             descripcion=gf.descripcion,
             nota="Generado automáticamente",
-            tipo="gasto",
+            tipo=gf.tipo,
             categoria_id=gf.categoria_id,
             user_category_id=gf.user_category_id,
             user_id=gf.user_id,

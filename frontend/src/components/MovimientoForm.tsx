@@ -246,8 +246,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           />
         </div>
 
-        {/* Toggle: Marcar como gasto fijo (solo en creación, solo para gastos) */}
-        {!movimientoToEdit && tipo === 'gasto' && (
+        {/* Toggle: Marcar como fijo (solo en creación) */}
+        {!movimientoToEdit && (
           <div
             onClick={() => setEsGastoFijo(prev => !prev)}
             className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all select-none ${
@@ -262,7 +262,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             </div>
             <div>
               <span className={`text-sm font-medium ${esGastoFijo ? 'text-purple-300' : 'text-slate-300'}`}>
-                Marcar como gasto fijo
+                Marcar como {isIngreso ? 'ingreso' : 'gasto'} fijo
               </span>
               <p className="text-xs text-slate-400 mt-0.5">
                 Se generará automáticamente el 1° de cada mes

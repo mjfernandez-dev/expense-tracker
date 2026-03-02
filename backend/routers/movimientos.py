@@ -44,6 +44,7 @@ def create_movimiento(
         db_gasto_fijo = models.GastoFijo(
             user_id=current_user.id,
             descripcion=movimiento.descripcion,
+            tipo=movimiento.tipo,
             categoria_id=movimiento.categoria_id,
             user_category_id=movimiento.user_category_id,
         )
