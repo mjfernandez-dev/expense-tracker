@@ -1,7 +1,7 @@
 import hashlib
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status, Request
@@ -29,6 +29,11 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
+
+def _utcnow() -> datetime:
+    """Retorna la hora UTC actual como datetime naive (para compatibilidad con DB)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 # Contexto para hashear passwords con bcrypt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -55,9 +60,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     """Crea un token JWT con los datos proporcionados."""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -73,12 +78,18 @@ def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
     return db.query(models.User).filter(models.User.email == email).first()
 
 
+_DUMMY_HASH = get_password_hash("dummy-password-to-prevent-timing-attacks")
+
+
 def authenticate_user(db: Session, username: str, password: str) -> Optional[models.User]:
-    """Autentica un usuario verificando username y password."""
+    """Autentica un usuario verificando username y password.
+
+    Siempre ejecuta bcrypt, incluso si el usuario no existe, para evitar
+    timing attacks que permitan enumerar usuarios por diferencia de tiempos.
+    """
     user = get_user_by_username(db, username)
-    if not user:
-        return None
-    if not verify_password(password, user.hashed_password):
+    hash_to_check = user.hashed_password if user else _DUMMY_HASH
+    if not verify_password(password, hash_to_check):
         return None
     return user
 
@@ -141,7 +152,7 @@ def create_refresh_token(db: Session, user_id: int) -> str:
     """Genera un refresh token, lo guarda hasheado en DB y retorna el valor raw."""
     raw_token = secrets.token_urlsafe(32)
     token_hash = _hash_token(raw_token)
-    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = _utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
     db_token = models.RefreshToken(
         user_id=user_id,
@@ -168,7 +179,7 @@ def validate_and_rotate_refresh_token(
         .first()
     )
 
-    if not db_token or db_token.revoked or db_token.expires_at < datetime.utcnow():
+    if not db_token or db_token.revoked or db_token.expires_at < _utcnow():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token inválido o expirado",

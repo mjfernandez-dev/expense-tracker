@@ -1,5 +1,5 @@
 """Router de categorías: /categories/ y /user-categories/"""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -112,7 +112,7 @@ def update_user_category(
     if category_update.icon is not None:
         category.icon = category_update.icon
 
-    category.updated_at = datetime.utcnow()
+    category.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(category)
     return category

@@ -1,5 +1,5 @@
 """Router de autenticación: /auth/*"""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -23,6 +23,8 @@ from auth import (
     get_user_by_email,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
+    _hash_token,
+    _utcnow,
 )
 from database import get_db
 from dependencies import limiter
@@ -164,12 +166,13 @@ async def forgot_password(
     if not user:
         return {"message": message}
 
-    token_str = uuid4().hex
-    expires_at = datetime.utcnow() + timedelta(hours=1)
+    raw_token = uuid4().hex
+    token_hash = _hash_token(raw_token)
+    expires_at = _utcnow() + timedelta(hours=1)
 
     reset_token = models.PasswordResetToken(
         user_id=user.id,
-        token=token_str,
+        token=token_hash,
         expires_at=expires_at,
     )
     db.add(reset_token)
@@ -179,7 +182,7 @@ async def forgot_password(
         await send_password_reset_email(
             email=user.email,
             username=user.username,
-            reset_token=token_str,
+            reset_token=raw_token,
             expires_in_hours=1,
         )
     except Exception as e:
@@ -195,11 +198,11 @@ def reset_password(
 ):
     token = (
         db.query(models.PasswordResetToken)
-        .filter(models.PasswordResetToken.token == payload.token)
+        .filter(models.PasswordResetToken.token == _hash_token(payload.token))
         .first()
     )
 
-    if not token or token.used or token.expires_at < datetime.utcnow():
+    if not token or token.used or token.expires_at < _utcnow():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El token de restablecimiento no es válido o ha expirado",

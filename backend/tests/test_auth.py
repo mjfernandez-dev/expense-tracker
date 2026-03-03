@@ -4,7 +4,7 @@ Smoke tests de autenticación:
 - Casos de error: credenciales incorrectas, usuario duplicado
 - Refresh token: renovación, rotación, revocación
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from auth import _hash_token
 import models
@@ -134,7 +134,7 @@ def test_refresh_con_token_expirado_retorna_401(logged_in_client, db_session):
         .first()
     )
     # Forzar expiración
-    db_token.expires_at = datetime.utcnow() - timedelta(hours=1)
+    db_token.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
     db_session.commit()
 
     r = logged_in_client.post("/auth/refresh")

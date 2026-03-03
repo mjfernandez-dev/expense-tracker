@@ -73,8 +73,31 @@ def _job_generar_gastos_fijos():
         db.close()
 
 
+def _job_cleanup_tokens():
+    """Job diario: elimina refresh tokens expirados o revocados."""
+    db = next(get_db())
+    try:
+        cutoff = datetime.now()
+        deleted = (
+            db.query(models.RefreshToken)
+            .filter(
+                (models.RefreshToken.revoked == True) |
+                (models.RefreshToken.expires_at < cutoff)
+            )
+            .delete(synchronize_session=False)
+        )
+        db.commit()
+        if deleted:
+            logger.info(json.dumps({"msg": "refresh_tokens_cleaned", "deleted": deleted}))
+    except Exception as e:
+        logger.error(json.dumps({"msg": "error_cleanup_tokens", "error": str(e)}))
+    finally:
+        db.close()
+
+
 def create_scheduler() -> AsyncIOScheduler:
     """Crea y configura el scheduler (sin iniciarlo)."""
     scheduler = AsyncIOScheduler()
     scheduler.add_job(_job_generar_gastos_fijos, 'cron', day=1, hour=0, minute=1)
+    scheduler.add_job(_job_cleanup_tokens, 'interval', hours=24)
     return scheduler

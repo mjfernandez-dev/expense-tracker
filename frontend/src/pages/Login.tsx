@@ -12,7 +12,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -43,11 +42,7 @@ export default function Login() {
       <div className="max-w-md w-full">
         {/* Branding: Logo + Nombre + Descripción */}
         <div className="text-center mb-8">
-          <button
-            type="button"
-            onClick={() => setIsPreviewOpen(true)}
-            className="w-20 h-20 mx-auto mb-4 rounded-full border-2 border-blue-400/70 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center overflow-hidden shadow-xl shadow-black/40 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 transition"
-          >
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full border-2 border-blue-400/70 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center overflow-hidden shadow-xl shadow-black/40">
             {SHOW_IMAGE_LOGO ? (
               <img
                 src={authLogo}
@@ -60,7 +55,7 @@ export default function Login() {
             ) : (
               <span className="text-3xl text-blue-400">📊</span>
             )}
-          </button>
+          </div>
           <h1 className="text-3xl font-bold text-white tracking-wide">FinanzAPP</h1>
           <p className="text-slate-400 mt-1 text-sm">Gestiona tus finanzas personales</p>
         </div>
@@ -91,6 +86,7 @@ export default function Login() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
                 required
                 className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Tu nombre de usuario"
@@ -108,6 +104,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   required
                   className="w-full px-4 py-3 pr-11 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   placeholder="Tu contraseña"
@@ -122,13 +119,12 @@ export default function Login() {
                 </button>
               </div>
               <div className="mt-3 flex items-center justify-end">
-                <button
-                  type="button"
-                  onClick={() => navigate('/forgot-password')}
+                <Link
+                  to="/forgot-password"
                   className="text-xs font-medium text-blue-300 hover:text-blue-200 transition-colors"
                 >
                   ¿Olvidaste tu contraseña?
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -156,42 +152,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Preview de imagen a pantalla casi completa */}
-        {isPreviewOpen && (
-          <div
-            className="fixed inset-0 z-40 flex items-center justify-center bg-black/70"
-            onClick={() => setIsPreviewOpen(false)}
-          >
-            <div
-              className="relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => setIsPreviewOpen(false)}
-                className="absolute -top-4 -right-4 w-8 h-8 rounded-full bg-black/80 text-white text-sm flex items-center justify-center shadow-md hover:bg-black"
-              >
-                ✕
-              </button>
-              <div className="w-64 h-64 sm:w-72 sm:h-72 rounded-full border-4 border-blue-400 bg-slate-950 overflow-hidden shadow-2xl">
-                {SHOW_IMAGE_LOGO ? (
-                  <img
-                    src={authLogo}
-                    alt="Logo de gastos ampliado"
-                    className="w-full h-full object-cover"
-                    width="288"
-                    height="288"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-7xl text-blue-400">📊</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
