@@ -61,6 +61,7 @@ backend/.env.*.local
 # ============================================
 node_modules/
 dist/
+dev-dist/
 build/
 .nuxt/
 .cache/
