@@ -11,13 +11,11 @@ export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setMessage('');
 
     if (!token) {
       setError('El token es obligatorio');
@@ -50,10 +48,7 @@ export default function ResetPassword() {
 
     try {
       await resetPassword(token, newPassword);
-      setMessage('Tu contraseña se ha restablecido correctamente. Redirigiendo al login...');
-      setNewPassword('');
-      setConfirmPassword('');
-      setTimeout(() => navigate('/login'), 2000);
+      navigate('/login', { state: { successMessage: 'Contraseña restablecida correctamente. Podés iniciar sesión.' } });
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
         const axiosError = err as { response?: { data?: { detail?: unknown } } };
@@ -96,12 +91,6 @@ export default function ResetPassword() {
             {error && (
               <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg text-sm">
                 {error}
-              </div>
-            )}
-
-            {message && (
-              <div className="bg-green-500/10 border border-green-300/60 text-green-100 px-4 py-3 rounded-lg text-sm">
-                {message}
               </div>
             )}
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { loginUser } from '../services/api';
 import authLogo from '../assets/auth-logo.jpeg';
@@ -15,6 +15,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const successMessage = (location.state as { successMessage?: string } | null)?.successMessage;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +71,13 @@ export default function Login() {
 
           {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Éxito desde reset-password */}
+            {successMessage && (
+              <div role="status" className="bg-green-500/10 border border-green-300/60 text-green-100 px-4 py-3 rounded-lg text-sm">
+                {successMessage}
+              </div>
+            )}
+
             {/* Error */}
             {error && (
               <div role="alert" className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg text-sm">
