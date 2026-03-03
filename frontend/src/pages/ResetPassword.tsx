@@ -4,10 +4,10 @@ import { resetPassword } from '../services/api';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
-  const tokenFromUrl = searchParams.get('token') || '';
+  // Leer siempre de searchParams (reactivo) para evitar estado obsoleto si la URL cambia
+  const token = searchParams.get('token') || '';
 
   const navigate = useNavigate();
-  const [token, setToken] = useState(tokenFromUrl);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -105,21 +105,17 @@ export default function ResetPassword() {
               </div>
             )}
 
-            {/* Token */}
-            <div>
-              <label htmlFor="token" className="block text-sm font-medium text-slate-100 mb-2">
-                Token de restablecimiento
-              </label>
-              <input
-                id="token"
-                type="text"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="Pega aquí el token recibido"
-              />
-            </div>
+            {/* Token (read-only, viene de la URL) */}
+            {token && (
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Token de restablecimiento
+                </label>
+                <p className="w-full px-4 py-3 rounded-lg bg-slate-800/30 border border-slate-700 text-slate-400 text-xs font-mono truncate">
+                  {token}
+                </p>
+              </div>
+            )}
 
             {/* Nueva contraseña */}
             <div>
