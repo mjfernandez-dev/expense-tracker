@@ -148,3 +148,8 @@ temp/
 ideas.md
 .agent
 .agents
+.claude
+.claude/commands
+
+# Claude local metadata
+.claude/
