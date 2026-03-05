@@ -6,7 +6,7 @@ interface MovimientoModalProps {
   isOpen: boolean;
   onClose: () => void;
   movimientoToEdit?: Movimiento | null;
-  onMovimientoCreated: () => void;
+  onMovimientoCreated: (movimiento?: Movimiento) => void;
   onMovimientoUpdated: () => void;
   categoriesVersion?: number;
 }

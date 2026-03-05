@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import type { Movimiento } from './types';
 import MovimientoModal from './components/MovimientoModal';
 import MovimientoList from './components/MovimientoList';
+import DashboardCiclo from './components/DashboardCiclo';
+import CicloWizard from './components/CicloWizard';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
@@ -16,9 +18,20 @@ function App() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleMovimientoCreated = () => {
+  // Estado del wizard de ciclo
+  const [showWizard, setShowWizard] = useState<boolean>(false);
+  const [wizardMovimientoId, setWizardMovimientoId] = useState<number | null>(null);
+  const [wizardImporte, setWizardImporte] = useState<number>(0);
+
+  const handleMovimientoCreated = (movimiento?: Movimiento) => {
     setShowModal(false);
     setRefreshKey(prev => prev + 1);
+    // Si el ingreso fue marcado como inicio de ciclo, abrir el wizard
+    if (movimiento?.es_inicio_ciclo && movimiento.tipo === 'ingreso') {
+      setWizardMovimientoId(movimiento.id);
+      setWizardImporte(movimiento.importe);
+      setShowWizard(true);
+    }
   };
 
   const handleMovimientoUpdated = () => {
@@ -35,6 +48,19 @@ function App() {
   const handleCloseModal = () => {
     setShowModal(false);
     setMovimientoToEdit(null);
+  };
+
+  const handleWizardComplete = () => {
+    setShowWizard(false);
+    setWizardMovimientoId(null);
+    setWizardImporte(0);
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const handleWizardClose = () => {
+    setShowWizard(false);
+    setWizardMovimientoId(null);
+    setWizardImporte(0);
   };
 
   const syncPendingQueue = useCallback(async () => {
@@ -93,6 +119,9 @@ function App() {
           </div>
         </div>
 
+        {/* WIDGET DAILY SOLVENCY */}
+        <DashboardCiclo refreshKey={refreshKey} />
+
         {/* ACCIÓN PRINCIPAL desktop: encima de la lista */}
         <div className="hidden sm:flex justify-end mb-4">
           <button
@@ -129,6 +158,16 @@ function App() {
         onMovimientoCreated={handleMovimientoCreated}
         onMovimientoUpdated={handleMovimientoUpdated}
       />
+
+      {/* WIZARD: Configuración de ciclo financiero */}
+      {showWizard && (
+        <CicloWizard
+          movimientoOrigenId={wizardMovimientoId}
+          importeReferencia={wizardImporte}
+          onComplete={handleWizardComplete}
+          onClose={handleWizardClose}
+        />
+      )}
     </div>
   );
 }

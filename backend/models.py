@@ -154,6 +154,11 @@ class Movimiento(Base):
     usuario = relationship("User", back_populates="movimientos")
     gasto_fijo = relationship("GastoFijo", back_populates="instancias")
 
+    # CICLO FINANCIERO: flag que indica si este ingreso inició un ciclo
+    es_inicio_ciclo = Column(Boolean, default=False, nullable=False)
+    # MEDIO DE PAGO: "efectivo" | "debito" | "credito" | "transferencia" | "otro"
+    medio_pago = Column(String, nullable=True)
+
     def __init__(self, **kwargs):
         """Validar que al menos una categoría esté definida."""
         super().__init__(**kwargs)
@@ -244,3 +249,41 @@ class SplitExpenseParticipant(Base):
     # RELACIONES
     expense = relationship("SplitExpense", back_populates="participants")
     member = relationship("SplitGroupMember", back_populates="expense_participations")
+
+
+# ============== MÓDULO DAILY SOLVENCY ==============
+
+# MODELO: Ciclo financiero (período entre cobros)
+class Ciclo(Base):
+    __tablename__ = "ciclos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    # Movimiento de ingreso que inició este ciclo (opcional, puede crearse manualmente)
+    movimiento_origen_id = Column(Integer, ForeignKey("movimientos.id"), nullable=True)
+    fecha_inicio = Column(DateTime, nullable=False)  # Cuando se creó el ciclo
+    fecha_fin = Column(DateTime, nullable=False)      # Hasta cuándo debe durar el dinero
+    ahorro_objetivo = Column(Numeric(10, 2), default=0, nullable=False)
+    activo = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+    # RELACIONES
+    usuario = relationship("User")
+    movimiento_origen = relationship("Movimiento", foreign_keys=[movimiento_origen_id])
+    gastos_fijos_ciclo = relationship("CicloGastoFijo", back_populates="ciclo", cascade="all, delete-orphan")
+
+
+# MODELO: Gastos fijos confirmados para un ciclo específico
+class CicloGastoFijo(Base):
+    __tablename__ = "ciclo_gastos_fijos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ciclo_id = Column(Integer, ForeignKey("ciclos.id"), nullable=False, index=True)
+    gasto_fijo_id = Column(Integer, ForeignKey("gastos_fijos.id"), nullable=True)  # Nullable para ad-hoc
+    monto_confirmado = Column(Numeric(10, 2), nullable=False)
+    confirmado = Column(Boolean, default=True, nullable=False)
+    descripcion_override = Column(EncryptedString, nullable=True)  # Para gastos ad-hoc sin template
+
+    # RELACIONES
+    ciclo = relationship("Ciclo", back_populates="gastos_fijos_ciclo")
+    gasto_fijo = relationship("GastoFijo")

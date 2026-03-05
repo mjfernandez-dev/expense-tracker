@@ -26,6 +26,9 @@ import type {
   SplitExpenseCreate,
   QuickAddMemberData,
   GroupBalanceSummary,
+  Ciclo,
+  CicloCreate,
+  CicloGastoFijoItemCreate,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -432,4 +435,39 @@ export const deleteGastoFijo = async (id: number): Promise<void> => {
 export const generarGastosFijosMes = async (): Promise<{ message: string }> => {
   const response = await api.post('/gastos-fijos/generar-mes');
   return response.data;
+};
+
+// ============== CICLO FINANCIERO (Daily Solvency) ==============
+
+// GET /ciclos/activo → devuelve Ciclo activo con resumen, o null si no hay
+export const getCicloActivo = async (): Promise<Ciclo | null> => {
+  const response = await api.get('/ciclos/activo');
+  if (response.status === 204) return null;
+  return response.data;
+};
+
+// POST /ciclos/ → crea nuevo ciclo financiero
+export const createCiclo = async (data: CicloCreate): Promise<Ciclo> => {
+  const response = await api.post('/ciclos/', data);
+  return response.data;
+};
+
+// PATCH /ciclos/{id} → actualiza fecha_fin y/o ahorro_objetivo
+export const updateCiclo = async (id: number, data: Partial<CicloCreate>): Promise<Ciclo> => {
+  const response = await api.patch(`/ciclos/${id}`, data);
+  return response.data;
+};
+
+// POST /ciclos/{id}/gastos-fijos/ → confirma lista de gastos fijos para el ciclo
+export const confirmarGastosFijos = async (
+  cicloId: number,
+  items: CicloGastoFijoItemCreate[]
+): Promise<Ciclo> => {
+  const response = await api.post(`/ciclos/${cicloId}/gastos-fijos/`, { items });
+  return response.data;
+};
+
+// DELETE /ciclos/{id} → cierra el ciclo activo
+export const cerrarCiclo = async (id: number): Promise<void> => {
+  await api.delete(`/ciclos/${id}`);
 };

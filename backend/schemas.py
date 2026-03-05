@@ -153,6 +153,8 @@ class MovimientoBase(BaseModel):
     tipo: str = "gasto"  # "gasto" | "ingreso"
     categoria_id: Optional[int] = None  # ID de categoría del sistema
     user_category_id: Optional[int] = None  # ID de categoría personalizada
+    es_inicio_ciclo: bool = False  # Si True, este ingreso inició un ciclo financiero
+    medio_pago: Optional[str] = None  # "efectivo" | "debito" | "credito" | "transferencia" | "otro"
 
 # Schema para CREAR un movimiento (POST)
 class MovimientoCreate(MovimientoBase):
@@ -334,4 +336,74 @@ class GroupBalanceSummary(BaseModel):
     total_expenses: MoneyDecimal
     balances: List[MemberBalance]
     simplified_debts: List[DebtTransfer]
+
+
+# ============== SCHEMAS PARA CICLO FINANCIERO (Daily Solvency) ==============
+
+class CicloCreate(BaseModel):
+    movimiento_origen_id: Optional[int] = None
+    fecha_fin: datetime
+    ahorro_objetivo: MoneyDecimal = Decimal('0')
+
+
+class CicloUpdate(BaseModel):
+    fecha_fin: Optional[datetime] = None
+    ahorro_objetivo: Optional[MoneyDecimal] = None
+
+
+class CicloGastoFijoItemCreate(BaseModel):
+    gasto_fijo_id: Optional[int] = None  # None para gastos ad-hoc
+    monto_confirmado: MoneyDecimal
+    confirmado: bool = True
+    descripcion_override: Optional[str] = None
+
+
+class CicloGastoFijoBulk(BaseModel):
+    items: List[CicloGastoFijoItemCreate]
+
+
+class CicloGastoFijoRead(BaseModel):
+    id: int
+    ciclo_id: int
+    gasto_fijo_id: Optional[int] = None
+    monto_confirmado: MoneyDecimal
+    confirmado: bool
+    descripcion_override: Optional[str] = None
+    gasto_fijo: Optional[GastoFijoRead] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CicloResumen(BaseModel):
+    ciclo_id: int
+    fecha_inicio: datetime
+    fecha_fin: datetime
+    dias_restantes: int
+    total_ingresos: MoneyDecimal
+    ahorro_objetivo: MoneyDecimal
+    gastos_fijos_confirmados: MoneyDecimal
+    saldo_disponible_total: MoneyDecimal
+    total_gastos: MoneyDecimal
+    saldo_disponible_actual: MoneyDecimal
+    daily_cap: MoneyDecimal
+    gasto_hoy: MoneyDecimal
+    daily_cap_porcentaje_usado: float
+    semaforo: str  # "verde" | "amarillo" | "rojo"
+    gastos_fijos: List[CicloGastoFijoRead] = []
+
+
+class CicloRead(BaseModel):
+    id: int
+    user_id: int
+    movimiento_origen_id: Optional[int] = None
+    fecha_inicio: datetime
+    fecha_fin: datetime
+    ahorro_objetivo: MoneyDecimal
+    activo: bool
+    created_at: datetime
+    resumen: Optional[CicloResumen] = None
+
+    class Config:
+        from_attributes = True
 

@@ -5,7 +5,7 @@ import type { UserCategory, MovimientoCreate, Movimiento } from '../types';
 import { getUserCategories, createMovimiento, updateMovimiento } from '../services/api';
 
 interface MovimientoFormProps {
-  onMovimientoCreated: () => void;
+  onMovimientoCreated: (movimiento?: Movimiento) => void;
   onMovimientoUpdated: () => void;
   movimientoToEdit?: Movimiento | null;
   onCancelEdit?: () => void;
@@ -22,6 +22,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
   const [fecha, setFecha] = useState<string>(new Date().toISOString().split('T')[0]);
   const [esGastoFijo, setEsGastoFijo] = useState<boolean>(false);
+  const [esInicioCiclo, setEsInicioCiclo] = useState<boolean>(false);
+  const [medioPago, setMedioPago] = useState<string>('');
 
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -60,6 +62,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setNota('');
       setFecha(new Date().toISOString().split('T')[0]);
       setEsGastoFijo(false);
+      setEsInicioCiclo(false);
+      setMedioPago('');
       if (categories.length > 0) {
         setCategoriaId(categories[0].id.toString());
       }
@@ -87,6 +91,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         categoria_id: null,
         user_category_id: parseInt(categoriaId) || null,
         es_fijo: !movimientoToEdit && esGastoFijo,
+        es_inicio_ciclo: !movimientoToEdit && tipo === 'ingreso' && esInicioCiclo,
+        medio_pago: medioPago || null,
       };
 
       if (movimientoToEdit) {
@@ -97,16 +103,18 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         if (resultado.id < 0) {
           // Fue encolado offline: mostrar panel con botón de confirmación
           setOfflineQueued(true);
-          setImporte(''); setDescripcion(''); setNota(''); setEsGastoFijo(false);
+          setImporte(''); setDescripcion(''); setNota(''); setEsGastoFijo(false); setEsInicioCiclo(false);
           return;
         }
-        onMovimientoCreated();
+        onMovimientoCreated(resultado);
       }
 
       setImporte('');
       setDescripcion('');
       setNota('');
       setEsGastoFijo(false);
+      setEsInicioCiclo(false);
+      setMedioPago('');
 
     } catch (err) {
       setError(movimientoToEdit ? 'Error al actualizar el movimiento' : 'Error al registrar el movimiento');
@@ -278,6 +286,25 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           />
         </div>
 
+        {/* Campo: Medio de pago (opcional) */}
+        <div>
+          <label className="block text-sm font-medium text-slate-100 mb-1">
+            Medio de pago <span className="text-slate-400 font-normal">(opcional)</span>
+          </label>
+          <select
+            value={medioPago}
+            onChange={e => setMedioPago(e.target.value)}
+            className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+          >
+            <option value="">Sin especificar</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="debito">Débito</option>
+            <option value="credito">Crédito</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+
         {/* Toggle: Marcar como fijo (solo en creación) */}
         {!movimientoToEdit && (
           <div
@@ -298,6 +325,30 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               </span>
               <p className="text-xs text-slate-400 mt-0.5">
                 Se generará automáticamente el 1° de cada mes
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Toggle: Inicio de Ciclo (solo en creación de ingresos) */}
+        {!movimientoToEdit && isIngreso && (
+          <div
+            onClick={() => setEsInicioCiclo(prev => !prev)}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all select-none ${
+              esInicioCiclo
+                ? 'bg-blue-500/15 border-blue-400/50'
+                : 'bg-slate-800/40 border-slate-600/50 hover:border-slate-500'
+            }`}
+          >
+            <div className={`relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0 ${esInicioCiclo ? 'bg-blue-500' : 'bg-slate-600'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${esInicioCiclo ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </div>
+            <div>
+              <span className={`text-sm font-medium ${esInicioCiclo ? 'text-blue-300' : 'text-slate-300'}`}>
+                Marcar como inicio de ciclo
+              </span>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Activa el Daily Cap y seguimiento de solvencia diaria
               </p>
             </div>
           </div>

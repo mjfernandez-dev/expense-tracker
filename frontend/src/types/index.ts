@@ -73,6 +73,8 @@ export interface Movimiento {
   user_category: UserCategory | null;
   gasto_fijo_id: number | null;      // ID del template de gasto fijo (si aplica)
   is_auto_generated: boolean;        // true si fue generado automáticamente
+  es_inicio_ciclo: boolean;          // true si este ingreso inició un ciclo
+  medio_pago: string | null;         // "efectivo"|"debito"|"credito"|"transferencia"|"otro"
 }
 
 // Datos para CREAR un movimiento (coincide con MovimientoCreate del backend)
@@ -84,7 +86,9 @@ export interface MovimientoCreate {
   tipo: 'gasto' | 'ingreso';
   categoria_id: number | null;
   user_category_id: number | null;
-  es_fijo?: boolean;  // Si true, crea un GastoFijo template asociado
+  es_fijo?: boolean;         // Si true, crea un GastoFijo template asociado
+  es_inicio_ciclo?: boolean; // Si true, este ingreso inicia un nuevo ciclo
+  medio_pago?: string | null;
 }
 
 // ============== TIPOS DE GASTO FIJO ==============
@@ -217,4 +221,59 @@ export interface GroupBalanceSummary {
   total_expenses: number;
   balances: MemberBalance[];
   simplified_debts: DebtTransfer[];
+}
+
+// ============== TIPOS DE CICLO FINANCIERO (Daily Solvency) ==============
+
+export interface CicloGastoFijoItem {
+  id: number;
+  ciclo_id: number;
+  gasto_fijo_id: number | null;
+  monto_confirmado: number;
+  confirmado: boolean;
+  descripcion_override: string | null;
+  gasto_fijo: GastoFijo | null;
+}
+
+export interface CicloResumen {
+  ciclo_id: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+  dias_restantes: number;
+  total_ingresos: number;
+  ahorro_objetivo: number;
+  gastos_fijos_confirmados: number;
+  saldo_disponible_total: number;
+  total_gastos: number;
+  saldo_disponible_actual: number;
+  daily_cap: number;
+  gasto_hoy: number;
+  daily_cap_porcentaje_usado: number;
+  semaforo: 'verde' | 'amarillo' | 'rojo';
+  gastos_fijos: CicloGastoFijoItem[];
+}
+
+export interface Ciclo {
+  id: number;
+  user_id: number;
+  movimiento_origen_id: number | null;
+  fecha_inicio: string;
+  fecha_fin: string;
+  ahorro_objetivo: number;
+  activo: boolean;
+  created_at: string;
+  resumen: CicloResumen | null;
+}
+
+export interface CicloCreate {
+  movimiento_origen_id?: number;
+  fecha_fin: string;
+  ahorro_objetivo: number;
+}
+
+export interface CicloGastoFijoItemCreate {
+  gasto_fijo_id: number | null;
+  monto_confirmado: number;
+  confirmado: boolean;
+  descripcion_override?: string | null;
 }
