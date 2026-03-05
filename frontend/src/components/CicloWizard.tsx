@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { GastoFijo, CicloGastoFijoItemCreate } from '../types';
+import type { CicloGastoFijoItemCreate } from '../types';
 import { getGastosFijos, createCiclo, confirmarGastosFijos } from '../services/api';
 
 interface Props {
