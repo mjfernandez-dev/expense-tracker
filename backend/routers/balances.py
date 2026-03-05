@@ -76,25 +76,6 @@ def get_group_balances(
     # Simplificar deudas (algoritmo greedy en balance_service)
     transfers = simplificar_deudas(balances, member_map, group.creator)
 
-    # Enriquecer transfers con info de pagos existentes
-    payments = db.query(models.Payment).filter(
-        models.Payment.group_id == group_id,
-        models.Payment.status.in_(["pending", "approved"]),
-    ).all()
-
-    for transfer in transfers:
-        for payment in payments:
-            if (payment.from_member_id == transfer.from_member_id
-                    and payment.to_member_id == transfer.to_member_id):
-                if payment.status == "approved":
-                    transfer.paid_amount = payment.amount
-                    transfer.payment_status = "approved"
-                    transfer.payment_id = payment.id
-                    break
-                elif payment.status == "pending" and not transfer.payment_status:
-                    transfer.payment_status = "pending"
-                    transfer.payment_id = payment.id
-
     total_expenses_amount = sum((e.importe for e in expenses), Decimal('0'))
 
     return schemas.GroupBalanceSummary(

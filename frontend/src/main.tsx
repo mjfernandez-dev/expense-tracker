@@ -22,7 +22,6 @@ const CategoriasPage = lazy(() => import('./pages/CategoriasPage.tsx'));
 const RecurrentesPage = lazy(() => import('./pages/RecurrentesPage.tsx'));
 const SplitGroupsPage = lazy(() => import('./pages/SplitGroupsPage.tsx'));
 const SplitGroupDetail = lazy(() => import('./pages/SplitGroupDetail.tsx'));
-const PaymentResultPage = lazy(() => import('./pages/PaymentResultPage.tsx'));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -97,14 +96,6 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <ProtectedRoute>
                     <SplitGroupDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payments/result"
-                element={
-                  <ProtectedRoute>
-                    <PaymentResultPage />
                   </ProtectedRoute>
                 }
               />

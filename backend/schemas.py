@@ -326,8 +326,6 @@ class DebtTransfer(BaseModel):
     to_alias_bancario: Optional[str] = None
     to_cvu: Optional[str] = None
     paid_amount: MoneyDecimal = Decimal('0')
-    payment_status: Optional[str] = None
-    payment_id: Optional[int] = None
 
 
 class GroupBalanceSummary(BaseModel):
@@ -337,31 +335,3 @@ class GroupBalanceSummary(BaseModel):
     balances: List[MemberBalance]
     simplified_debts: List[DebtTransfer]
 
-
-# ============== SCHEMAS PARA PAGOS MERCADO PAGO ==============
-
-class PaymentCreate(BaseModel):
-    group_id: int
-    from_member_id: int
-    to_member_id: int
-    amount: MoneyDecimal
-
-
-class PaymentRead(BaseModel):
-    id: int
-    group_id: int
-    from_member_id: int
-    to_member_id: int
-    amount: MoneyDecimal
-    mp_preference_id: Optional[str] = None
-    mp_payment_id: Optional[str] = None
-    status: str
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class PaymentPreferenceResponse(BaseModel):
-    payment_id: int
-    init_point: str

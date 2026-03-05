@@ -40,7 +40,7 @@ from services.scheduler_service import create_scheduler, ejecutar_generacion_men
 
 # Routers
 from routers import auth, categorias, movimientos, contactos
-from routers import split_groups, split_expenses, balances, payments, gastos_fijos
+from routers import split_groups, split_expenses, balances, gastos_fijos
 
 # Crear todas las tablas en la base de datos si no existen
 # ⚠️ Las migraciones de esquema se manejan con Alembic (ver carpeta alembic/).
@@ -111,7 +111,6 @@ app.include_router(contactos.router)
 app.include_router(split_groups.router)
 app.include_router(split_expenses.router)
 app.include_router(balances.router)
-app.include_router(payments.router)
 app.include_router(gastos_fijos.router)
 
 

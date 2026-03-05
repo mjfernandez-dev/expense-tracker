@@ -209,8 +209,6 @@ export interface DebtTransfer {
   to_alias_bancario: string | null;
   to_cvu: string | null;
   paid_amount: number;
-  payment_status: string | null;
-  payment_id: number | null;
 }
 
 export interface GroupBalanceSummary {
@@ -219,30 +217,4 @@ export interface GroupBalanceSummary {
   total_expenses: number;
   balances: MemberBalance[];
   simplified_debts: DebtTransfer[];
-}
-
-// ============== TIPOS DE PAGOS (MERCADO PAGO) ==============
-
-export interface PaymentCreate {
-  group_id: number;
-  from_member_id: number;
-  to_member_id: number;
-  amount: number;
-}
-
-export interface PaymentPreferenceResponse {
-  payment_id: number;
-  init_point: string;
-}
-
-export interface Payment {
-  id: number;
-  group_id: number;
-  from_member_id: number;
-  to_member_id: number;
-  amount: number;
-  mp_preference_id: string | null;
-  mp_payment_id: string | null;
-  status: string;
-  created_at: string;
 }
