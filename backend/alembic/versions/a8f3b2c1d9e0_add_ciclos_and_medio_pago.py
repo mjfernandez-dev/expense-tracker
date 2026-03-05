@@ -56,13 +56,14 @@ def upgrade() -> None:
         op.create_index(op.f('ix_ciclo_gastos_fijos_id'), 'ciclo_gastos_fijos', ['id'], unique=False)
         op.create_index(op.f('ix_ciclo_gastos_fijos_ciclo_id'), 'ciclo_gastos_fijos', ['ciclo_id'], unique=False)
 
-    # Agregar columnas a movimientos solo si no existen
-    mov_cols = [c[1] for c in bind.execute(sa.text('PRAGMA table_info(movimientos)')).fetchall()]
-    with op.batch_alter_table('movimientos') as batch_op:
-        if 'es_inicio_ciclo' not in mov_cols:
-            batch_op.add_column(sa.Column('es_inicio_ciclo', sa.Boolean(), nullable=False, server_default='0'))
-        if 'medio_pago' not in mov_cols:
-            batch_op.add_column(sa.Column('medio_pago', sa.String(), nullable=True))
+    # Agregar columnas a movimientos solo si no existen (compatible SQLite + PostgreSQL)
+    from sqlalchemy import inspect as sa_inspect
+    inspector = sa_inspect(bind)
+    mov_cols = [c['name'] for c in inspector.get_columns('movimientos')]
+    if 'es_inicio_ciclo' not in mov_cols:
+        op.add_column('movimientos', sa.Column('es_inicio_ciclo', sa.Boolean(), nullable=False, server_default='0'))
+    if 'medio_pago' not in mov_cols:
+        op.add_column('movimientos', sa.Column('medio_pago', sa.String(), nullable=True))
 
 
 def downgrade() -> None:
