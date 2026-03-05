@@ -73,10 +73,24 @@ def crear_ciclo(
     if ciclo_anterior:
         ciclo_anterior.activo = False
 
+    # fecha_inicio = fecha del movimiento de origen para incluirlo en el cálculo
+    fecha_inicio = datetime.now()
+    if data.movimiento_origen_id:
+        mov_origen = (
+            db.query(models.Movimiento)
+            .filter(
+                models.Movimiento.id == data.movimiento_origen_id,
+                models.Movimiento.user_id == current_user.id,
+            )
+            .first()
+        )
+        if mov_origen:
+            fecha_inicio = mov_origen.fecha
+
     ciclo = models.Ciclo(
         user_id=current_user.id,
         movimiento_origen_id=data.movimiento_origen_id,
-        fecha_inicio=datetime.now(),
+        fecha_inicio=fecha_inicio,
         fecha_fin=data.fecha_fin,
         ahorro_objetivo=data.ahorro_objetivo,
         activo=True,
