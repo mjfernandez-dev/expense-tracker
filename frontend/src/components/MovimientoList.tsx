@@ -7,6 +7,8 @@ const MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
 type TabActivo = 'gastos' | 'ingresos' | 'balance';
 
 interface MovimientoListProps {
@@ -307,7 +309,15 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         >
           &larr; Anterior
         </button>
-        <h3 className="text-lg font-semibold text-white">{MESES[selectedMonth]} {selectedYear}</h3>
+        <h3 className="text-lg font-semibold text-white">
+          {(() => {
+            const hoy = new Date();
+            if (selectedYear === hoy.getFullYear() && selectedMonth === hoy.getMonth()) {
+              return `${DIAS[hoy.getDay()]} ${hoy.getDate()} de ${MESES[selectedMonth].toLowerCase()} de ${selectedYear}`;
+            }
+            return `${MESES[selectedMonth]} ${selectedYear}`;
+          })()}
+        </h3>
         <button
           onClick={handleNextMonth}
           className="border border-blue-400/70 bg-slate-800/40 text-blue-300 px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-all"
