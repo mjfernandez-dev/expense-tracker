@@ -260,7 +260,7 @@ class Ciclo(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     # Movimiento de ingreso que inició este ciclo (opcional, puede crearse manualmente)
-    movimiento_origen_id = Column(Integer, ForeignKey("movimientos.id"), nullable=True)
+    movimiento_origen_id = Column(Integer, ForeignKey("movimientos.id", ondelete="SET NULL"), nullable=True)
     fecha_inicio = Column(DateTime, nullable=False)  # Cuando se creó el ciclo
     fecha_fin = Column(DateTime, nullable=False)      # Hasta cuándo debe durar el dinero
     ahorro_objetivo = Column(Numeric(10, 2), default=0, nullable=False)
