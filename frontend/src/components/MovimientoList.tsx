@@ -355,12 +355,8 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
             <span className="text-sm font-medium text-red-200">Gastos {MESES[selectedMonth]}</span>
             <span className="text-2xl font-bold text-red-300">-${totalGastos.toFixed(2)}</span>
           </div>
-          <div className={`rounded-xl p-4 flex items-center justify-between border ${
-            balanceNeto >= 0
-              ? 'bg-emerald-500/15 border-emerald-400/50'
-              : 'bg-red-500/15 border-red-400/50'
-          }`}>
-            <span className={`text-sm font-semibold ${balanceNeto >= 0 ? 'text-emerald-200' : 'text-red-200'}`}>
+          <div className="border-t border-slate-600/50 pt-3 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-400">
               Balance neto {MESES[selectedMonth]}
             </span>
             <span className={`text-3xl font-bold ${balanceNeto >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
