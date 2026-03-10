@@ -85,7 +85,7 @@ function App() {
   }, [syncPendingQueue]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 py-4 sm:py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900/70 py-4 sm:py-8">
       <OfflineIndicator />
       <div className="max-w-6xl mx-auto px-3 sm:px-4">
 
@@ -106,7 +106,7 @@ function App() {
             </button>
             <button
               onClick={() => navigate('/account')}
-              className="border border-blue-400/70 bg-slate-800/40 text-blue-300 font-medium px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg hover:bg-slate-800/60 transition-all duration-200"
+              className="border border-blue-400/60 bg-slate-700/50 text-blue-300 font-medium px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg hover:bg-slate-800/60 transition-all duration-200"
             >
               Mi Cuenta
             </button>

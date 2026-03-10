@@ -4,7 +4,7 @@ function Tools() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 py-4 sm:py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900/70 py-4 sm:py-8">
       <div className="max-w-4xl mx-auto px-3 sm:px-4">
 
         {/* HEADER */}
@@ -15,7 +15,7 @@ function Tools() {
           </div>
           <button
             onClick={() => navigate('/')}
-            className="border border-blue-400/70 bg-slate-800/40 text-blue-300 font-medium px-3 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base rounded-lg hover:bg-slate-800/60 transition-all duration-200"
+            className="border border-blue-400/60 bg-slate-700/50 text-blue-300 font-medium px-3 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base rounded-lg hover:bg-slate-800/60 transition-all duration-200"
           >
             Volver al inicio
           </button>
@@ -27,7 +27,7 @@ function Tools() {
           {/* Card: Dividir Gastos */}
           <div
             onClick={() => navigate('/tools/split-groups')}
-            className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 hover:border-blue-400/50 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all duration-300 cursor-pointer group"
+            className="bg-slate-700/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6 hover:border-blue-400/60 hover:bg-slate-700/80 hover:shadow-[0_0_30px_rgba(59,130,246,0.2)] transition-all duration-300 cursor-pointer group"
           >
             <div className="text-4xl mb-4">💸</div>
             <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
@@ -41,7 +41,7 @@ function Tools() {
           {/* Card: Categorías */}
           <div
             onClick={() => navigate('/tools/categorias')}
-            className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 hover:border-blue-400/50 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all duration-300 cursor-pointer group"
+            className="bg-slate-700/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6 hover:border-blue-400/60 hover:bg-slate-700/80 hover:shadow-[0_0_30px_rgba(59,130,246,0.2)] transition-all duration-300 cursor-pointer group"
           >
             <div className="text-4xl mb-4">🏷️</div>
             <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
@@ -55,7 +55,7 @@ function Tools() {
           {/* Card: Recurrentes */}
           <div
             onClick={() => navigate('/tools/recurrentes')}
-            className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 hover:border-blue-400/50 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all duration-300 cursor-pointer group"
+            className="bg-slate-700/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6 hover:border-blue-400/60 hover:bg-slate-700/80 hover:shadow-[0_0_30px_rgba(59,130,246,0.2)] transition-all duration-300 cursor-pointer group"
           >
             <div className="text-4xl mb-4">🔄</div>
             <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">

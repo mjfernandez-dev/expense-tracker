@@ -146,7 +146,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const accentColor = isIngreso ? 'green' : 'red';
 
   return (
-    <div className={`bg-slate-800/40 rounded-2xl border border-slate-700/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-6 mb-6`}>
+    <div className={`bg-slate-800/70 rounded-2xl border border-slate-600/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-6 mb-6`}>
       {/* Título */}
       <h2 className="text-2xl font-bold mb-4 text-white">
         {movimientoToEdit
@@ -226,7 +226,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             placeholder={isIngreso ? 'Ej: Sueldo de febrero' : 'Ej: Almuerzo con cliente'}
-            className={`w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
+            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
           />
         </div>
 
@@ -244,7 +244,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               value={importe}
               onChange={(e) => setImporte(e.target.value)}
               placeholder="0.00"
-              className={`w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
+              className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
             />
           </div>
 
@@ -265,7 +265,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             <select
               value={categoriaId}
               onChange={(e) => setCategoriaId(e.target.value)}
-              className={`w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
+              className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
             >
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
@@ -282,7 +282,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
                   placeholder="Nombre de la categoría"
                   autoFocus
-                  className="flex-1 px-3 py-2 rounded-lg bg-slate-800/60 border border-blue-500/50 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="flex-1 px-3 py-2 rounded-lg bg-slate-700/80 border border-blue-500/50 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
                 <button
                   type="button"
@@ -306,7 +306,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             type="date"
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
-            className={`w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all [color-scheme:dark]`}
+            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all [color-scheme:dark]`}
           />
           <p className="text-xs text-slate-400 mt-1">
             Cambiá la fecha para asignar el movimiento a otro mes
@@ -323,7 +323,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             value={nota}
             onChange={(e) => setNota(e.target.value)}
             placeholder="Información adicional"
-            className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
         </div>
 
@@ -335,7 +335,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           <select
             value={medioPago}
             onChange={e => setMedioPago(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           >
             <option value="">Sin especificar</option>
             <option value="efectivo">Efectivo</option>
@@ -353,7 +353,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all select-none ${
               esGastoFijo
                 ? 'bg-purple-500/15 border-purple-400/50'
-                : 'bg-slate-800/40 border-slate-600/50 hover:border-slate-500'
+                : 'bg-slate-700/50 border-slate-500/50 hover:border-slate-400'
             }`}
           >
             {/* Switch visual */}
@@ -378,7 +378,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all select-none ${
               esInicioCiclo
                 ? 'bg-blue-500/15 border-blue-400/50'
-                : 'bg-slate-800/40 border-slate-600/50 hover:border-slate-500'
+                : 'bg-slate-700/50 border-slate-500/50 hover:border-slate-400'
             }`}
           >
             <div className={`relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0 ${esInicioCiclo ? 'bg-blue-500' : 'bg-slate-600'}`}>

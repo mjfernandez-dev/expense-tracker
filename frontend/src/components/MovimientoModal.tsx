@@ -80,7 +80,7 @@ function MovimientoModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm"
       onClick={onClose}
       aria-hidden="true"
     >
@@ -95,7 +95,7 @@ function MovimientoModal({
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg p-1.5 transition-colors leading-none"
+          className="absolute top-4 right-4 z-10 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg p-1.5 transition-colors leading-none"
           aria-label="Cerrar"
         >
           ✕

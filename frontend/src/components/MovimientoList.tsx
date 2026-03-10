@@ -169,7 +169,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const esIngreso = tabActivo === 'ingresos';
 
   const renderFila = (mov: Movimiento) => (
-    <tr key={mov.id} className="hover:bg-slate-800/30 transition-colors">
+    <tr key={mov.id} className="hover:bg-slate-700/40 transition-colors">
       <td className="px-4 py-3 text-sm text-slate-300">
         {new Date(mov.fecha).toLocaleDateString()}
       </td>
@@ -220,7 +220,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const renderTarjetaMobile = (mov: Movimiento) => {
     const isExpanded = expandedId === mov.id;
     return (
-      <div key={mov.id} className="bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden">
+      <div key={mov.id} className="bg-slate-700/50 border border-slate-600/60 rounded-xl overflow-hidden">
         <button
           onClick={() => setExpandedId(isExpanded ? null : mov.id)}
           className="w-full px-4 py-3 text-left"
@@ -254,7 +254,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
           </div>
         </button>
         <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="px-4 pb-3 pt-1 border-t border-slate-700/40">
+          <div className="px-4 pb-3 pt-1 border-t border-slate-600/50">
             {mov.nota && (
               <p className="text-xs text-slate-400 mb-3"><span className="text-slate-500">Nota:</span> {mov.nota}</p>
             )}
@@ -280,7 +280,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
   if (loading) {
     return (
-      <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6">
+      <div className="bg-slate-800/70 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6">
         <div className="text-center text-slate-300">Cargando movimientos...</div>
       </div>
     );
@@ -293,11 +293,11 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   }
 
   return (
-    <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6">
+    <div className="bg-slate-800/70 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6">
       <h2 className="text-2xl font-bold mb-4 text-white">Movimientos</h2>
 
       {/* TABS */}
-      <div className="flex gap-1 mb-5 p-1 bg-slate-950/50 rounded-xl w-fit">
+      <div className="flex gap-1 mb-5 p-1 bg-slate-700/50 rounded-xl w-fit">
         {(['gastos', 'ingresos', 'balance'] as TabActivo[]).map((tab) => {
           const labels: Record<TabActivo, string> = { gastos: 'Gastos', ingresos: 'Ingresos', balance: 'Balance' };
           const activeStyles: Record<TabActivo, string> = {
@@ -323,7 +323,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={handlePrevMonth}
-          className="border border-blue-400/70 bg-slate-800/40 text-blue-300 px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-all"
+          className="border border-blue-400/60 bg-slate-700/50 text-blue-300 px-3 py-2 rounded-lg hover:bg-slate-700/70 transition-all"
         >
           &larr; Anterior
         </button>
@@ -338,7 +338,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         </h3>
         <button
           onClick={handleNextMonth}
-          className="border border-blue-400/70 bg-slate-800/40 text-blue-300 px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-all"
+          className="border border-blue-400/60 bg-slate-700/50 text-blue-300 px-3 py-2 rounded-lg hover:bg-slate-700/70 transition-all"
         >
           Siguiente &rarr;
         </button>
@@ -378,7 +378,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
             <div className="mt-2 space-y-4">
               {/* Gastos por categoría */}
               {gastosPorCategoria.length > 0 && (
-                <div className="bg-slate-800/40 border border-red-400/20 rounded-xl p-4">
+                <div className="bg-slate-700/50 border border-red-400/30 rounded-xl p-4">
                   <h4 className="text-sm font-semibold text-red-300 mb-3">Gastos por categoría</h4>
                   <div className="space-y-2">
                     {gastosPorCategoria.map(([cat, total]) => {
@@ -406,7 +406,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
               {/* Ingresos por categoría */}
               {ingresosPorCategoria.length > 0 && (
-                <div className="bg-slate-800/40 border border-green-400/20 rounded-xl p-4">
+                <div className="bg-slate-700/50 border border-green-400/30 rounded-xl p-4">
                   <h4 className="text-sm font-semibold text-green-300 mb-3">Ingresos por categoría</h4>
                   <div className="space-y-2">
                     {ingresosPorCategoria.map(([cat, total]) => {
@@ -472,7 +472,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-slate-800/60 border-b border-slate-700/70">
+                    <tr className="bg-slate-700/60 border-b border-slate-600/60">
                       <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Fecha</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Descripción</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Categoría</th>
@@ -481,11 +481,11 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                       <th className="px-4 py-3 text-center text-sm font-semibold text-slate-300 uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/50">
+                  <tbody className="divide-y divide-slate-600/40">
                     {listaActiva.map(renderFila)}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-slate-800/40 border-t-2 border-slate-600">
+                    <tr className="bg-slate-700/40 border-t-2 border-slate-500">
                       <td colSpan={3} className="px-4 py-3 text-sm font-bold text-white text-right">Total:</td>
                       <td className={`px-4 py-3 text-sm text-right font-bold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
                         {esIngreso ? '+' : ''}${(esIngreso ? totalIngresos : totalGastos).toFixed(2)}

@@ -136,7 +136,7 @@ function EditCicloModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
+      <div className="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
         <h3 className="text-lg font-semibold text-white">Editar ciclo</h3>
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
@@ -146,7 +146,7 @@ function EditCicloModal({
             type="date"
             value={fechaFin}
             onChange={e => setFechaFin(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+            className="w-full bg-slate-700 border border-slate-500 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -158,7 +158,7 @@ function EditCicloModal({
             step="100"
             value={ahorro}
             onChange={e => setAhorro(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+            className="w-full bg-slate-700 border border-slate-500 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -204,7 +204,7 @@ function EditCicloModal({
               placeholder="Descripción"
               value={nuevoAdHoc}
               onChange={e => setNuevoAdHoc(e.target.value)}
-              className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-blue-500"
+              className="flex-1 bg-slate-700 border border-slate-500 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-blue-500"
             />
             <input
               type="number"
@@ -276,14 +276,14 @@ export default function DashboardCiclo({ refreshKey }: Props) {
   // Cargando
   if (ciclo === undefined) {
     return (
-      <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 mb-6 animate-pulse h-28" />
+      <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6 animate-pulse h-28" />
     );
   }
 
   // Sin ciclo activo
   if (!ciclo || !ciclo.resumen) {
     return (
-      <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 mb-6">
+      <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6">
         <div className="flex items-start gap-3">
           <span className="text-2xl mt-0.5">💡</span>
           <div>
@@ -319,7 +319,7 @@ export default function DashboardCiclo({ refreshKey }: Props) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-slate-300 text-xs font-medium uppercase tracking-wide">Ciclo financiero</span>
-            <span className="bg-slate-700/60 text-slate-300 text-xs px-2 py-0.5 rounded-full">
+            <span className="bg-slate-600/60 text-slate-200 text-xs px-2 py-0.5 rounded-full">
               {r.dias_restantes} día{r.dias_restantes !== 1 ? 's' : ''} restante{r.dias_restantes !== 1 ? 's' : ''}
             </span>
             <span className="text-slate-500 text-xs">hasta {fechaFinLabel}</span>
@@ -361,7 +361,7 @@ export default function DashboardCiclo({ refreshKey }: Props) {
             <span>Gastaste hoy: {formatARS(r.gasto_hoy)}</span>
             <span>{pct.toFixed(0)}%</span>
           </div>
-          <div className="w-full h-2 bg-slate-700/60 rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-slate-600/60 rounded-full overflow-hidden">
             <div
               className={`h-2 rounded-full transition-all duration-500 ${colors.bar}`}
               style={{ width: `${pct}%` }}
@@ -372,7 +372,7 @@ export default function DashboardCiclo({ refreshKey }: Props) {
         {/* Info secundaria colapsable */}
         <button
           onClick={() => setShowInfo(v => !v)}
-          className="flex items-center gap-2 w-full text-left border-t border-slate-700/40 pt-3"
+          className="flex items-center gap-2 w-full text-left border-t border-slate-600/50 pt-3"
         >
           <span className="text-xs text-slate-400">
             Disponible: <span className="text-slate-200 font-medium">{formatARS(r.saldo_disponible_actual)}</span>
