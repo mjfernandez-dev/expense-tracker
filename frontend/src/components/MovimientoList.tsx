@@ -69,6 +69,24 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const totalIngresos = useMemo(() => ingresosMes.reduce((sum, m) => sum + m.importe, 0), [ingresosMes]);
   const balanceNeto = totalIngresos - totalGastos;
 
+  const gastosPorCategoria = useMemo(() => {
+    const map: Record<string, number> = {};
+    gastosMes.forEach((m) => {
+      const cat = m.categoria?.nombre ?? m.user_category?.nombre ?? 'Sin categoría';
+      map[cat] = (map[cat] ?? 0) + m.importe;
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [gastosMes]);
+
+  const ingresosPorCategoria = useMemo(() => {
+    const map: Record<string, number> = {};
+    ingresosMes.forEach((m) => {
+      const cat = m.categoria?.nombre ?? m.user_category?.nombre ?? 'Sin categoría';
+      map[cat] = (map[cat] ?? 0) + m.importe;
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [ingresosMes]);
+
   const getNombreCategoria = (mov: Movimiento) =>
     mov.categoria?.nombre ?? mov.user_category?.nombre ?? 'Sin categoría';
 
@@ -353,6 +371,67 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
             <p className="text-center text-slate-400 text-sm py-4">
               Sin movimientos en {MESES[selectedMonth]} {selectedYear}
             </p>
+          )}
+
+          {/* Breakdown por categoría */}
+          {movimientosMes.length > 0 && (
+            <div className="mt-2 space-y-4">
+              {/* Gastos por categoría */}
+              {gastosPorCategoria.length > 0 && (
+                <div className="bg-slate-800/40 border border-red-400/20 rounded-xl p-4">
+                  <h4 className="text-sm font-semibold text-red-300 mb-3">Gastos por categoría</h4>
+                  <div className="space-y-2">
+                    {gastosPorCategoria.map(([cat, total]) => {
+                      const pct = totalGastos > 0 ? (total / totalGastos) * 100 : 0;
+                      return (
+                        <div key={cat}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-slate-300">{cat}</span>
+                            <span className="text-red-300 font-medium">
+                              ${total.toFixed(2)} <span className="text-slate-500">({pct.toFixed(0)}%)</span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-red-400/70 rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Ingresos por categoría */}
+              {ingresosPorCategoria.length > 0 && (
+                <div className="bg-slate-800/40 border border-green-400/20 rounded-xl p-4">
+                  <h4 className="text-sm font-semibold text-green-300 mb-3">Ingresos por categoría</h4>
+                  <div className="space-y-2">
+                    {ingresosPorCategoria.map(([cat, total]) => {
+                      const pct = totalIngresos > 0 ? (total / totalIngresos) * 100 : 0;
+                      return (
+                        <div key={cat}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-slate-300">{cat}</span>
+                            <span className="text-green-300 font-medium">
+                              ${total.toFixed(2)} <span className="text-slate-500">({pct.toFixed(0)}%)</span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-green-400/70 rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

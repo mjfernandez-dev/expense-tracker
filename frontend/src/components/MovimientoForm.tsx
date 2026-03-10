@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { UserCategory, MovimientoCreate, Movimiento } from '../types';
-import { getUserCategories, createMovimiento, updateMovimiento } from '../services/api';
+import { getUserCategories, createMovimiento, updateMovimiento, createCategory } from '../services/api';
 
 interface MovimientoFormProps {
   onMovimientoCreated: (movimiento?: Movimiento) => void;
@@ -13,7 +12,6 @@ interface MovimientoFormProps {
 }
 
 function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoToEdit, onCancelEdit, categoriesVersion }: MovimientoFormProps) {
-  const navigate = useNavigate();
   const [tipo, setTipo] = useState<'gasto' | 'ingreso'>('gasto');
   const [importe, setImporte] = useState<string>('');
   const [descripcion, setDescripcion] = useState<string>('');
@@ -29,6 +27,9 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineQueued, setOfflineQueued] = useState<boolean>(false);
+  const [showNewCat, setShowNewCat] = useState<boolean>(false);
+  const [newCatNombre, setNewCatNombre] = useState<string>('');
+  const [savingCat, setSavingCat] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -69,6 +70,23 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       }
     }
   }, [movimientoToEdit, categories]);
+
+  const handleCreateCategory = async () => {
+    const nombre = newCatNombre.trim();
+    if (!nombre) return;
+    setSavingCat(true);
+    try {
+      const nueva = await createCategory(nombre);
+      setCategories((prev) => [...prev, nueva]);
+      setCategoriaId(nueva.id.toString());
+      setNewCatNombre('');
+      setShowNewCat(false);
+    } catch (err) {
+      console.error('Error al crear categoría:', err);
+    } finally {
+      setSavingCat(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -232,9 +250,18 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
           {/* Campo: Categoría */}
           <div>
-            <label className="block text-sm font-medium text-slate-100 mb-1">
-              Categoría *
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-slate-100">
+                Categoría *
+              </label>
+              <button
+                type="button"
+                onClick={() => { setShowNewCat((v) => !v); setNewCatNombre(''); }}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+              >
+                {showNewCat ? '✕ Cancelar' : '+ Nueva'}
+              </button>
+            </div>
             <select
               value={categoriaId}
               onChange={(e) => setCategoriaId(e.target.value)}
@@ -246,13 +273,27 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              onClick={() => navigate('/tools/categorias')}
-              className="mt-1.5 text-xs text-slate-500 hover:text-blue-400 transition-colors text-left"
-            >
-              ¿No encontrás la categoría? Administrar categorías →
-            </button>
+            {showNewCat && (
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={newCatNombre}
+                  onChange={(e) => setNewCatNombre(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
+                  placeholder="Nombre de la categoría"
+                  autoFocus
+                  className="flex-1 px-3 py-2 rounded-lg bg-slate-800/60 border border-blue-500/50 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateCategory}
+                  disabled={savingCat || !newCatNombre.trim()}
+                  className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white text-sm font-medium transition-colors"
+                >
+                  {savingCat ? '...' : 'Crear'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
