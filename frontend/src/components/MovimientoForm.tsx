@@ -216,6 +216,26 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
+        {/* Campo: Importe — prominente, primero */}
+        <div className={`rounded-xl border p-4 text-center ${isIngreso ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+          <label className={`block text-xs font-semibold uppercase tracking-widest mb-2 ${isIngreso ? 'text-green-400' : 'text-red-400'}`}>
+            {isIngreso ? 'Ingreso' : 'Gasto'} *
+          </label>
+          <div className="flex items-center justify-center gap-2">
+            <span className={`text-3xl font-light ${isIngreso ? 'text-green-400' : 'text-red-400'}`}>$</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={importe}
+              onChange={(e) => setImporte(e.target.value)}
+              placeholder="0"
+              autoFocus
+              className={`w-48 text-4xl font-bold text-center bg-transparent border-b-2 ${isIngreso ? 'border-green-500 text-green-100 placeholder:text-green-800' : 'border-red-500 text-red-100 placeholder:text-red-900'} focus:outline-none`}
+            />
+          </div>
+        </div>
+
         {/* Campo: Descripción */}
         <div>
           <label className="block text-sm font-medium text-slate-100 mb-1">
@@ -230,71 +250,52 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           />
         </div>
 
-        {/* Grid de 2 columnas para Importe y Categoría */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          {/* Campo: Importe */}
-          <div>
-            <label className="block text-sm font-medium text-slate-100 mb-1">
-              Importe *
+        {/* Campo: Categoría */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-slate-100">
+              Categoría *
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={importe}
-              onChange={(e) => setImporte(e.target.value)}
-              placeholder="0.00"
-              className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
-            />
+            <button
+              type="button"
+              onClick={() => { setShowNewCat((v) => !v); setNewCatNombre(''); }}
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+            >
+              {showNewCat ? '✕ Cancelar' : '+ Nueva'}
+            </button>
           </div>
-
-          {/* Campo: Categoría */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-slate-100">
-                Categoría *
-              </label>
+          <select
+            value={categoriaId}
+            onChange={(e) => setCategoriaId(e.target.value)}
+            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
+          >
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.nombre}
+              </option>
+            ))}
+          </select>
+          {showNewCat && (
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={newCatNombre}
+                onChange={(e) => setNewCatNombre(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
+                placeholder="Nombre de la categoría"
+                autoFocus
+                className="flex-1 px-3 py-2 rounded-lg bg-slate-700/80 border border-blue-500/50 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
               <button
                 type="button"
-                onClick={() => { setShowNewCat((v) => !v); setNewCatNombre(''); }}
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                onClick={handleCreateCategory}
+                disabled={savingCat || !newCatNombre.trim()}
+                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white text-sm font-medium transition-colors"
               >
-                {showNewCat ? '✕ Cancelar' : '+ Nueva'}
+                {savingCat ? '...' : 'Crear'}
               </button>
             </div>
-            <select
-              value={categoriaId}
-              onChange={(e) => setCategoriaId(e.target.value)}
-              className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
-            >
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.nombre}
-                </option>
-              ))}
-            </select>
-            {showNewCat && (
-              <div className="mt-2 flex gap-2">
-                <input
-                  type="text"
-                  value={newCatNombre}
-                  onChange={(e) => setNewCatNombre(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
-                  placeholder="Nombre de la categoría"
-                  autoFocus
-                  className="flex-1 px-3 py-2 rounded-lg bg-slate-700/80 border border-blue-500/50 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={handleCreateCategory}
-                  disabled={savingCat || !newCatNombre.trim()}
-                  className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white text-sm font-medium transition-colors"
-                >
-                  {savingCat ? '...' : 'Crear'}
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Campo: Fecha */}
