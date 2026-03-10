@@ -168,54 +168,22 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const listaActiva = tabActivo === 'gastos' ? gastosMes : ingresosMes;
   const esIngreso = tabActivo === 'ingresos';
 
-  const renderFila = (mov: Movimiento) => (
-    <tr key={mov.id} className="hover:bg-slate-700/40 transition-colors">
-      <td className="px-4 py-3 text-sm text-slate-300">
-        {new Date(mov.fecha).toLocaleDateString()}
-      </td>
-      <td className="px-4 py-3 text-sm text-slate-100 font-medium">
-        <div className="flex items-center gap-2">
-          {mov.descripcion}
-          {mov.is_auto_generated && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-400/30 whitespace-nowrap">
-              Auto
-            </span>
-          )}
-        </div>
-      </td>
-      <td className="px-4 py-3 text-sm">
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-          esIngreso
-            ? 'bg-green-500/20 text-green-300 border-green-400/30'
-            : 'bg-blue-500/20 text-blue-300 border-blue-400/30'
-        }`}>
-          {getNombreCategoria(mov)}
-        </span>
-      </td>
-      <td className={`px-4 py-3 text-sm text-right font-semibold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
-        {esIngreso ? '+' : '-'}${mov.importe.toFixed(2)}
-      </td>
-      <td className="px-4 py-3 text-sm text-slate-300">
-        {mov.nota || <span className="text-slate-500">-</span>}
-      </td>
-      <td className="px-4 py-3 text-sm text-center">
-        <div className="flex justify-center gap-2">
-          <button
-            onClick={() => onEdit?.(mov)}
-            className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 px-3 py-1 rounded text-xs font-medium transition-all"
-          >
-            Editar
-          </button>
-          <button
-            onClick={() => handleDeleteRequest(mov)}
-            className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-3 py-1 rounded text-xs font-medium transition-all"
-          >
-            Eliminar
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
+  const listaAgrupadaPorDia = useMemo(() => {
+    const map = new Map<string, Movimiento[]>();
+    listaActiva.forEach((mov) => {
+      const key = mov.fecha.substring(0, 10);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(mov);
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([key, items]) => {
+        const d = new Date(key + 'T12:00:00');
+        const label = `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()].toLowerCase()}`;
+        const total = items.reduce((sum, m) => sum + m.importe, 0);
+        return { key, label, items, total };
+      });
+  }, [listaActiva]);
 
   const renderTarjetaMobile = (mov: Movimiento) => {
     const isExpanded = expandedId === mov.id;
@@ -464,12 +432,11 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
             </div>
           ) : (
             <>
-              {/* DESKTOP: Tabla */}
+              {/* DESKTOP: Tabla agrupada por día */}
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-slate-700/60 border-b border-slate-600/60">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Fecha</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Descripción</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Categoría</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-slate-300 uppercase tracking-wider">Importe</th>
@@ -478,11 +445,67 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-600/40">
-                    {listaActiva.map(renderFila)}
+                    {listaAgrupadaPorDia.map(({ key, label, items, total }) => (
+                      <>
+                        <tr key={`header-${key}`} className="bg-slate-700/30 border-y border-slate-600/50">
+                          <td colSpan={3} className="px-4 py-2">
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</span>
+                          </td>
+                          <td colSpan={2} className={`px-4 py-2 text-right text-xs font-semibold ${esIngreso ? 'text-green-400' : 'text-slate-400'}`}>
+                            {esIngreso ? '+' : '-'}${total.toFixed(2)}
+                          </td>
+                        </tr>
+                        {items.map((mov) => (
+                          <tr key={mov.id} className="hover:bg-slate-700/40 transition-colors">
+                            <td className="px-4 py-3 text-sm text-slate-100 font-medium">
+                              <div className="flex items-center gap-2">
+                                {mov.descripcion}
+                                {mov.is_auto_generated && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-400/30 whitespace-nowrap">
+                                    Auto
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                esIngreso
+                                  ? 'bg-green-500/20 text-green-300 border-green-400/30'
+                                  : 'bg-blue-500/20 text-blue-300 border-blue-400/30'
+                              }`}>
+                                {getNombreCategoria(mov)}
+                              </span>
+                            </td>
+                            <td className={`px-4 py-3 text-sm text-right font-semibold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
+                              {esIngreso ? '+' : '-'}${mov.importe.toFixed(2)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-300">
+                              {mov.nota || <span className="text-slate-500">-</span>}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-center">
+                              <div className="flex justify-center gap-2">
+                                <button
+                                  onClick={() => onEdit?.(mov)}
+                                  className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 px-3 py-1 rounded text-xs font-medium transition-all"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRequest(mov)}
+                                  className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-3 py-1 rounded text-xs font-medium transition-all"
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    ))}
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-700/40 border-t-2 border-slate-500">
-                      <td colSpan={3} className="px-4 py-3 text-sm font-bold text-white text-right">Total:</td>
+                      <td colSpan={2} className="px-4 py-3 text-sm font-bold text-white text-right">Total:</td>
                       <td className={`px-4 py-3 text-sm text-right font-bold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
                         {esIngreso ? '+' : ''}${(esIngreso ? totalIngresos : totalGastos).toFixed(2)}
                       </td>
@@ -492,9 +515,21 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                 </table>
               </div>
 
-              {/* MÓVIL: Acordeón */}
-              <div className="sm:hidden space-y-2">
-                {listaActiva.map(renderTarjetaMobile)}
+              {/* MÓVIL: Agrupado por día */}
+              <div className="sm:hidden space-y-4">
+                {listaAgrupadaPorDia.map(({ key, label, items, total }) => (
+                  <div key={key}>
+                    <div className="flex items-center justify-between px-1 mb-2">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</span>
+                      <span className={`text-xs font-semibold ${esIngreso ? 'text-green-400' : 'text-slate-400'}`}>
+                        {esIngreso ? '+' : '-'}${total.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {items.map(renderTarjetaMobile)}
+                    </div>
+                  </div>
+                ))}
                 <div className="bg-slate-800/40 border border-slate-600 rounded-xl px-4 py-3 flex items-center justify-between mt-3">
                   <span className="text-sm font-bold text-white">Total:</span>
                   <span className={`text-sm font-bold ${esIngreso ? 'text-green-300' : 'text-white'}`}>

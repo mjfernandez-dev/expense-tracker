@@ -83,7 +83,6 @@ Expense Tracker
             print(f"📧 [DEV] Email de reset de contraseña para: {email}")
             print("=" * 60)
             print(f"Usuario: {username}")
-            print(f"Token: {reset_token}")
             print(f"URL: {reset_url}")
             print(f"Expira en: {expires_in_hours} hora(s)")
             print("=" * 60 + "\n")
