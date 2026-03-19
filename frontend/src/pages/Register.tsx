@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { registerUser, loginUser } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import authLogo from '../assets/auth-logo.jpeg';
+import { getApiErrorMessage } from '../utils/apiError';
 
 // Cambia este flag a false si quieres usar solo el icono 🆕
 const SHOW_IMAGE_LOGO = true;
@@ -45,12 +46,7 @@ export default function Register() {
 
       navigate('/');
     } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { detail?: string } } };
-        setError(axiosError.response?.data?.detail || 'Error al registrar usuario');
-      } else {
-        setError('Error al registrar usuario');
-      }
+      setError(getApiErrorMessage(err, 'Error al registrar usuario'));
     } finally {
       setIsLoading(false);
     }
