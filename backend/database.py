@@ -39,6 +39,8 @@ else:
         connect_args=connect_args,
         pool_size=20,
         max_overflow=40,
+        pool_pre_ping=True,
+        pool_recycle=300,
     )
 
 # Crear sesión para interactuar con la BD
