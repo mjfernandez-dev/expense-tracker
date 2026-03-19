@@ -72,6 +72,15 @@ npm-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# Capacitor / Android generated artifacts
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/local.properties
+frontend/android/capacitor-cordova-android-plugins/
+frontend/android/app/src/main/assets/
+frontend/android/app/src/main/res/xml/config.xml
+
 # ============================================
 # IDE Y EDITORES
 # ============================================
