@@ -78,7 +78,7 @@ def login(
         value=access_token,
         httponly=True,
         secure=config.IS_PRODUCTION,
-        samesite="lax",
+        samesite="none",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -87,7 +87,7 @@ def login(
         value=refresh_token,
         httponly=True,
         secure=config.IS_PRODUCTION,
-        samesite="lax",
+        samesite="none",
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         path="/",
     )
@@ -101,8 +101,8 @@ def logout(request: Request, db: Session = Depends(get_db)):
         revoke_refresh_token(db, raw_refresh)
 
     response = JSONResponse(content={"message": "Sesión cerrada"})
-    response.delete_cookie(key="access_token", httponly=True, secure=config.IS_PRODUCTION, samesite="lax", path="/")
-    response.delete_cookie(key="refresh_token", httponly=True, secure=config.IS_PRODUCTION, samesite="lax", path="/")
+    response.delete_cookie(key="access_token", httponly=True, secure=config.IS_PRODUCTION, samesite="none", path="/")
+    response.delete_cookie(key="refresh_token", httponly=True, secure=config.IS_PRODUCTION, samesite="none", path="/")
     return response
 
 
@@ -132,7 +132,7 @@ def refresh_token(request: Request, db: Session = Depends(get_db)):
         value=new_access_token,
         httponly=True,
         secure=config.IS_PRODUCTION,
-        samesite="lax",
+        samesite="none",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -141,7 +141,7 @@ def refresh_token(request: Request, db: Session = Depends(get_db)):
         value=new_raw_refresh,
         httponly=True,
         secure=config.IS_PRODUCTION,
-        samesite="lax",
+        samesite="none",
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         path="/",
     )
