@@ -10,6 +10,8 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
+import SharedIntentModal from './components/SharedIntentModal';
+import { useSharedIntent } from './hooks/useSharedIntent';
 
 function App() {
   const [movimientoToEdit, setMovimientoToEdit] = useState<Movimiento | null>(null);
@@ -17,6 +19,8 @@ function App() {
   const [showModal, setShowModal] = useState<boolean>(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const { sharedData, isProcessing: isProcessingShared, clearSharedData } = useSharedIntent();
 
   // Estado del wizard de ciclo
   const [showWizard, setShowWizard] = useState<boolean>(false);
@@ -168,6 +172,17 @@ function App() {
           onClose={handleWizardClose}
         />
       )}
+
+      {/* MODAL: Recibir desde otras apps */}
+      <SharedIntentModal
+        sharedData={sharedData}
+        isProcessing={isProcessingShared}
+        onClose={clearSharedData}
+        onDataProcessed={() => {
+          clearSharedData();
+          setRefreshKey(prev => prev + 1);
+        }}
+      />
     </div>
   );
 }
