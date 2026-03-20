@@ -266,8 +266,9 @@ export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Mo
     const response = await api.post('/movimientos/', movimiento);
     return response.data;
   } catch (error) {
-    // Error de red sin respuesta del servidor (offline real, timeout, etc.)
-    if (axios.isAxiosError(error) && !error.response) {
+    // Solo encolar si realmente estamos offline.
+    // Un 500 detrás de CORS también puede llegar como "sin response" en el navegador.
+    if (axios.isAxiosError(error) && !error.response && !navigator.onLine) {
       return enqueueAndReturn();
     }
     throw error;
