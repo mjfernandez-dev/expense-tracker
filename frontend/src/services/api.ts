@@ -161,7 +161,11 @@ export const getCurrentUser = async (): Promise<User> => {
   }
   try {
     const response = await api.get('/auth/me');
-    await saveUser(response.data);
+    try {
+      await saveUser(response.data);
+    } catch (cacheError) {
+      console.warn('No se pudo guardar el usuario en cache offline', cacheError);
+    }
     return response.data;
   } catch (error) {
     const cached = await getCachedUser();
