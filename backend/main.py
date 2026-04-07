@@ -49,14 +49,7 @@ Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Al arrancar: ejecutar generación como catch-up (idempotente)
-    db = next(get_db())
-    try:
-        ejecutar_generacion_mensual(db)
-    finally:
-        db.close()
-
-    # Iniciar scheduler (día 1 de cada mes a las 00:01)
+    # Iniciar scheduler (solo tareas de mantenimiento)
     scheduler = create_scheduler()
     scheduler.start()
 
@@ -65,7 +58,7 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown()
 
 
-# Crear la aplicación FastAPI
+# Crear la aplicaci?n FastAPI
 if config.IS_PRODUCTION:
     app = FastAPI(title="Expense Tracker API", docs_url=None, redoc_url=None, lifespan=lifespan)
 else:
