@@ -1,7 +1,7 @@
-"""Servicio de scheduler para gastos fijos recurrentes."""
+"""Servicio de scheduler y helpers para gastos fijos."""
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -13,64 +13,62 @@ from database import get_db
 logger = logging.getLogger("finanzaapp")
 
 
-def ejecutar_generacion_mensual(db: Session) -> int:
-    """
-    Genera los movimientos automáticos del mes actual para todos los gastos fijos activos.
-    Es idempotente: no crea duplicados si ya existe un movimiento del gasto fijo para el mes.
-    Retorna la cantidad de movimientos creados.
-    """
-    ahora = datetime.now()
-    inicio_mes = ahora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    fin_mes = (inicio_mes + timedelta(days=32)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+def obtener_importe_referencia_gasto_fijo(gasto_fijo_id: int, db: Session):
+    """Retorna el mejor importe de referencia conocido para un gasto fijo."""
+    ultimo_importe = (
+        db.query(models.Movimiento.importe)
+        .filter(models.Movimiento.gasto_fijo_id == gasto_fijo_id)
+        .order_by(models.Movimiento.fecha.desc())
+        .scalar()
+    )
+    if ultimo_importe is not None:
+        return ultimo_importe
 
-    gastos_fijos = db.query(models.GastoFijo).filter(models.GastoFijo.activo == True).all()
+    return db.query(func.max(models.Movimiento.importe)).filter(
+        models.Movimiento.gasto_fijo_id == gasto_fijo_id
+    ).scalar()
+
+
+def sincronizar_gastos_fijos_en_ciclo(ciclo: models.Ciclo, db: Session) -> int:
+    """
+    Copia los gastos fijos activos del usuario como compromisos del ciclo.
+    Es idempotente por gasto_fijo_id dentro del ciclo.
+    """
+    gastos_fijos = (
+        db.query(models.GastoFijo)
+        .filter(
+            models.GastoFijo.user_id == ciclo.user_id,
+            models.GastoFijo.activo == True,
+            models.GastoFijo.tipo == "gasto",
+        )
+        .all()
+    )
+
+    existentes_ids = {
+        cgf.gasto_fijo_id
+        for cgf in ciclo.gastos_fijos_ciclo
+        if cgf.gasto_fijo_id is not None
+    }
 
     creados = 0
     for gf in gastos_fijos:
-        ya_existe = db.query(models.Movimiento).filter(
-            models.Movimiento.gasto_fijo_id == gf.id,
-            models.Movimiento.fecha >= inicio_mes,
-            models.Movimiento.fecha < fin_mes
-        ).first()
-        if ya_existe:
+        if gf.id in existentes_ids:
             continue
 
-        max_importe = db.query(func.max(models.Movimiento.importe)).filter(
-            models.Movimiento.gasto_fijo_id == gf.id
-        ).scalar()
-        if max_importe is None:
+        importe = obtener_importe_referencia_gasto_fijo(gf.id, db)
+        if importe is None:
             continue
 
-        nuevo = models.Movimiento(
-            importe=max_importe,
-            fecha=inicio_mes,
-            descripcion=gf.descripcion,
-            nota="Generado automáticamente",
-            tipo=gf.tipo,
-            categoria_id=gf.categoria_id,
-            user_category_id=gf.user_category_id,
-            user_id=gf.user_id,
+        db.add(models.CicloGastoFijo(
+            ciclo_id=ciclo.id,
             gasto_fijo_id=gf.id,
-            is_auto_generated=True,
-        )
-        db.add(nuevo)
+            monto_confirmado=importe,
+            confirmado=True,
+            estado="comprometido",
+        ))
         creados += 1
 
-    if creados:
-        db.commit()
     return creados
-
-
-def _job_generar_gastos_fijos():
-    """Job del scheduler: se ejecuta el día 1 de cada mes."""
-    db = next(get_db())
-    try:
-        creados = ejecutar_generacion_mensual(db)
-        logger.info(json.dumps({"msg": "gastos_fijos_generados", "creados": creados}))
-    except Exception as e:
-        logger.error(json.dumps({"msg": "error_generando_gastos_fijos", "error": str(e)}))
-    finally:
-        db.close()
 
 
 def _job_cleanup_tokens():
@@ -98,6 +96,5 @@ def _job_cleanup_tokens():
 def create_scheduler() -> AsyncIOScheduler:
     """Crea y configura el scheduler (sin iniciarlo)."""
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(_job_generar_gastos_fijos, 'cron', day=1, hour=0, minute=1)
     scheduler.add_job(_job_cleanup_tokens, 'interval', hours=24)
     return scheduler
