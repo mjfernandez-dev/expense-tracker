@@ -59,15 +59,14 @@ function EditCicloModal({
   const [nuevoAdHoc, setNuevoAdHoc] = useState('');
   const [nuevoAdHocMonto, setNuevoAdHocMonto] = useState('');
 
-  // Cargar templates de gastos fijos y pre-poblar con los ya confirmados
   useEffect(() => {
     getGastosFijos()
       .then((templates: GastoFijo[]) => {
         const confirmados = ciclo.resumen?.gastos_fijos ?? [];
         const items: GastoFijoEdit[] = templates
-          .filter(t => t.activo)
-          .map(t => {
-            const yaConfirmado = confirmados.find(c => c.gasto_fijo_id === t.id);
+          .filter((t) => t.activo)
+          .map((t) => {
+            const yaConfirmado = confirmados.find((c) => c.gasto_fijo_id === t.id);
             return {
               gasto_fijo_id: t.id,
               descripcion: t.descripcion,
@@ -76,16 +75,17 @@ function EditCicloModal({
               esAdhoc: false,
             };
           });
-        // Agregar ad-hocs ya confirmados (gasto_fijo_id null)
+
         const adhocs: GastoFijoEdit[] = confirmados
-          .filter(c => c.gasto_fijo_id === null)
-          .map(c => ({
+          .filter((c) => c.gasto_fijo_id === null)
+          .map((c) => ({
             gasto_fijo_id: null,
             descripcion: c.descripcion_override ?? 'Sin descripción',
             monto: String(c.monto_confirmado),
             confirmado: true,
             esAdhoc: true,
           }));
+
         setGastosFijos([...items, ...adhocs]);
       })
       .finally(() => setLoadingGF(false));
@@ -93,9 +93,15 @@ function EditCicloModal({
 
   const handleAddAdHoc = () => {
     if (!nuevoAdHoc.trim() || !nuevoAdHocMonto) return;
-    setGastosFijos(prev => [
+    setGastosFijos((prev) => [
       ...prev,
-      { gasto_fijo_id: null, descripcion: nuevoAdHoc.trim(), monto: nuevoAdHocMonto, confirmado: true, esAdhoc: true },
+      {
+        gasto_fijo_id: null,
+        descripcion: nuevoAdHoc.trim(),
+        monto: nuevoAdHocMonto,
+        confirmado: true,
+        esAdhoc: true,
+      },
     ]);
     setNuevoAdHoc('');
     setNuevoAdHocMonto('');
@@ -103,28 +109,29 @@ function EditCicloModal({
 
   const handleSave = async () => {
     setError('');
-    const fechaFinDt = new Date(fechaFin + 'T23:59:59');
+    const fechaFinDt = new Date(`${fechaFin}T23:59:59`);
     if (fechaFinDt <= new Date()) {
       setError('La fecha de fin debe ser posterior a hoy');
       return;
     }
+
     try {
       setLoading(true);
       await updateCiclo(ciclo.id, {
-        fecha_fin: fechaFin + 'T23:59:59',
+        fecha_fin: `${fechaFin}T23:59:59`,
         ahorro_objetivo: parseFloat(ahorro) || 0,
       } as Partial<CicloCreate>);
 
       const items: CicloGastoFijoItemCreate[] = gastosFijos
-        .filter(gf => gf.confirmado)
-        .map(gf => ({
+        .filter((gf) => gf.confirmado)
+        .map((gf) => ({
           gasto_fijo_id: gf.gasto_fijo_id,
           monto_confirmado: parseFloat(gf.monto) || 0,
           confirmado: true,
           descripcion_override: gf.esAdhoc ? gf.descripcion : undefined,
         }));
-      await confirmarGastosFijos(ciclo.id, items);
 
+      await confirmarGastosFijos(ciclo.id, items);
       onSaved();
       onClose();
     } catch {
@@ -145,7 +152,7 @@ function EditCicloModal({
           <input
             type="date"
             value={fechaFin}
-            onChange={e => setFechaFin(e.target.value)}
+            onChange={(e) => setFechaFin(e.target.value)}
             className="w-full bg-slate-700 border border-slate-500 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
           />
         </div>
@@ -157,12 +164,11 @@ function EditCicloModal({
             min="0"
             step="100"
             value={ahorro}
-            onChange={e => setAhorro(e.target.value)}
+            onChange={(e) => setAhorro(e.target.value)}
             className="w-full bg-slate-700 border border-slate-500 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
           />
         </div>
 
-        {/* Gastos fijos */}
         <div className="space-y-2">
           <label className="text-slate-300 text-sm">Gastos fijos del ciclo</label>
           {loadingGF ? (
@@ -175,7 +181,12 @@ function EditCicloModal({
                   className={`flex items-center gap-2 bg-slate-800/60 rounded-lg px-2.5 py-2 border ${gf.confirmado ? 'border-blue-500/30' : 'border-slate-700/40 opacity-50'}`}
                 >
                   <button
-                    onClick={() => setGastosFijos(prev => prev.map((g, i) => i === idx ? { ...g, confirmado: !g.confirmado } : g))}
+                    type="button"
+                    onClick={() =>
+                      setGastosFijos((prev) =>
+                        prev.map((g, i) => (i === idx ? { ...g, confirmado: !g.confirmado } : g)),
+                      )
+                    }
                     className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 transition-colors ${gf.confirmado ? 'bg-blue-600 border-blue-600' : 'border-slate-500'}`}
                   >
                     {gf.confirmado && <span className="text-white text-xs font-bold leading-none">✓</span>}
@@ -186,7 +197,11 @@ function EditCicloModal({
                     min="0"
                     step="100"
                     value={gf.monto}
-                    onChange={e => setGastosFijos(prev => prev.map((g, i) => i === idx ? { ...g, monto: e.target.value } : g))}
+                    onChange={(e) =>
+                      setGastosFijos((prev) =>
+                        prev.map((g, i) => (i === idx ? { ...g, monto: e.target.value } : g)),
+                      )
+                    }
                     className="w-20 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-xs text-right focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -197,13 +212,12 @@ function EditCicloModal({
             </div>
           )}
 
-          {/* Ad-hoc */}
           <div className="flex gap-1.5 pt-1">
             <input
               type="text"
               placeholder="Descripción"
               value={nuevoAdHoc}
-              onChange={e => setNuevoAdHoc(e.target.value)}
+              onChange={(e) => setNuevoAdHoc(e.target.value)}
               className="flex-1 bg-slate-700 border border-slate-500 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-blue-500"
             />
             <input
@@ -211,10 +225,11 @@ function EditCicloModal({
               min="0"
               placeholder="$"
               value={nuevoAdHocMonto}
-              onChange={e => setNuevoAdHocMonto(e.target.value)}
+              onChange={(e) => setNuevoAdHocMonto(e.target.value)}
               className="w-16 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-blue-500"
             />
             <button
+              type="button"
               onClick={handleAddAdHoc}
               className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
             >
@@ -225,12 +240,14 @@ function EditCicloModal({
 
         <div className="flex gap-2 pt-1">
           <button
+            type="button"
             onClick={onClose}
             className="flex-1 py-2 rounded-lg border border-slate-600 text-slate-300 text-sm hover:bg-slate-800 transition-colors"
           >
             Cancelar
           </button>
           <button
+            type="button"
             onClick={handleSave}
             disabled={loading}
             className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors disabled:opacity-50"
@@ -244,7 +261,7 @@ function EditCicloModal({
 }
 
 export default function DashboardCiclo({ refreshKey }: Props) {
-  const [ciclo, setCiclo] = useState<Ciclo | null | undefined>(undefined); // undefined = cargando
+  const [ciclo, setCiclo] = useState<Ciclo | null | undefined>(undefined);
   const [showEdit, setShowEdit] = useState(false);
   const [closingCiclo, setClosingCiclo] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -273,14 +290,10 @@ export default function DashboardCiclo({ refreshKey }: Props) {
     }
   };
 
-  // Cargando
   if (ciclo === undefined) {
-    return (
-      <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6 animate-pulse h-28" />
-    );
+    return <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6 animate-pulse h-28" />;
   }
 
-  // Sin ciclo activo
   if (!ciclo || !ciclo.resumen) {
     return (
       <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6">
@@ -315,7 +328,6 @@ export default function DashboardCiclo({ refreshKey }: Props) {
       )}
 
       <div className={`border rounded-2xl p-4 mb-6 ${colors.bg}`}>
-        {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-slate-300 text-xs font-medium uppercase tracking-wide">Ciclo financiero</span>
@@ -341,13 +353,12 @@ export default function DashboardCiclo({ refreshKey }: Props) {
           </div>
         </div>
 
-        {/* Presupuesto diario prominente */}
         <div className="flex items-end gap-3 mb-3">
           <div>
             <p className="text-slate-400 text-xs mb-0.5">Podés gastar hoy</p>
             <p className="text-3xl font-bold text-white">{formatARSDecimal(r.daily_cap)}</p>
             <p className="text-slate-500 text-xs mt-0.5">
-              = dinero disponible ÷ {r.dias_restantes} día{r.dias_restantes !== 1 ? 's' : ''} restante{r.dias_restantes !== 1 ? 's' : ''}
+              = dinero disponible no comprometido / {r.dias_restantes} días restantes
             </p>
           </div>
           <div className="mb-5">
@@ -355,7 +366,6 @@ export default function DashboardCiclo({ refreshKey }: Props) {
           </div>
         </div>
 
-        {/* Barra de progreso semáforo */}
         <div className="mb-3">
           <div className="flex justify-between text-xs text-slate-400 mb-1">
             <span>Gastaste hoy: {formatARS(r.gasto_hoy)}</span>
@@ -369,9 +379,8 @@ export default function DashboardCiclo({ refreshKey }: Props) {
           </div>
         </div>
 
-        {/* Info secundaria colapsable */}
         <button
-          onClick={() => setShowInfo(v => !v)}
+          onClick={() => setShowInfo((v) => !v)}
           className="flex items-center gap-2 w-full text-left border-t border-slate-600/50 pt-3"
         >
           <span className="text-xs text-slate-400">
@@ -379,17 +388,24 @@ export default function DashboardCiclo({ refreshKey }: Props) {
           </span>
           <span className="ml-auto text-slate-500 text-xs">{showInfo ? '▲' : '▼'}</span>
         </button>
+
         {showInfo && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 pb-1">
             <span>Ingresos: <span className="text-slate-300">{formatARS(r.total_ingresos)}</span></span>
             {r.ahorro_objetivo > 0 && (
-              <span>Ahorro: <span className="text-emerald-400">−{formatARS(r.ahorro_objetivo)}</span></span>
+              <span>Ahorro: <span className="text-emerald-400">-{formatARS(r.ahorro_objetivo)}</span></span>
             )}
-            {r.gastos_fijos_confirmados > 0 && (
-              <span>Gastos fijos: <span className="text-orange-400">−{formatARS(r.gastos_fijos_confirmados)}</span></span>
+            {r.gastos_fijos_pendientes > 0 && (
+              <span>Comprometidos pendientes: <span className="text-orange-400">-{formatARS(r.gastos_fijos_pendientes)}</span></span>
+            )}
+            {r.gastos_no_planificados > 0 && (
+              <span>Gastos libres registrados: <span className="text-red-400">-{formatARS(r.gastos_no_planificados)}</span></span>
+            )}
+            {r.gastos_fijos_efectivizados > 0 && (
+              <span>Efectivizados: <span className="text-blue-300">{formatARS(r.gastos_fijos_efectivizados)}</span></span>
             )}
             {r.total_gastos > 0 && (
-              <span>Gastos registrados: <span className="text-red-400">−{formatARS(r.total_gastos)}</span></span>
+              <span>Total gastos registrados: <span className="text-slate-300">{formatARS(r.total_gastos)}</span></span>
             )}
           </div>
         )}

@@ -147,12 +147,14 @@ class Movimiento(Base):
     # GASTO FIJO: FK opcional al template (si fue generado automáticamente)
     gasto_fijo_id = Column(Integer, ForeignKey("gastos_fijos.id"), nullable=True, index=True)
     is_auto_generated = Column(Boolean, default=False, nullable=False)
+    ciclo_gasto_fijo_id = Column(Integer, ForeignKey("ciclo_gastos_fijos.id"), nullable=True, index=True)
 
     # RELACIONES
     categoria = relationship("Category", back_populates="movimientos")  # Categoría del sistema
     user_category = relationship("UserCategory", back_populates="movimientos")  # Categoría personalizada
     usuario = relationship("User", back_populates="movimientos")
     gasto_fijo = relationship("GastoFijo", back_populates="instancias")
+    ciclo_gasto_fijo = relationship("CicloGastoFijo", back_populates="movimientos", foreign_keys=[ciclo_gasto_fijo_id])
 
     # CICLO FINANCIERO: flag que indica si este ingreso inició un ciclo
     es_inicio_ciclo = Column(Boolean, default=False, nullable=False)
@@ -283,7 +285,9 @@ class CicloGastoFijo(Base):
     monto_confirmado = Column(Numeric(10, 2), nullable=False)
     confirmado = Column(Boolean, default=True, nullable=False)
     descripcion_override = Column(EncryptedString, nullable=True)  # Para gastos ad-hoc sin template
+    estado = Column(String, default="comprometido", nullable=False)
 
     # RELACIONES
     ciclo = relationship("Ciclo", back_populates="gastos_fijos_ciclo")
     gasto_fijo = relationship("GastoFijo")
+    movimientos = relationship("Movimiento", back_populates="ciclo_gasto_fijo", foreign_keys=[Movimiento.ciclo_gasto_fijo_id])

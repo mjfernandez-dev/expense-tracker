@@ -256,6 +256,7 @@ export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Mo
       categoria: null,
       user_category: null,
       gasto_fijo_id: null,
+      ciclo_gasto_fijo_id: movimiento.ciclo_gasto_fijo_id ?? null,
       is_auto_generated: false,
     } as Movimiento;
   };
