@@ -155,6 +155,7 @@ class MovimientoBase(BaseModel):
     user_category_id: Optional[int] = None  # ID de categoría personalizada
     es_inicio_ciclo: bool = False  # Si True, este ingreso inició un ciclo financiero
     medio_pago: Optional[str] = None  # "efectivo" | "debito" | "credito" | "transferencia" | "otro"
+    ciclo_gasto_fijo_id: Optional[int] = None  # Vincula un gasto real a un compromiso del ciclo
 
 # Schema para CREAR un movimiento (POST)
 class MovimientoCreate(MovimientoBase):
@@ -369,6 +370,7 @@ class CicloGastoFijoRead(BaseModel):
     monto_confirmado: MoneyDecimal
     confirmado: bool
     descripcion_override: Optional[str] = None
+    estado: str
     gasto_fijo: Optional[GastoFijoRead] = None
 
     class Config:
@@ -383,8 +385,11 @@ class CicloResumen(BaseModel):
     total_ingresos: MoneyDecimal
     ahorro_objetivo: MoneyDecimal
     gastos_fijos_confirmados: MoneyDecimal
+    gastos_fijos_pendientes: MoneyDecimal
+    gastos_fijos_efectivizados: MoneyDecimal
     saldo_disponible_total: MoneyDecimal
     total_gastos: MoneyDecimal
+    gastos_no_planificados: MoneyDecimal
     saldo_disponible_actual: MoneyDecimal
     daily_cap: MoneyDecimal
     gasto_hoy: MoneyDecimal

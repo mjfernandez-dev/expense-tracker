@@ -3,6 +3,7 @@ Fixtures compartidos para todos los tests.
 Usa SQLite en memoria compartida para aislar los tests de la DB de desarrollo.
 """
 import os
+from uuid import uuid4
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only-32chars!!")
 os.environ.setdefault("ENVIRONMENT", "development")
 
@@ -12,10 +13,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from database import Base, get_db
+import main
 from main import app, limiter
 
 # URI con cache compartido: todas las conexiones ven la misma DB en memoria
-TEST_DATABASE_URL = "sqlite:///file:testdb?mode=memory&cache=shared&uri=true"
+TEST_DATABASE_URL = f"sqlite:///file:testdb_{uuid4().hex}?mode=memory&cache=shared&uri=true"
 
 @pytest.fixture(autouse=True)
 def reset_rate_limits():
@@ -29,6 +31,7 @@ def engine_fixture():
         TEST_DATABASE_URL,
         connect_args={"check_same_thread": False, "uri": True},
     )
+    Base.metadata.drop_all(bind=_engine)
     Base.metadata.create_all(bind=_engine)
     yield _engine
     Base.metadata.drop_all(bind=_engine)
@@ -49,6 +52,13 @@ def client(db_session):
     def override_get_db():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db
+    main.ejecutar_generacion_mensual = lambda db: 0
+    class _DummyScheduler:
+        def start(self):
+            return None
+        def shutdown(self):
+            return None
+    main.create_scheduler = lambda: _DummyScheduler()
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
     app.dependency_overrides.clear()

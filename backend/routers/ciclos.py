@@ -176,20 +176,48 @@ def confirmar_gastos_fijos(
     """
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
 
-    # Eliminar los existentes y reemplazar con los nuevos
-    db.query(models.CicloGastoFijo).filter(
-        models.CicloGastoFijo.ciclo_id == ciclo_id
-    ).delete()
+    existentes = list(ciclo.gastos_fijos_ciclo)
+    usados_ids = set()
+
+    def _match_item(item: schemas.CicloGastoFijoItemCreate) -> Optional[models.CicloGastoFijo]:
+        for existente in existentes:
+            if existente.id in usados_ids:
+                continue
+            if item.gasto_fijo_id is not None and existente.gasto_fijo_id == item.gasto_fijo_id:
+                return existente
+            if (
+                item.gasto_fijo_id is None and
+                existente.gasto_fijo_id is None and
+                (existente.descripcion_override or "") == (item.descripcion_override or "")
+            ):
+                return existente
+        return None
 
     for item in data.items:
+        existente = _match_item(item)
+        if existente:
+            existente.monto_confirmado = item.monto_confirmado
+            existente.confirmado = True if existente.estado == "efectivizado" else item.confirmado
+            existente.descripcion_override = item.descripcion_override
+            usados_ids.add(existente.id)
+            continue
+
         cgf = models.CicloGastoFijo(
             ciclo_id=ciclo_id,
             gasto_fijo_id=item.gasto_fijo_id,
             monto_confirmado=item.monto_confirmado,
             confirmado=item.confirmado,
             descripcion_override=item.descripcion_override,
+            estado="comprometido",
         )
         db.add(cgf)
+
+    for existente in existentes:
+        if existente.id in usados_ids:
+            continue
+        if existente.estado == "efectivizado":
+            continue
+        db.delete(existente)
 
     db.commit()
 
