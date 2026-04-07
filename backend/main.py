@@ -36,7 +36,7 @@ import config
 from dependencies import limiter
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from services.scheduler_service import create_scheduler, ejecutar_generacion_mensual
+from services.scheduler_service import create_scheduler
 
 # Routers
 from routers import auth, categorias, movimientos, contactos

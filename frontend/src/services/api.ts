@@ -433,9 +433,9 @@ export const deleteGastoFijo = async (id: number): Promise<void> => {
 };
 
 // Triggerear generación manual del mes actual (idempotente)
-// POST /gastos-fijos/generar-mes
-export const generarGastosFijosMes = async (): Promise<{ message: string }> => {
-  const response = await api.post('/gastos-fijos/generar-mes');
+// POST /gastos-fijos/sincronizar-ciclo
+export const sincronizarGastosFijosCiclo = async (): Promise<{ message: string }> => {
+  const response = await api.post('/gastos-fijos/sincronizar-ciclo');
   return response.data;
 };
 

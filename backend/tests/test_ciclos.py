@@ -121,3 +121,25 @@ def test_gasto_no_planificado_sigue_bajando_disponible(logged_in_client, user_ca
     assert resumen["gastos_fijos_confirmados"] == 250.0
     assert resumen["gastos_no_planificados"] == 100.0
     assert resumen["saldo_disponible_actual"] == 650.0
+
+
+def test_crear_ciclo_sincroniza_gastos_fijos_activos(logged_in_client, user_category_id):
+    template = logged_in_client.post('/movimientos/', json={
+        **_gasto(user_category_id, 450.0),
+        'descripcion': 'Internet',
+        'es_fijo': True,
+        'fecha': datetime.now().isoformat(),
+    })
+    assert template.status_code == 200, template.text
+    gasto_fijo_id = template.json()['gasto_fijo_id']
+
+    ingreso = logged_in_client.post('/movimientos/', json=_ingreso(user_category_id, 2000.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso['id'])
+    resumen = ciclo['resumen']
+
+    assert len(resumen['gastos_fijos']) == 1
+    assert resumen['gastos_fijos'][0]['gasto_fijo_id'] == gasto_fijo_id
+    assert resumen['gastos_fijos'][0]['monto_confirmado'] == 450.0
+    assert resumen['gastos_fijos'][0]['estado'] == 'comprometido'
+    assert resumen['gastos_fijos_confirmados'] == 450.0
+    assert resumen['saldo_disponible_actual'] == 1550.0

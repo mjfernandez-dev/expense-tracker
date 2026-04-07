@@ -9,7 +9,7 @@ import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
-from services.scheduler_service import ejecutar_generacion_mensual
+from services.scheduler_service import sincronizar_gastos_fijos_en_ciclo
 
 router = APIRouter(prefix="/gastos-fijos", tags=["gastos-fijos"])
 
@@ -101,10 +101,19 @@ def delete_gasto_fijo(
     return {"message": "Gasto fijo eliminado correctamente"}
 
 
-@router.post("/generar-mes")
-def generar_mes(
+@router.post("/sincronizar-ciclo")
+def sincronizar_ciclo(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    creados = ejecutar_generacion_mensual(db)
-    return {"message": f"Generación completada. Movimientos creados: {creados}"}
+    ciclo_activo = (
+        db.query(models.Ciclo)
+        .filter(models.Ciclo.user_id == current_user.id, models.Ciclo.activo == True)
+        .first()
+    )
+    if not ciclo_activo:
+        raise HTTPException(status_code=400, detail="No hay un ciclo activo para sincronizar")
+
+    creados = sincronizar_gastos_fijos_en_ciclo(ciclo_activo, db)
+    db.commit()
+    return {"message": f"Sincronizaci?n completada. Compromisos agregados al ciclo: {creados}"}

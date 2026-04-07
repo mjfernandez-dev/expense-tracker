@@ -10,6 +10,7 @@ import schemas
 from auth import get_current_active_user
 from database import get_db
 from services.ciclo_service import calcular_resumen
+from services.scheduler_service import sincronizar_gastos_fijos_en_ciclo
 
 router = APIRouter(prefix="/ciclos", tags=["ciclos"])
 
@@ -96,9 +97,15 @@ def crear_ciclo(
         activo=True,
     )
     db.add(ciclo)
+    db.flush()
+    db.refresh(ciclo)
+
+    sincronizar_gastos_fijos_en_ciclo(ciclo, db)
+
     db.commit()
     db.refresh(ciclo)
 
+    ciclo = _load_ciclo(ciclo.id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)
 
 
