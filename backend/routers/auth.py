@@ -126,7 +126,10 @@ def refresh_token(request: Request, db: Session = Depends(get_db)):
         data={"sub": user.username}, expires_delta=access_token_expires
     )
 
-    response = JSONResponse(content={"message": "Token renovado"})
+    response = JSONResponse(content={
+        "message": "Token renovado",
+        "user": schemas.UserRead.from_orm(user).dict(),
+    })
     response.set_cookie(
         key="access_token",
         value=new_access_token,

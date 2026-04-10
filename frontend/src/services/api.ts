@@ -39,12 +39,14 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
+  timeout: 10000,
 });
 
 // ============== INTERCEPTOR: REFRESH TOKEN AUTOMÁTICO ==============
 // Cuando el backend devuelve 401, intenta renovar el access_token usando el
 // refresh_token (cookie httpOnly). Si lo renueva, reintenta el request original
-// transparentemente. Si el refresh también falla, redirige al login.
+// transparentemente. Si el request original era /auth/me, podemos reutilizar
+// la respuesta de refresh para evitar una segunda llamada innecesaria.
 
 let isRefreshing = false;
 let refreshSubscribers: Array<() => void> = [];
@@ -76,9 +78,14 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await api.post('/auth/refresh');
+        const refreshResponse = await api.post<{ message: string; user?: User }>('/auth/refresh');
         notifyRefreshDone();
         isRefreshing = false;
+
+        if (originalRequest.url?.includes('/auth/me') && refreshResponse.data.user) {
+          return Promise.resolve({ ...refreshResponse, data: refreshResponse.data.user });
+        }
+
         return api(originalRequest);
       } catch {
         isRefreshing = false;
