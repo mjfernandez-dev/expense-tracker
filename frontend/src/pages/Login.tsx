@@ -13,7 +13,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const { login, sessionExpired } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const successMessage = (location.state as { successMessage?: string } | null)?.successMessage;
@@ -65,6 +65,12 @@ export default function Login() {
             {successMessage && (
               <div role="status" className="bg-green-500/10 border border-green-300/60 text-green-100 px-4 py-3 rounded-lg text-sm">
                 {successMessage}
+              </div>
+            )}
+
+            {sessionExpired && (
+              <div role="status" className="bg-yellow-500/10 border border-yellow-300/60 text-yellow-100 px-4 py-3 rounded-lg text-sm">
+                Tu sesión expiró. Por favor, inicia sesión de nuevo.
               </div>
             )}
 

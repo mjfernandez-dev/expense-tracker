@@ -88,6 +88,10 @@ export async function getCachedUser(): Promise<User | undefined> {
   return (await getDB()).get('user', 'current');
 }
 
+export async function clearCachedUser(): Promise<void> {
+  await (await getDB()).delete('user', 'current');
+}
+
 // ============ PENDING QUEUE ============
 
 export async function enqueueOperation(op: Omit<PendingOperation, 'id'>): Promise<number> {

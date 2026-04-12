@@ -8,6 +8,7 @@ export interface AuthContextType {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  sessionExpired: boolean;
 }
 
 // Crear el contexto

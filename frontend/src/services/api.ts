@@ -4,7 +4,7 @@ import {
   getCachedMovimientos, saveMovimientos,
   getCachedCategories, saveCategories,
   getCachedUserCategories, saveUserCategories,
-  getCachedUser, saveUser,
+  getCachedUser, saveUser, clearCachedUser,
   enqueueOperation,
 } from './offlineDB';
 // CONEXIÓN: Importamos los tipos definidos en types/index.ts
@@ -166,6 +166,7 @@ export const getCurrentUser = async (): Promise<User> => {
     if (cached) return cached;
     throw new Error('Sin conexión y sin datos guardados');
   }
+
   try {
     const response = await api.get('/auth/me');
     try {
@@ -175,6 +176,11 @@ export const getCurrentUser = async (): Promise<User> => {
     }
     return response.data;
   } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      await clearCachedUser();
+      throw error;
+    }
+
     const cached = await getCachedUser();
     if (cached) return cached;
     throw error;
