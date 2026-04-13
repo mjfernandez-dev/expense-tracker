@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from services import ciclo_time_service
+
 
 def _ingreso(user_category_id: int, importe: float = 1000.0) -> dict:
     return {
@@ -99,6 +101,81 @@ def test_eliminar_movimiento_vinculado_revierte_compromiso(logged_in_client, use
     assert resumen["saldo_disponible_actual"] == 900.0
 
 
+def test_compromiso_admite_ejecucion_parcial_y_multiples_gastos(logged_in_client, user_category_id):
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1500.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    confirmacion = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+        "items": [
+            {
+                "gasto_fijo_id": None,
+                "monto_confirmado": 300.0,
+                "confirmado": True,
+                "descripcion_override": "Viandas",
+            }
+        ]
+    })
+    assert confirmacion.status_code == 200, confirmacion.text
+    compromiso_id = confirmacion.json()["resumen"]["gastos_fijos"][0]["id"]
+
+    gasto_1 = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 100.0, compromiso_id))
+    assert gasto_1.status_code == 200, gasto_1.text
+
+    resumen_parcial = logged_in_client.get("/ciclos/activo").json()["resumen"]
+    compromiso_parcial = resumen_parcial["gastos_fijos"][0]
+    assert compromiso_parcial["estado"] == "parcial"
+    assert compromiso_parcial["monto_ejecutado"] == 100.0
+    assert compromiso_parcial["monto_pendiente"] == 200.0
+    assert resumen_parcial["gastos_fijos_confirmados"] == 300.0
+    assert resumen_parcial["gastos_fijos_pendientes"] == 200.0
+    assert resumen_parcial["gastos_fijos_efectivizados"] == 100.0
+    assert resumen_parcial["saldo_disponible_actual"] == 1200.0
+
+    gasto_2 = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 200.0, compromiso_id))
+    assert gasto_2.status_code == 200, gasto_2.text
+
+    resumen_final = logged_in_client.get("/ciclos/activo").json()["resumen"]
+    compromiso_final = resumen_final["gastos_fijos"][0]
+    assert compromiso_final["estado"] == "efectivizado"
+    assert compromiso_final["monto_ejecutado"] == 300.0
+    assert compromiso_final["monto_pendiente"] == 0.0
+    assert resumen_final["gastos_fijos_pendientes"] == 0.0
+    assert resumen_final["gastos_fijos_efectivizados"] == 300.0
+    assert resumen_final["total_gastos"] == 300.0
+    assert resumen_final["gastos_no_planificados"] == 0.0
+    assert resumen_final["saldo_disponible_actual"] == 1200.0
+
+
+def test_no_permite_superar_monto_comprometido(logged_in_client, user_category_id):
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    confirmacion = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+        "items": [
+            {
+                "gasto_fijo_id": None,
+                "monto_confirmado": 150.0,
+                "confirmado": True,
+                "descripcion_override": "Nafta",
+            }
+        ]
+    }).json()
+    compromiso_id = confirmacion["resumen"]["gastos_fijos"][0]["id"]
+
+    primer_gasto = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 100.0, compromiso_id))
+    assert primer_gasto.status_code == 200, primer_gasto.text
+
+    segundo_gasto = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 60.0, compromiso_id))
+    assert segundo_gasto.status_code == 400, segundo_gasto.text
+    assert "monto pendiente del compromiso" in segundo_gasto.json()["detail"]
+
+    resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
+    compromiso = resumen["gastos_fijos"][0]
+    assert compromiso["estado"] == "parcial"
+    assert compromiso["monto_ejecutado"] == 100.0
+    assert compromiso["monto_pendiente"] == 50.0
+
+
 def test_gasto_no_planificado_sigue_bajando_disponible(logged_in_client, user_category_id):
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
@@ -143,3 +220,23 @@ def test_crear_ciclo_sincroniza_gastos_fijos_activos(logged_in_client, user_cate
     assert resumen['gastos_fijos'][0]['estado'] == 'comprometido'
     assert resumen['gastos_fijos_confirmados'] == 450.0
     assert resumen['saldo_disponible_actual'] == 1550.0
+
+
+def test_dias_restantes_usa_fecha_de_buenos_aires(logged_in_client, user_category_id, monkeypatch):
+    ahora_fijo = datetime(2026, 4, 13, 23, 30, 0)
+    monkeypatch.setattr(ciclo_time_service, "ahora_buenos_aires", lambda: ahora_fijo)
+
+    ingreso = logged_in_client.post("/movimientos/", json={
+        **_ingreso(user_category_id, 1000.0),
+        "fecha": "2026-04-13T09:00:00",
+    }).json()
+
+    ciclo = logged_in_client.post("/ciclos/", json={
+        "movimiento_origen_id": ingreso["id"],
+        "fecha_fin": "2026-04-30T23:59:59",
+        "ahorro_objetivo": 0,
+    })
+    assert ciclo.status_code == 201, ciclo.text
+
+    resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
+    assert resumen["dias_restantes"] == 18

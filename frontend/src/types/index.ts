@@ -232,9 +232,11 @@ export interface CicloGastoFijoItem {
   ciclo_id: number;
   gasto_fijo_id: number | null;
   monto_confirmado: number;
+  monto_ejecutado: number;
+  monto_pendiente: number;
   confirmado: boolean;
   descripcion_override: string | null;
-  estado: 'comprometido' | 'efectivizado' | 'cancelado' | string;
+  estado: 'comprometido' | 'parcial' | 'efectivizado' | 'cancelado' | string;
   gasto_fijo: GastoFijo | null;
 }
 

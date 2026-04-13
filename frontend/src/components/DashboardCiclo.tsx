@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Ciclo, CicloCreate, GastoFijo, CicloGastoFijoItemCreate } from '../types';
 import { getCicloActivo, updateCiclo, cerrarCiclo, getGastosFijos, confirmarGastosFijos } from '../services/api';
+import { isDateAtOrAfterTodayBA } from '../utils/buenosAiresDate';
 
 interface Props {
   refreshKey: number;
@@ -109,8 +110,7 @@ function EditCicloModal({
 
   const handleSave = async () => {
     setError('');
-    const fechaFinDt = new Date(`${fechaFin}T23:59:59`);
-    if (fechaFinDt <= new Date()) {
+    if (!isDateAtOrAfterTodayBA(fechaFin)) {
       setError('La fecha de fin debe ser posterior a hoy');
       return;
     }
@@ -402,7 +402,7 @@ export default function DashboardCiclo({ refreshKey }: Props) {
               <span>Gastos libres registrados: <span className="text-red-400">-{formatARS(r.gastos_no_planificados)}</span></span>
             )}
             {r.gastos_fijos_efectivizados > 0 && (
-              <span>Efectivizados: <span className="text-blue-300">{formatARS(r.gastos_fijos_efectivizados)}</span></span>
+              <span>Ejecutado de comprometidos: <span className="text-blue-300">{formatARS(r.gastos_fijos_efectivizados)}</span></span>
             )}
             {r.total_gastos > 0 && (
               <span>Total gastos registrados: <span className="text-slate-300">{formatARS(r.total_gastos)}</span></span>

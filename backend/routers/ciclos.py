@@ -1,5 +1,4 @@
 """Router de ciclos financieros (Daily Solvency): /ciclos/"""
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -9,7 +8,9 @@ import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
+from services.ciclo_commitment_service import calcular_progreso_compromiso
 from services.ciclo_service import calcular_resumen
+from services import ciclo_time_service
 from services.scheduler_service import sincronizar_gastos_fijos_en_ciclo
 
 router = APIRouter(prefix="/ciclos", tags=["ciclos"])
@@ -26,6 +27,9 @@ def _load_ciclo(ciclo_id: int, user_id: int, db: Session) -> models.Ciclo:
             joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
                 models.CicloGastoFijo.gasto_fijo
             ).joinedload(models.GastoFijo.user_category),
+            joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
+                models.CicloGastoFijo.movimientos
+            ),
         )
         .filter(models.Ciclo.id == ciclo_id, models.Ciclo.user_id == user_id)
         .first()
@@ -62,7 +66,7 @@ def crear_ciclo(
     Si ya existe uno activo, lo cierra automáticamente.
     FR-001: Inicio de Ciclo. FR-002 + FR-003: fecha_fin + ahorro_objetivo.
     """
-    if data.fecha_fin <= datetime.now():
+    if data.fecha_fin <= ciclo_time_service.ahora_buenos_aires():
         raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a hoy")
 
     # Cerrar ciclo activo anterior si existe
@@ -75,7 +79,7 @@ def crear_ciclo(
         ciclo_anterior.activo = False
 
     # fecha_inicio = fecha del movimiento de origen para incluirlo en el cálculo
-    fecha_inicio = datetime.now()
+    fecha_inicio = ciclo_time_service.ahora_buenos_aires()
     if data.movimiento_origen_id:
         mov_origen = (
             db.query(models.Movimiento)
@@ -129,6 +133,9 @@ def get_ciclo_activo(
             joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
                 models.CicloGastoFijo.gasto_fijo
             ).joinedload(models.GastoFijo.user_category),
+            joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
+                models.CicloGastoFijo.movimientos
+            ),
         )
         .filter(models.Ciclo.user_id == current_user.id, models.Ciclo.activo == True)
         .first()
@@ -155,7 +162,7 @@ def actualizar_ciclo(
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
 
     if data.fecha_fin is not None:
-        if data.fecha_fin <= datetime.now():
+        if data.fecha_fin <= ciclo_time_service.ahora_buenos_aires():
             raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a hoy")
         ciclo.fecha_fin = data.fecha_fin
 
@@ -203,9 +210,19 @@ def confirmar_gastos_fijos(
     for item in data.items:
         existente = _match_item(item)
         if existente:
+            progreso_actual = calcular_progreso_compromiso(existente)
+            if item.monto_confirmado < progreso_actual.ejecutado:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "El monto reservado no puede ser menor a lo ya ejecutado "
+                        f"({float(progreso_actual.ejecutado):.2f})"
+                    ),
+                )
             existente.monto_confirmado = item.monto_confirmado
-            existente.confirmado = True if existente.estado == "efectivizado" else item.confirmado
+            existente.confirmado = True if progreso_actual.ejecutado > 0 else item.confirmado
             existente.descripcion_override = item.descripcion_override
+            existente.estado = calcular_progreso_compromiso(existente).estado
             usados_ids.add(existente.id)
             continue
 
@@ -222,7 +239,10 @@ def confirmar_gastos_fijos(
     for existente in existentes:
         if existente.id in usados_ids:
             continue
-        if existente.estado == "efectivizado":
+        progreso_actual = calcular_progreso_compromiso(existente)
+        if progreso_actual.ejecutado > 0:
+            existente.confirmado = True
+            existente.estado = progreso_actual.estado
             continue
         db.delete(existente)
 

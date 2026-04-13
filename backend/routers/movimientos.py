@@ -1,4 +1,5 @@
 """Router de movimientos: /movimientos/"""
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +9,7 @@ import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
+from services.ciclo_commitment_service import calcular_progreso_compromiso
 
 router = APIRouter(prefix="/movimientos", tags=["movimientos"])
 
@@ -58,13 +60,19 @@ def _apply_ciclo_gasto_fijo_link(
     db: Session,
 ) -> None:
     previous_link_id = db_movimiento.ciclo_gasto_fijo_id
+    previous_cgf = None
 
     if previous_link_id is not None and previous_link_id != ciclo_gasto_fijo_id:
         previous_cgf = _load_ciclo_gasto_fijo(previous_link_id, current_user_id, db)
-        previous_cgf.estado = "comprometido"
 
     if ciclo_gasto_fijo_id is None:
         db_movimiento.ciclo_gasto_fijo_id = None
+        if previous_link_id is not None:
+            previous_cgf = previous_cgf or _load_ciclo_gasto_fijo(previous_link_id, current_user_id, db)
+            previous_cgf.estado = calcular_progreso_compromiso(
+                previous_cgf,
+                exclude_movimiento_id=db_movimiento.id,
+            ).estado
         return
 
     if db_movimiento.tipo != "gasto":
@@ -72,12 +80,34 @@ def _apply_ciclo_gasto_fijo_link(
 
     cgf = _load_ciclo_gasto_fijo(ciclo_gasto_fijo_id, current_user_id, db)
     if not cgf.confirmado:
-        raise HTTPException(status_code=400, detail="El gasto comprometido del ciclo no está confirmado")
-    if cgf.estado == "efectivizado" and previous_link_id != cgf.id:
-        raise HTTPException(status_code=400, detail="El gasto comprometido del ciclo ya fue efectivizado")
+        raise HTTPException(status_code=400, detail="El gasto comprometido del ciclo no esta confirmado")
+
+    importe_movimiento = Decimal(str(db_movimiento.importe))
+    progreso_base = calcular_progreso_compromiso(
+        cgf,
+        exclude_movimiento_id=db_movimiento.id,
+    )
+    if importe_movimiento > progreso_base.pendiente:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "El gasto supera el monto pendiente del compromiso. "
+                f"Pendiente disponible: {float(progreso_base.pendiente):.2f}"
+            ),
+        )
 
     db_movimiento.ciclo_gasto_fijo_id = cgf.id
-    cgf.estado = "efectivizado"
+    cgf.estado = calcular_progreso_compromiso(
+        cgf,
+        exclude_movimiento_id=db_movimiento.id,
+        extra_importe=importe_movimiento,
+    ).estado
+
+    if previous_cgf is not None:
+        previous_cgf.estado = calcular_progreso_compromiso(
+            previous_cgf,
+            exclude_movimiento_id=db_movimiento.id,
+        ).estado
 
 
 @router.post("/", response_model=schemas.MovimientoRead)
@@ -93,12 +123,13 @@ def create_movimiento(
         db,
     )
 
-    datos = movimiento.model_dump(exclude={"es_fijo"})
+    datos = movimiento.model_dump(exclude={"es_fijo", "ciclo_gasto_fijo_id"})
     db_movimiento = models.Movimiento(**datos, user_id=current_user.id)
     db.add(db_movimiento)
-    db.flush()
 
     _apply_ciclo_gasto_fijo_link(db_movimiento, movimiento.ciclo_gasto_fijo_id, current_user.id, db)
+
+    db.flush()
 
     if movimiento.es_fijo:
         db_gasto_fijo = models.GastoFijo(
@@ -133,7 +164,10 @@ def delete_movimiento(
 
     if movimiento.ciclo_gasto_fijo_id is not None:
         cgf = _load_ciclo_gasto_fijo(movimiento.ciclo_gasto_fijo_id, current_user.id, db)
-        cgf.estado = "comprometido"
+        cgf.estado = calcular_progreso_compromiso(
+            cgf,
+            exclude_movimiento_id=movimiento.id,
+        ).estado
 
     db.delete(movimiento)
     db.commit()

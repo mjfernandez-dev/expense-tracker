@@ -1,11 +1,12 @@
 """Servicio de cálculo del ciclo financiero (Daily Solvency)."""
-from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
+from services.ciclo_commitment_service import calcular_progreso_compromiso
+from services import ciclo_time_service
 
 
 def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.CicloResumen:
@@ -15,7 +16,7 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
     - DailyCap = SaldoDisponible / DíasRestantes
     - Semáforo según % del Daily Cap gastado hoy.
     """
-    ahora = datetime.now()
+    ahora = ciclo_time_service.ahora_buenos_aires()
     fecha_limite = min(ahora, ciclo.fecha_fin)
 
     # Todos los movimientos dentro del período del ciclo
@@ -39,21 +40,35 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         m.importe for m in movimientos if m.tipo == "gasto" and m.ciclo_gasto_fijo_id is None
     )
 
+    movimientos_por_compromiso: dict[int, list[models.Movimiento]] = {}
+    for movimiento in movimientos:
+        if movimiento.ciclo_gasto_fijo_id is None:
+            continue
+        movimientos_por_compromiso.setdefault(movimiento.ciclo_gasto_fijo_id, []).append(movimiento)
+
+    progresos = {
+        cgf.id: calcular_progreso_compromiso(
+            cgf,
+            movimientos=movimientos_por_compromiso.get(cgf.id, []),
+        )
+        for cgf in ciclo.gastos_fijos_ciclo
+    }
+
     # Gastos fijos confirmados para este ciclo
     gastos_fijos_confirmados = sum(
-        cgf.monto_confirmado
+        progresos[cgf.id].reservado
         for cgf in ciclo.gastos_fijos_ciclo
         if cgf.confirmado
     )
     gastos_fijos_pendientes = sum(
-        cgf.monto_confirmado
+        progresos[cgf.id].pendiente
         for cgf in ciclo.gastos_fijos_ciclo
-        if cgf.confirmado and cgf.estado != "efectivizado"
+        if cgf.confirmado
     )
     gastos_fijos_efectivizados = sum(
-        cgf.monto_confirmado
+        progresos[cgf.id].ejecutado
         for cgf in ciclo.gastos_fijos_ciclo
-        if cgf.confirmado and cgf.estado == "efectivizado"
+        if cgf.confirmado
     )
 
     saldo_disponible_total = total_ingresos - ciclo.ahorro_objetivo - gastos_fijos_confirmados
@@ -98,9 +113,11 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
             ciclo_id=cgf.ciclo_id,
             gasto_fijo_id=cgf.gasto_fijo_id,
             monto_confirmado=cgf.monto_confirmado,
+            monto_ejecutado=progresos[cgf.id].ejecutado,
+            monto_pendiente=progresos[cgf.id].pendiente,
             confirmado=cgf.confirmado,
             descripcion_override=cgf.descripcion_override,
-            estado=cgf.estado,
+            estado=progresos[cgf.id].estado,
             gasto_fijo=cgf.gasto_fijo,
         )
         for cgf in ciclo.gastos_fijos_ciclo

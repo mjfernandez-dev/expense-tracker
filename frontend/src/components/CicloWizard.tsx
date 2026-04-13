@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import type { CicloGastoFijoItemCreate } from '../types';
 import { getGastosFijos, createCiclo, confirmarGastosFijos } from '../services/api';
+import {
+  getDaysRemainingInclusiveBA,
+  getLastDayOfCurrentMonthBA,
+  isDateAtOrAfterTodayBA,
+} from '../utils/buenosAiresDate';
 
 interface Props {
   movimientoOrigenId: number | null;
@@ -13,9 +18,7 @@ const formatARS = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
 function getUltimoDiaMes(): string {
-  const hoy = new Date();
-  const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-  return ultimoDia.toISOString().split('T')[0];
+  return getLastDayOfCurrentMonthBA();
 }
 
 interface GastoFijoWizard {
@@ -60,14 +63,13 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
 
   // Preview del daily cap en el paso 2
   const ahorroNum = parseFloat(ahorro) || 0;
-  const diasRestantes = Math.max(1, Math.round((new Date(fechaFin).getTime() - Date.now()) / 86400000) + 1);
+  const diasRestantes = getDaysRemainingInclusiveBA(fechaFin);
   const saldoPreview = importeReferencia - ahorroNum;
   const dailyCapPreview = saldoPreview > 0 ? saldoPreview / diasRestantes : 0;
 
   const handleNextStep1 = () => {
     setError('');
-    const fechaFinDt = new Date(fechaFin + 'T23:59:59');
-    if (fechaFinDt <= new Date()) {
+    if (!isDateAtOrAfterTodayBA(fechaFin)) {
       setError('La fecha de fin debe ser posterior a hoy');
       return;
     }

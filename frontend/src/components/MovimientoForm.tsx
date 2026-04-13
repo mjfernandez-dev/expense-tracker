@@ -178,7 +178,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const isIngreso = tipo === 'ingreso';
   const accentColor = isIngreso ? 'green' : 'red';
   const compromisosDisponibles = cicloGastosFijos.filter((item) =>
-    item.confirmado && (item.estado === 'comprometido' || item.id.toString() === cicloGastoFijoId)
+    item.confirmado && (item.monto_pendiente > 0 || item.id.toString() === cicloGastoFijoId)
   );
 
   return (
@@ -395,16 +395,16 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             >
               <option value="">No vincular este gasto</option>
               {compromisosDisponibles.map((item) => {
-                const descripcion = item.gasto_fijo?.descripcion ?? item.descripcion_override ?? 'Sin descripción';
+                const descripcion = item.gasto_fijo?.descripcion ?? item.descripcion_override ?? 'Sin descripcion';
                 return (
                   <option key={item.id} value={item.id}>
-                    {descripcion} — {formatARS(item.monto_confirmado)}
+                    {descripcion} - pendiente {formatARS(item.monto_pendiente)} de {formatARS(item.monto_confirmado)}
                   </option>
                 );
               })}
             </select>
             <p className="text-xs text-amber-100/80 mt-2">
-              Si lo vinculás, este gasto pasa a efectivizado y no vuelve a descontar tu disponible diario.
+              Si lo vinculas, consume ese compromiso de forma parcial o total y no vuelve a descontar tu disponible diario.
             </p>
           </div>
         )}

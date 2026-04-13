@@ -368,6 +368,8 @@ class CicloGastoFijoRead(BaseModel):
     ciclo_id: int
     gasto_fijo_id: Optional[int] = None
     monto_confirmado: MoneyDecimal
+    monto_ejecutado: MoneyDecimal = Decimal('0')
+    monto_pendiente: MoneyDecimal = Decimal('0')
     confirmado: bool
     descripcion_override: Optional[str] = None
     estado: str
