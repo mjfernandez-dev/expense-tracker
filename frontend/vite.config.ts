@@ -11,6 +11,7 @@ export default defineConfig({
       manifest: false, // usar el public/manifest.json existente
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
       },
