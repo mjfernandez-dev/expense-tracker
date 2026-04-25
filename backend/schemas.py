@@ -49,6 +49,11 @@ class UserRead(UserBase):
         from_attributes = True
 
 
+class LoginResponse(BaseModel):
+    message: str
+    user: UserRead
+
+
 class PaymentInfoUpdate(BaseModel):
     alias_bancario: Optional[str] = None
     cvu: Optional[str] = None

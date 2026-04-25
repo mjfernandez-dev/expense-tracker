@@ -33,6 +33,13 @@ from email_service import send_password_reset_email
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _cookie_security_options() -> tuple[bool, str]:
+    """Cookie policy compatible with local dev and production cross-site."""
+    if config.IS_PRODUCTION:
+        return True, "none"
+    return False, "lax"
+
+
 @router.post("/register", response_model=schemas.UserRead)
 @limiter.limit("3/minute")
 def register(request: Request, user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -52,7 +59,7 @@ def register(request: Request, user: schemas.UserCreate, db: Session = Depends(g
     return db_user
 
 
-@router.post("/login")
+@router.post("/login", response_model=schemas.LoginResponse)
 @limiter.limit("5/minute")
 def login(
     request: Request,
@@ -72,13 +79,17 @@ def login(
     )
     refresh_token = create_refresh_token(db, user.id)
 
-    response = JSONResponse(content={"message": "Login exitoso"})
+    cookie_secure, cookie_samesite = _cookie_security_options()
+    response = JSONResponse(content={
+        "message": "Login exitoso",
+        "user": schemas.UserRead.from_orm(user).dict(),
+    })
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=config.IS_PRODUCTION,
-        samesite="none",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -86,8 +97,8 @@ def login(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=config.IS_PRODUCTION,
-        samesite="none",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         path="/",
     )
@@ -100,9 +111,10 @@ def logout(request: Request, db: Session = Depends(get_db)):
     if raw_refresh:
         revoke_refresh_token(db, raw_refresh)
 
+    cookie_secure, cookie_samesite = _cookie_security_options()
     response = JSONResponse(content={"message": "Sesión cerrada"})
-    response.delete_cookie(key="access_token", httponly=True, secure=config.IS_PRODUCTION, samesite="none", path="/")
-    response.delete_cookie(key="refresh_token", httponly=True, secure=config.IS_PRODUCTION, samesite="none", path="/")
+    response.delete_cookie(key="access_token", httponly=True, secure=cookie_secure, samesite=cookie_samesite, path="/")
+    response.delete_cookie(key="refresh_token", httponly=True, secure=cookie_secure, samesite=cookie_samesite, path="/")
     return response
 
 
@@ -126,6 +138,7 @@ def refresh_token(request: Request, db: Session = Depends(get_db)):
         data={"sub": user.username}, expires_delta=access_token_expires
     )
 
+    cookie_secure, cookie_samesite = _cookie_security_options()
     response = JSONResponse(content={
         "message": "Token renovado",
         "user": schemas.UserRead.from_orm(user).dict(),
@@ -134,8 +147,8 @@ def refresh_token(request: Request, db: Session = Depends(get_db)):
         key="access_token",
         value=new_access_token,
         httponly=True,
-        secure=config.IS_PRODUCTION,
-        samesite="none",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -143,8 +156,8 @@ def refresh_token(request: Request, db: Session = Depends(get_db)):
         key="refresh_token",
         value=new_raw_refresh,
         httponly=True,
-        secure=config.IS_PRODUCTION,
-        samesite="none",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         path="/",
     )

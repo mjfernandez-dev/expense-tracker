@@ -41,8 +41,8 @@ export default function Register() {
       await registerUser({ username, email, password });
 
       // Login automático después del registro (cookie httpOnly se setea automáticamente)
-      await loginUser(username, password);
-      await login();
+      const auth = await loginUser(username, password);
+      await login(auth.user);
 
       navigate('/');
     } catch (err: unknown) {

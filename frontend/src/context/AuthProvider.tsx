@@ -29,10 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkSession();
   }, [checkSession]);
 
-  const login = async () => {
-    // La cookie ya fue seteada por el backend en /auth/login
-    // Solo necesitamos cargar los datos del usuario
-    const userData = await getCurrentUser();
+  const login = async (userFromLogin?: User) => {
+    // Si /auth/login ya devolvió el usuario, evitamos una segunda llamada /auth/me.
+    const userData = userFromLogin ?? await getCurrentUser();
     setUser(userData);
     setSessionExpired(false);
   };

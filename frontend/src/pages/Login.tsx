@@ -24,8 +24,8 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await loginUser(username, password);
-      await login();
+      const auth = await loginUser(username, password);
+      await login(auth.user);
       navigate('/');
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Error al iniciar sesion'));

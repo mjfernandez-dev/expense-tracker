@@ -29,6 +29,7 @@ import type {
   Ciclo,
   CicloCreate,
   CicloGastoFijoItemCreate,
+  AuthResponse,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -115,16 +116,17 @@ export const registerUser = async (userData: UserCreate): Promise<User> => {
 
 // Login - la cookie httpOnly se setea automáticamente por el backend
 // POST /auth/login (usa form-data, no JSON)
-export const loginUser = async (username: string, password: string): Promise<void> => {
+export const loginUser = async (username: string, password: string): Promise<AuthResponse> => {
   const formData = new URLSearchParams();
   formData.append('username', username);
   formData.append('password', password);
 
-  await api.post('/auth/login', formData, {
+  const response = await api.post<AuthResponse>('/auth/login', formData, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
   });
+  return response.data;
 };
 
 // Logout - elimina la cookie httpOnly

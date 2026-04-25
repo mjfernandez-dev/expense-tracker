@@ -27,10 +27,10 @@ export interface LoginData {
   password: string;
 }
 
-// Respuesta del login (token JWT)
+// Respuesta del login (sesión por cookies httpOnly)
 export interface AuthResponse {
-  access_token: string;
-  token_type: string;
+  message: string;
+  user: User;
 }
 
 // Respuesta del endpoint de "olvidé mi contraseña"
