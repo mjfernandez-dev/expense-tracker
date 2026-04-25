@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -80,10 +81,10 @@ def login(
     refresh_token = create_refresh_token(db, user.id)
 
     cookie_secure, cookie_samesite = _cookie_security_options()
-    response = JSONResponse(content={
+    response = JSONResponse(content=jsonable_encoder({
         "message": "Login exitoso",
         "user": schemas.UserRead.from_orm(user).dict(),
-    })
+    }))
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -139,10 +140,10 @@ def refresh_token(request: Request, db: Session = Depends(get_db)):
     )
 
     cookie_secure, cookie_samesite = _cookie_security_options()
-    response = JSONResponse(content={
+    response = JSONResponse(content=jsonable_encoder({
         "message": "Token renovado",
         "user": schemas.UserRead.from_orm(user).dict(),
-    })
+    }))
     response.set_cookie(
         key="access_token",
         value=new_access_token,
