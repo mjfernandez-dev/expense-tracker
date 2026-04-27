@@ -39,7 +39,7 @@ from slowapi.errors import RateLimitExceeded
 from services.scheduler_service import create_scheduler
 
 # Routers
-from routers import auth, categorias, movimientos, contactos
+from routers import auth, categorias, movimientos, contactos, gastos_fijos
 from routers import split_groups, split_expenses, balances, ciclos
 
 # Crear todas las tablas en la base de datos si no existen
