@@ -95,7 +95,7 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
 
     # Semáforo
     if daily_cap > 0:
-        porcentaje = float(Decimal(str(gasto_hoy)) / daily_cap * 100
+porcentaje = float(Decimal(str(gasto_hoy)) / daily_cap) * 100
     else:
         porcentaje = 100.0 if gasto_hoy > 0 else 0.0
 
