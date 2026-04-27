@@ -407,6 +407,27 @@ class CicloGastoFijoRead(BaseModel):
         from_attributes = True
 
 
+class CicloResumen(BaseModel):
+    ciclo_id: int
+    fecha_inicio: datetime
+    fecha_fin: datetime
+    dias_restantes: int
+    total_ingresos: MoneyDecimal
+    ahorro_objetivo: MoneyDecimal
+    gastos_fijos_confirmados: MoneyDecimal
+    gastos_fijos_pendientes: MoneyDecimal
+    gastos_fijos_efectivizados: MoneyDecimal
+    saldo_disponible_total: MoneyDecimal
+    total_gastos: MoneyDecimal
+    gastos_no_planificados: MoneyDecimal
+    saldo_disponible_actual: MoneyDecimal
+    daily_cap: MoneyDecimal
+    gasto_hoy: MoneyDecimal
+    daily_cap_porcentaje_usado: float
+    semaforo: str
+    presupuesto_items: List[PresupuestoItemRead] = []
+
+
 class CicloRead(BaseModel):
     id: int
     user_id: int
