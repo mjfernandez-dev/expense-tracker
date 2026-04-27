@@ -274,9 +274,7 @@ export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Mo
       updated_at: new Date().toISOString(),
       categoria: null,
       user_category: null,
-      gasto_fijo_id: null,
-      ciclo_gasto_fijo_id: movimiento.ciclo_gasto_fijo_id ?? null,
-      is_auto_generated: false,
+      presupuesto_item_id: movimiento.presupuesto_item_id ?? null,
     } as Movimiento;
   };
 
@@ -479,14 +477,17 @@ export const updateCiclo = async (id: number, data: Partial<CicloCreate>): Promi
   return response.data;
 };
 
-// POST /ciclos/{id}/gastos-fijos/ → confirma lista de gastos fijos para el ciclo
-export const confirmarGastosFijos = async (
+// POST /ciclos/{id}/presupuesto/ → confirma items del presupuesto para el ciclo
+export const confirmarPresupuesto = async (
   cicloId: number,
-  items: CicloGastoFijoItemCreate[]
+  items: PresupuestoItemCreate[]
 ): Promise<Ciclo> => {
-  const response = await api.post(`/ciclos/${cicloId}/gastos-fijos/`, { items });
+  const response = await api.post(`/ciclos/${cicloId}/presupuesto/`, { items });
   return response.data;
 };
+
+// Alias for backwards compatibility
+export const confirmarGastosFijos = confirmarPresupuesto;
 
 // DELETE /ciclos/{id} → cierra el ciclo activo
 export const cerrarCiclo = async (id: number): Promise<void> => {

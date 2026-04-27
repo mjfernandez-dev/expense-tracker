@@ -40,7 +40,7 @@ from services.scheduler_service import create_scheduler
 
 # Routers
 from routers import auth, categorias, movimientos, contactos
-from routers import split_groups, split_expenses, balances, gastos_fijos, ciclos
+from routers import split_groups, split_expenses, balances, ciclos
 
 # Crear todas las tablas en la base de datos si no existen
 # ⚠️ Las migraciones de esquema se manejan con Alembic (ver carpeta alembic/).

@@ -8,10 +8,9 @@ import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
-from services.ciclo_commitment_service import calcular_progreso_compromiso
+from services.ciclo_commitment_service import calcular_progreso_presupuesto
 from services.ciclo_service import calcular_resumen
 from services import ciclo_time_service
-from services.scheduler_service import sincronizar_gastos_fijos_en_ciclo
 
 router = APIRouter(prefix="/ciclos", tags=["ciclos"])
 
@@ -21,14 +20,8 @@ def _load_ciclo(ciclo_id: int, user_id: int, db: Session) -> models.Ciclo:
     ciclo = (
         db.query(models.Ciclo)
         .options(
-            joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
-                models.CicloGastoFijo.gasto_fijo
-            ).joinedload(models.GastoFijo.categoria),
-            joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
-                models.CicloGastoFijo.gasto_fijo
-            ).joinedload(models.GastoFijo.user_category),
-            joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
-                models.CicloGastoFijo.movimientos
+            joinedload(models.Ciclo.presupuesto_items).joinedload(
+                models.PresupuestoItem.movimientos
             ),
         )
         .filter(models.Ciclo.id == ciclo_id, models.Ciclo.user_id == user_id)
@@ -55,6 +48,22 @@ def _ciclo_to_read(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.Ci
     )
 
 
+def _sugerir_presupuesto_desde_ciclo_anterior(ciclo_anterior: models.Ciclo, db: Session) -> list[dict]:
+    """Sugiere items de presupuesto desde el ciclo anterior."""
+    items = []
+    for item in ciclo_anterior.presupuesto_items:
+        Ejecutado = sum(m.importe for m in item.movimientos if m.tipo == "gasto")
+        monto_sugerido = max(float(item.monto_estimado), Ejecutado)
+        items.append({
+            "categoria_id": item.categoria_id,
+            "user_category_id": item.user_category_id,
+            "monto_estimado": monto_sugerido,
+            "confirmado": item.confirmado,
+            "descripcion": item.descripcion,
+        })
+    return items
+
+
 @router.post("/", response_model=schemas.CicloRead, status_code=201)
 def crear_ciclo(
     data: schemas.CicloCreate,
@@ -64,7 +73,7 @@ def crear_ciclo(
     """
     Crea un nuevo ciclo financiero.
     Si ya existe uno activo, lo cierra automáticamente.
-    FR-001: Inicio de Ciclo. FR-002 + FR-003: fecha_fin + ahorro_objetivo.
+    Sugiere presupuesto basado en el ciclo anterior.
     """
     if data.fecha_fin <= ciclo_time_service.ahora_buenos_aires():
         raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a hoy")
@@ -77,6 +86,8 @@ def crear_ciclo(
     )
     if ciclo_anterior:
         ciclo_anterior.activo = False
+        # Recargar para obtener los items con movimientos
+        ciclo_anterior = _load_ciclo(ciclo_anterior.id, current_user.id, db)
 
     # fecha_inicio = fecha del movimiento de origen para incluirlo en el cálculo
     fecha_inicio = ciclo_time_service.ahora_buenos_aires()
@@ -104,7 +115,20 @@ def crear_ciclo(
     db.flush()
     db.refresh(ciclo)
 
-    sincronizar_gastos_fijos_en_ciclo(ciclo, db)
+    # Si hay ciclo anterior, copiar presupuesto sugerido
+    if ciclo_anterior:
+        items_sugeridos = _sugerir_presupuesto_desde_ciclo_anterior(ciclo_anterior, db)
+        for item_data in items_sugeridos:
+            presupuesto_item = models.PresupuestoItem(
+                ciclo_id=ciclo.id,
+                categoria_id=item_data.get("categoria_id"),
+                user_category_id=item_data.get("user_category_id"),
+                monto_estimado=item_data.get("monto_estimado"),
+                confirmado=item_data.get("confirmado", True),
+                descripcion=item_data.get("descripcion"),
+                estado="pendiente",
+            )
+            db.add(presupuesto_item)
 
     db.commit()
     db.refresh(ciclo)
@@ -122,19 +146,12 @@ def get_ciclo_activo(
     """
     Devuelve el ciclo activo del usuario con el resumen calculado en tiempo real.
     Retorna null (204) si no hay ciclo activo.
-    FR-006: Daily Cap. FR-007: Recálculo dinámico.
     """
     ciclo = (
         db.query(models.Ciclo)
         .options(
-            joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
-                models.CicloGastoFijo.gasto_fijo
-            ).joinedload(models.GastoFijo.categoria),
-            joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
-                models.CicloGastoFijo.gasto_fijo
-            ).joinedload(models.GastoFijo.user_category),
-            joinedload(models.Ciclo.gastos_fijos_ciclo).joinedload(
-                models.CicloGastoFijo.movimientos
+            joinedload(models.Ciclo.presupuesto_items).joinedload(
+                models.PresupuestoItem.movimientos
             ),
         )
         .filter(models.Ciclo.user_id == current_user.id, models.Ciclo.activo == True)
@@ -157,7 +174,6 @@ def actualizar_ciclo(
     """
     Actualiza fecha_fin y/o ahorro_objetivo del ciclo.
     El Daily Cap se recalcula automáticamente al consultar el ciclo.
-    Edge case: cambio de fecha de fin (FR-007).
     """
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
 
@@ -172,37 +188,37 @@ def actualizar_ciclo(
     db.commit()
     db.refresh(ciclo)
 
-    # Recargar con eager loading para el resumen
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)
 
 
-@router.post("/{ciclo_id}/gastos-fijos/", response_model=schemas.CicloRead)
-def confirmar_gastos_fijos(
+@router.post("/{ciclo_id}/presupuesto/", response_model=schemas.CicloRead)
+def confirmar_presupuesto(
     ciclo_id: int,
-    data: schemas.CicloGastoFijoBulk,
+    data: schemas.PresupuestoItemBulk,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
     """
-    Confirma (o reemplaza) la lista de gastos fijos para este ciclo.
-    FR-004: Paso 3 del Wizard – confirmación de gastos fijos.
+    Confirma (o reemplaza) el presupuesto para este ciclo.
     """
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
 
-    existentes = list(ciclo.gastos_fijos_ciclo)
+    existentes = list(ciclo.presupuesto_items)
     usados_ids = set()
 
-    def _match_item(item: schemas.CicloGastoFijoItemCreate) -> Optional[models.CicloGastoFijo]:
+    def _match_item(item: schemas.PresupuestoItemCreate) -> Optional[models.PresupuestoItem]:
         for existente in existentes:
             if existente.id in usados_ids:
                 continue
-            if item.gasto_fijo_id is not None and existente.gasto_fijo_id == item.gasto_fijo_id:
+            if item.categoria_id is not None and existente.categoria_id == item.categoria_id:
+                return existente
+            if item.user_category_id is not None and existente.user_category_id == item.user_category_id:
                 return existente
             if (
-                item.gasto_fijo_id is None and
-                existente.gasto_fijo_id is None and
-                (existente.descripcion_override or "") == (item.descripcion_override or "")
+                item.categoria_id is None and
+                item.user_category_id is None and
+                (existente.descripcion or "") == (item.descripcion or "")
             ):
                 return existente
         return None
@@ -210,36 +226,37 @@ def confirmar_gastos_fijos(
     for item in data.items:
         existente = _match_item(item)
         if existente:
-            progreso_actual = calcular_progreso_compromiso(existente)
-            if item.monto_confirmado < progreso_actual.ejecutado:
+            progreso_actual = calcular_progreso_presupuesto(existente)
+            if item.monto_estimado < progreso_actual.ejecutado:
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        "El monto reservado no puede ser menor a lo ya ejecutado "
+                        "El monto estimado no puede ser menor a lo ya ejecutado "
                         f"({float(progreso_actual.ejecutado):.2f})"
                     ),
                 )
-            existente.monto_confirmado = item.monto_confirmado
+            existente.monto_estimado = item.monto_estimado
             existente.confirmado = True if progreso_actual.ejecutado > 0 else item.confirmado
-            existente.descripcion_override = item.descripcion_override
-            existente.estado = calcular_progreso_compromiso(existente).estado
+            existente.descripcion = item.descripcion
+            existente.estado = calcular_progreso_presupuesto(existente).estado
             usados_ids.add(existente.id)
             continue
 
-        cgf = models.CicloGastoFijo(
+        nuevo_item = models.PresupuestoItem(
             ciclo_id=ciclo_id,
-            gasto_fijo_id=item.gasto_fijo_id,
-            monto_confirmado=item.monto_confirmado,
+            categoria_id=item.categoria_id,
+            user_category_id=item.user_category_id,
+            monto_estimado=item.monto_estimado,
             confirmado=item.confirmado,
-            descripcion_override=item.descripcion_override,
-            estado="comprometido",
+            descripcion=item.descripcion,
+            estado="pendiente",
         )
-        db.add(cgf)
+        db.add(nuevo_item)
 
     for existente in existentes:
         if existente.id in usados_ids:
             continue
-        progreso_actual = calcular_progreso_compromiso(existente)
+        progreso_actual = calcular_progreso_presupuesto(existente)
         if progreso_actual.ejecutado > 0:
             existente.confirmado = True
             existente.estado = progreso_actual.estado
@@ -250,6 +267,18 @@ def confirmar_gastos_fijos(
 
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)
+
+
+# Legacy endpoint for backwards compatibility
+@router.post("/{ciclo_id}/gastos-fijos/", response_model=schemas.CicloRead, deprecated=True)
+def confirmar_gastos_fijos_legacy(
+    ciclo_id: int,
+    data: schemas.CicloGastoFijoBulk,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Legacy endpoint - usa /presupuesto/ en su lugar."""
+    return confirmar_presupuesto(ciclo_id, schemas.PresupuestoBulk(items=data.items), db, current_user)
 
 
 @router.delete("/{ciclo_id}", status_code=200)

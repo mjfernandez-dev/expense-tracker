@@ -100,24 +100,24 @@ class UserCategory(Base):
 
 
 
-# MODELO: Gastos fijos recurrentes (template mensual)
-class GastoFijo(Base):
-    __tablename__ = "gastos_fijos"
+# ============== PRESUPUESTO POR CICLO =============
+
+# MODELO: Item de presupuesto para un ciclo específico
+class PresupuestoItem(Base):
+    __tablename__ = "presupuesto_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    descripcion = Column(EncryptedString, nullable=False)
+    ciclo_id = Column(Integer, ForeignKey("ciclos.id"), nullable=False, index=True)
     categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
-    tipo = Column(String, default="gasto", nullable=False)  # "gasto" | "ingreso"
-    activo = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    monto_estimado = Column(Numeric(10, 2), nullable=False)
+    confirmado = Column(Boolean, default=True, nullable=False)
+    descripcion = Column(EncryptedString, nullable=True)
+    estado = Column(String, default="pendiente", nullable=False)
 
     # RELACIONES
-    usuario = relationship("User")
-    categoria = relationship("Category")
-    user_category = relationship("UserCategory")
-    instancias = relationship("Movimiento", back_populates="gasto_fijo")
+    ciclo = relationship("Ciclo", back_populates="presupuesto_items")
+    movimientos = relationship("Movimiento", back_populates="presupuesto_item")
 
 
 # MODELO 2: Tabla de movimientos (gastos e ingresos)
@@ -144,17 +144,14 @@ class Movimiento(Base):
     # CLAVE FORÁNEA: Un movimiento siempre pertenece a UN usuario
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
-    # GASTO FIJO: FK opcional al template (si fue generado automáticamente)
-    gasto_fijo_id = Column(Integer, ForeignKey("gastos_fijos.id"), nullable=True, index=True)
-    is_auto_generated = Column(Boolean, default=False, nullable=False)
-    ciclo_gasto_fijo_id = Column(Integer, ForeignKey("ciclo_gastos_fijos.id"), nullable=True, index=True)
+    # PRESUPUESTO: FK opcional a item del presupuesto del ciclo
+    presupuesto_item_id = Column(Integer, ForeignKey("presupuesto_items.id"), nullable=True, index=True)
 
     # RELACIONES
     categoria = relationship("Category", back_populates="movimientos")  # Categoría del sistema
     user_category = relationship("UserCategory", back_populates="movimientos")  # Categoría personalizada
     usuario = relationship("User", back_populates="movimientos")
-    gasto_fijo = relationship("GastoFijo", back_populates="instancias")
-    ciclo_gasto_fijo = relationship("CicloGastoFijo", back_populates="movimientos", foreign_keys=[ciclo_gasto_fijo_id])
+    presupuesto_item = relationship("PresupuestoItem", back_populates="movimientos")
 
     # CICLO FINANCIERO: flag que indica si este ingreso inició un ciclo
     es_inicio_ciclo = Column(Boolean, default=False, nullable=False)
@@ -272,22 +269,7 @@ class Ciclo(Base):
     # RELACIONES
     usuario = relationship("User")
     movimiento_origen = relationship("Movimiento", foreign_keys=[movimiento_origen_id])
-    gastos_fijos_ciclo = relationship("CicloGastoFijo", back_populates="ciclo", cascade="all, delete-orphan")
+    presupuesto_items = relationship("PresupuestoItem", back_populates="ciclo", cascade="all, delete-orphan")
 
 
-# MODELO: Gastos fijos confirmados para un ciclo específico
-class CicloGastoFijo(Base):
-    __tablename__ = "ciclo_gastos_fijos"
-
-    id = Column(Integer, primary_key=True, index=True)
-    ciclo_id = Column(Integer, ForeignKey("ciclos.id"), nullable=False, index=True)
-    gasto_fijo_id = Column(Integer, ForeignKey("gastos_fijos.id"), nullable=True)  # Nullable para ad-hoc
-    monto_confirmado = Column(Numeric(10, 2), nullable=False)
-    confirmado = Column(Boolean, default=True, nullable=False)
-    descripcion_override = Column(EncryptedString, nullable=True)  # Para gastos ad-hoc sin template
-    estado = Column(String, default="comprometido", nullable=False)
-
-    # RELACIONES
-    ciclo = relationship("Ciclo", back_populates="gastos_fijos_ciclo")
-    gasto_fijo = relationship("GastoFijo")
-    movimientos = relationship("Movimiento", back_populates="ciclo_gasto_fijo", foreign_keys=[Movimiento.ciclo_gasto_fijo_id])
+# MODELO: Item de presupuesto para un ciclo específico

@@ -71,9 +71,7 @@ export interface Movimiento {
   updated_at: string;
   categoria: Category | null;
   user_category: UserCategory | null;
-  gasto_fijo_id: number | null;      // ID del template de gasto fijo (si aplica)
-  ciclo_gasto_fijo_id: number | null; // ID del compromiso del ciclo conciliado (si aplica)
-  is_auto_generated: boolean;        // true si fue generado automáticamente
+  presupuesto_item_id: number | null; // FK a item de presupuesto
   es_inicio_ciclo: boolean;          // true si este ingreso inició un ciclo
   medio_pago: string | null;         // "efectivo"|"debito"|"credito"|"transferencia"|"otro"
 }
@@ -87,10 +85,9 @@ export interface MovimientoCreate {
   tipo: 'gasto' | 'ingreso';
   categoria_id: number | null;
   user_category_id: number | null;
-  es_fijo?: boolean;         // Si true, crea un GastoFijo template asociado
+  presupuesto_item_id?: number | null;
   es_inicio_ciclo?: boolean; // Si true, este ingreso inicia un nuevo ciclo
   medio_pago?: string | null;
-  ciclo_gasto_fijo_id?: number | null;
 }
 
 // ============== TIPOS DE GASTO FIJO ==============
@@ -225,19 +222,27 @@ export interface GroupBalanceSummary {
   simplified_debts: DebtTransfer[];
 }
 
-// ============== TIPOS DE CICLO FINANCIERO (Daily Solvency) ==============
+// ============== TIPOS DE PRESUPUESTO POR CICLO =============
 
-export interface CicloGastoFijoItem {
+export interface PresupuestoItem {
   id: number;
   ciclo_id: number;
-  gasto_fijo_id: number | null;
-  monto_confirmado: number;
+  categoria_id: number | null;
+  user_category_id: number | null;
+  monto_estimado: number;
   monto_ejecutado: number;
   monto_pendiente: number;
   confirmado: boolean;
-  descripcion_override: string | null;
-  estado: 'comprometido' | 'parcial' | 'efectivizado' | 'cancelado' | string;
-  gasto_fijo: GastoFijo | null;
+  descripcion: string | null;
+  estado: 'pendiente' | 'parcial' | 'efectivado' | string;
+}
+
+export interface PresupuestoItemCreate {
+  categoria_id: number | null;
+  user_category_id: number | null;
+  monto_estimado: number;
+  confirmado: boolean;
+  descripcion?: string | null;
 }
 
 export interface CicloResumen {
@@ -258,7 +263,7 @@ export interface CicloResumen {
   gasto_hoy: number;
   daily_cap_porcentaje_usado: number;
   semaforo: 'verde' | 'amarillo' | 'rojo';
-  gastos_fijos: CicloGastoFijoItem[];
+  presupuesto_items: PresupuestoItem[];
 }
 
 export interface Ciclo {

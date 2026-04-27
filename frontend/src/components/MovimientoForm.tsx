@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import type { UserCategory, MovimientoCreate, Movimiento, CicloGastoFijoItem } from '../types';
+import type { UserCategory, MovimientoCreate, Movimiento, PresupuestoItem } from '../types';
 import { getUserCategories, createMovimiento, updateMovimiento, createCategory, getCicloActivo } from '../services/api';
 
 interface MovimientoFormProps {
@@ -25,11 +25,10 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [categoriaId, setCategoriaId] = useState<string>('');
 
   const [fecha, setFecha] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [esGastoFijo, setEsGastoFijo] = useState<boolean>(false);
   const [esInicioCiclo, setEsInicioCiclo] = useState<boolean>(false);
   const [medioPago, setMedioPago] = useState<string>('');
-  const [cicloGastosFijos, setCicloGastosFijos] = useState<CicloGastoFijoItem[]>([]);
-  const [cicloGastoFijoId, setCicloGastoFijoId] = useState<string>('');
+  const [presupuestoItems, setPresupuestoItems] = useState<PresupuestoItem[]>([]);
+  const [presupuestoItemId, setPresupuestoItemId] = useState<string>('');
 
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -59,10 +58,10 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     const fetchCicloActivo = async () => {
       try {
         const ciclo = await getCicloActivo();
-        setCicloGastosFijos(ciclo?.resumen?.gastos_fijos ?? []);
+        setPresupuestoItems(ciclo?.resumen?.presupuesto_items ?? []);
       } catch (err) {
         console.error('Error al cargar ciclo activo:', err);
-        setCicloGastosFijos([]);
+        setPresupuestoItems([]);
       }
     };
 
@@ -79,17 +78,16 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       const catId = movimientoToEdit.categoria_id ?? movimientoToEdit.user_category_id;
       setCategoriaId(catId ? catId.toString() : '');
       setMedioPago(movimientoToEdit.medio_pago || '');
-      setCicloGastoFijoId(movimientoToEdit.ciclo_gasto_fijo_id ? movimientoToEdit.ciclo_gasto_fijo_id.toString() : '');
+      setPresupuestoItemId(movimientoToEdit.presupuesto_item_id ? movimientoToEdit.presupuesto_item_id.toString() : '');
     } else {
       setTipo('gasto');
       setImporte('');
       setDescripcion('');
       setNota('');
       setFecha(new Date().toISOString().split('T')[0]);
-      setEsGastoFijo(false);
       setEsInicioCiclo(false);
       setMedioPago('');
-      setCicloGastoFijoId('');
+      setPresupuestoItemId('');
       if (categories.length > 0) {
         setCategoriaId(categories[0].id.toString());
       }
@@ -98,7 +96,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
   useEffect(() => {
     if (tipo === 'ingreso') {
-      setCicloGastoFijoId('');
+      setPresupuestoItemId('');
     }
   }, [tipo]);
 
@@ -139,10 +137,9 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         tipo,
         categoria_id: null,
         user_category_id: parseInt(categoriaId) || null,
-        es_fijo: !movimientoToEdit && esGastoFijo,
         es_inicio_ciclo: !movimientoToEdit && tipo === 'ingreso' && esInicioCiclo,
         medio_pago: medioPago || null,
-        ciclo_gasto_fijo_id: tipo === 'gasto' && cicloGastoFijoId ? parseInt(cicloGastoFijoId) : null,
+        presupuesto_item_id: tipo === 'gasto' && presupuestoItemId ? parseInt(presupuestoItemId) : null,
       };
 
       if (movimientoToEdit) {
@@ -151,9 +148,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       } else {
         const resultado = await createMovimiento(movimientoData);
         if (resultado.id < 0) {
-          // Fue encolado offline: mostrar panel con botón de confirmación
           setOfflineQueued(true);
-          setImporte(''); setDescripcion(''); setNota(''); setEsGastoFijo(false); setEsInicioCiclo(false);
+          setImporte(''); setDescripcion(''); setNota(''); setEsInicioCiclo(false);
           return;
         }
         onMovimientoCreated(resultado);
@@ -162,10 +158,9 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setImporte('');
       setDescripcion('');
       setNota('');
-      setEsGastoFijo(false);
       setEsInicioCiclo(false);
       setMedioPago('');
-      setCicloGastoFijoId('');
+      setPresupuestoItemId('');
 
     } catch (err) {
       setError(movimientoToEdit ? 'Error al actualizar el movimiento' : 'Error al registrar el movimiento');
@@ -177,20 +172,18 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
   const isIngreso = tipo === 'ingreso';
   const accentColor = isIngreso ? 'green' : 'red';
-  const compromisosDisponibles = cicloGastosFijos.filter((item) =>
-    item.confirmado && (item.monto_pendiente > 0 || item.id.toString() === cicloGastoFijoId)
+  const itemsDisponibles = presupuestoItems.filter((item) =>
+    item.confirmado && (item.monto_pendiente > 0 || item.id.toString() === presupuestoItemId)
   );
 
   return (
     <div className={`bg-slate-800/70 rounded-2xl border border-slate-600/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-6 mb-6`}>
-      {/* Título */}
       <h2 className="text-2xl font-bold mb-4 text-white">
         {movimientoToEdit
           ? `✏️ Editar ${isIngreso ? 'Ingreso' : 'Gasto'}`
           : `➕ Registrar Movimiento`}
       </h2>
 
-      {/* Toggle Gasto / Ingreso */}
       {!movimientoToEdit && (
         <div className="flex gap-2 mb-5 p-1 bg-slate-900/50 rounded-xl w-fit">
           <button
@@ -218,14 +211,12 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         </div>
       )}
 
-      {/* Mensaje de error */}
       {error && (
         <div role="alert" className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg mb-4 text-sm">
           {error}
         </div>
       )}
 
-      {/* Panel de guardado offline */}
       {offlineQueued && (
         <div role="status" className="bg-amber-500/10 border border-amber-400/50 rounded-xl mb-4 overflow-hidden">
           <div className="flex items-start gap-3 px-4 pt-4 pb-3">
@@ -234,7 +225,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               <p className="text-amber-200 font-semibold text-sm mb-1">Guardado sin conexión</p>
               <p className="text-amber-300/80 text-xs leading-relaxed">
                 El movimiento fue guardado localmente en tu dispositivo.
-                Cuando recuperes internet, se sincronizará automáticamente con el servidor.
               </p>
             </div>
           </div>
@@ -252,7 +242,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* Campo: Importe — prominente, primero */}
         <div className={`rounded-xl border p-4 text-center ${isIngreso ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
           <label className={`block text-xs font-semibold uppercase tracking-widest mb-2 ${isIngreso ? 'text-green-400' : 'text-red-400'}`}>
             {isIngreso ? 'Ingreso' : 'Gasto'} *
@@ -272,7 +261,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           </div>
         </div>
 
-        {/* Campo: Descripción */}
         <div>
           <label className="block text-sm font-medium text-slate-100 mb-1">
             Descripción *
@@ -286,7 +274,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           />
         </div>
 
-        {/* Campo: Categoría */}
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="block text-sm font-medium text-slate-100">
@@ -334,7 +321,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           )}
         </div>
 
-        {/* Campo: Fecha */}
         <div>
           <label className="block text-sm font-medium text-slate-100 mb-1">
             Fecha
@@ -345,12 +331,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             onChange={(e) => setFecha(e.target.value)}
             className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all [color-scheme:dark]`}
           />
-          <p className="text-xs text-slate-400 mt-1">
-            Cambiá la fecha para asignar el movimiento a otro mes
-          </p>
         </div>
 
-        {/* Campo: Nota */}
         <div>
           <label className="block text-sm font-medium text-slate-100 mb-1">
             Nota (opcional)
@@ -364,7 +346,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           />
         </div>
 
-        {/* Campo: Medio de pago (opcional) */}
         <div>
           <label className="block text-sm font-medium text-slate-100 mb-1">
             Medio de pago <span className="text-slate-400 font-normal">(opcional)</span>
@@ -383,54 +364,26 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           </select>
         </div>
 
-        {!isIngreso && compromisosDisponibles.length > 0 && (
+        {!isIngreso && itemsDisponibles.length > 0 && (
           <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-4">
             <label className="block text-sm font-medium text-amber-200 mb-1">
-              Vincular a gasto comprometido del ciclo <span className="text-amber-300/70 font-normal">(opcional)</span>
+              Vincular a item del presupuesto <span className="text-amber-300/70 font-normal">(opcional)</span>
             </label>
             <select
-              value={cicloGastoFijoId}
-              onChange={(e) => setCicloGastoFijoId(e.target.value)}
+              value={presupuestoItemId}
+              onChange={(e) => setPresupuestoItemId(e.target.value)}
               className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-amber-400/30 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
             >
               <option value="">No vincular este gasto</option>
-              {compromisosDisponibles.map((item) => {
-                const descripcion = item.gasto_fijo?.descripcion ?? item.descripcion_override ?? 'Sin descripcion';
-                return (
-                  <option key={item.id} value={item.id}>
-                    {descripcion} - pendiente {formatARS(item.monto_pendiente)} de {formatARS(item.monto_confirmado)}
-                  </option>
-                );
-              })}
+              {itemsDisponibles.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.descripcion || 'Categoría #' + (item.categoria_id || item.user_category_id)} - pendiente {formatARS(item.monto_pendiente)} de {formatARS(item.monto_estimado)}
+                </option>
+              ))}
             </select>
             <p className="text-xs text-amber-100/80 mt-2">
-              Si lo vinculas, consume ese compromiso de forma parcial o total y no vuelve a descontar tu disponible diario.
+              Si lo vinculas, consume ese item de forma parcial o total y no vuelve a descontar tu disponible diario.
             </p>
-          </div>
-        )}
-
-        {/* Toggle: Marcar como fijo (solo en creación) */}
-        {!movimientoToEdit && (
-          <div
-            onClick={() => setEsGastoFijo(prev => !prev)}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all select-none ${
-              esGastoFijo
-                ? 'bg-purple-500/15 border-purple-400/50'
-                : 'bg-slate-700/50 border-slate-500/50 hover:border-slate-400'
-            }`}
-          >
-            {/* Switch visual */}
-            <div className={`relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0 ${esGastoFijo ? 'bg-purple-500' : 'bg-slate-600'}`}>
-              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${esGastoFijo ? 'translate-x-5' : 'translate-x-0.5'}`} />
-            </div>
-            <div>
-              <span className={`text-sm font-medium ${esGastoFijo ? 'text-purple-300' : 'text-slate-300'}`}>
-                Marcar como {isIngreso ? 'ingreso' : 'gasto'} fijo
-              </span>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Se generará automáticamente el 1° de cada mes
-              </p>
-            </div>
           </div>
         )}
 
@@ -458,7 +411,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           </div>
         )}
 
-        {/* Botones */}
         <div className="flex gap-3 pt-2">
           <button
             type="submit"

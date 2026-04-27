@@ -9,7 +9,7 @@ import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
-from services.ciclo_commitment_service import calcular_progreso_compromiso
+from services.ciclo_commitment_service import calcular_progreso_presupuesto
 
 router = APIRouter(prefix="/movimientos", tags=["movimientos"])
 
@@ -38,74 +38,74 @@ def _validate_categoria(
             raise HTTPException(status_code=404, detail="Categoría personalizada no existe")
 
 
-def _load_ciclo_gasto_fijo(ciclo_gasto_fijo_id: int, current_user_id: int, db: Session) -> models.CicloGastoFijo:
-    cgf = (
-        db.query(models.CicloGastoFijo)
-        .join(models.Ciclo, models.Ciclo.id == models.CicloGastoFijo.ciclo_id)
+def _load_presupuesto_item(item_id: int, current_user_id: int, db: Session) -> models.PresupuestoItem:
+    item = (
+        db.query(models.PresupuestoItem)
+        .join(models.Ciclo, models.Ciclo.id == models.PresupuestoItem.ciclo_id)
         .filter(
-            models.CicloGastoFijo.id == ciclo_gasto_fijo_id,
+            models.PresupuestoItem.id == item_id,
             models.Ciclo.user_id == current_user_id,
         )
         .first()
     )
-    if not cgf:
-        raise HTTPException(status_code=404, detail="Gasto comprometido del ciclo no encontrado")
-    return cgf
+    if not item:
+        raise HTTPException(status_code=404, detail="Item de presupuesto no encontrado")
+    return item
 
 
-def _apply_ciclo_gasto_fijo_link(
+def _apply_presupuesto_item_link(
     db_movimiento: models.Movimiento,
-    ciclo_gasto_fijo_id: Optional[int],
+    presupuesto_item_id: Optional[int],
     current_user_id: int,
     db: Session,
 ) -> None:
-    previous_link_id = db_movimiento.ciclo_gasto_fijo_id
-    previous_cgf = None
+    previous_link_id = db_movimiento.presupuesto_item_id
+    previous_item = None
 
-    if previous_link_id is not None and previous_link_id != ciclo_gasto_fijo_id:
-        previous_cgf = _load_ciclo_gasto_fijo(previous_link_id, current_user_id, db)
+    if previous_link_id is not None and previous_link_id != presupuesto_item_id:
+        previous_item = _load_presupuesto_item(previous_link_id, current_user_id, db)
 
-    if ciclo_gasto_fijo_id is None:
-        db_movimiento.ciclo_gasto_fijo_id = None
+    if presupuesto_item_id is None:
+        db_movimiento.presupuesto_item_id = None
         if previous_link_id is not None:
-            previous_cgf = previous_cgf or _load_ciclo_gasto_fijo(previous_link_id, current_user_id, db)
-            previous_cgf.estado = calcular_progreso_compromiso(
-                previous_cgf,
+            previous_item = previous_item or _load_presupuesto_item(previous_link_id, current_user_id, db)
+            previous_item.estado = calcular_progreso_presupuesto(
+                previous_item,
                 exclude_movimiento_id=db_movimiento.id,
             ).estado
         return
 
     if db_movimiento.tipo != "gasto":
-        raise HTTPException(status_code=400, detail="Solo los gastos pueden vincularse a compromisos del ciclo")
+        raise HTTPException(status_code=400, detail="Solo los gastos pueden vincularse a items del presupuesto")
 
-    cgf = _load_ciclo_gasto_fijo(ciclo_gasto_fijo_id, current_user_id, db)
-    if not cgf.confirmado:
-        raise HTTPException(status_code=400, detail="El gasto comprometido del ciclo no esta confirmado")
+    item = _load_presupuesto_item(presupuesto_item_id, current_user_id, db)
+    if not item.confirmado:
+        raise HTTPException(status_code=400, detail="El item de presupuesto no está confirmado")
 
     importe_movimiento = Decimal(str(db_movimiento.importe))
-    progreso_base = calcular_progreso_compromiso(
-        cgf,
+    progreso_base = calcular_progreso_presupuesto(
+        item,
         exclude_movimiento_id=db_movimiento.id,
     )
     if importe_movimiento > progreso_base.pendiente:
         raise HTTPException(
             status_code=400,
             detail=(
-                "El gasto supera el monto pendiente del compromiso. "
+                "El gasto supera el monto pendiente del item. "
                 f"Pendiente disponible: {float(progreso_base.pendiente):.2f}"
             ),
         )
 
-    db_movimiento.ciclo_gasto_fijo_id = cgf.id
-    cgf.estado = calcular_progreso_compromiso(
-        cgf,
+    db_movimiento.presupuesto_item_id = item.id
+    item.estado = calcular_progreso_presupuesto(
+        item,
         exclude_movimiento_id=db_movimiento.id,
         extra_importe=importe_movimiento,
     ).estado
 
-    if previous_cgf is not None:
-        previous_cgf.estado = calcular_progreso_compromiso(
-            previous_cgf,
+    if previous_item is not None:
+        previous_item.estado = calcular_progreso_presupuesto(
+            previous_item,
             exclude_movimiento_id=db_movimiento.id,
         ).estado
 
@@ -123,25 +123,11 @@ def create_movimiento(
         db,
     )
 
-    datos = movimiento.model_dump(exclude={"es_fijo", "ciclo_gasto_fijo_id"})
+    datos = movimiento.model_dump(exclude={"presupuesto_item_id"})
     db_movimiento = models.Movimiento(**datos, user_id=current_user.id)
     db.add(db_movimiento)
 
-    _apply_ciclo_gasto_fijo_link(db_movimiento, movimiento.ciclo_gasto_fijo_id, current_user.id, db)
-
-    db.flush()
-
-    if movimiento.es_fijo:
-        db_gasto_fijo = models.GastoFijo(
-            user_id=current_user.id,
-            descripcion=movimiento.descripcion,
-            tipo=movimiento.tipo,
-            categoria_id=movimiento.categoria_id,
-            user_category_id=movimiento.user_category_id,
-        )
-        db.add(db_gasto_fijo)
-        db.flush()
-        db_movimiento.gasto_fijo_id = db_gasto_fijo.id
+    _apply_presupuesto_item_link(db_movimiento, movimiento.presupuesto_item_id, current_user.id, db)
 
     db.commit()
     db.refresh(db_movimiento)
@@ -162,10 +148,10 @@ def delete_movimiento(
     if not movimiento:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
 
-    if movimiento.ciclo_gasto_fijo_id is not None:
-        cgf = _load_ciclo_gasto_fijo(movimiento.ciclo_gasto_fijo_id, current_user.id, db)
-        cgf.estado = calcular_progreso_compromiso(
-            cgf,
+    if movimiento.presupuesto_item_id is not None:
+        item = _load_presupuesto_item(movimiento.presupuesto_item_id, current_user.id, db)
+        item.estado = calcular_progreso_presupuesto(
+            item,
             exclude_movimiento_id=movimiento.id,
         ).estado
 
@@ -206,7 +192,7 @@ def update_movimiento(
     db_movimiento.medio_pago = movimiento_update.medio_pago
     db_movimiento.es_inicio_ciclo = movimiento_update.es_inicio_ciclo
 
-    _apply_ciclo_gasto_fijo_link(db_movimiento, movimiento_update.ciclo_gasto_fijo_id, current_user.id, db)
+    _apply_presupuesto_item_link(db_movimiento, movimiento_update.presupuesto_item_id, current_user.id, db)
 
     db.commit()
     db.refresh(db_movimiento)

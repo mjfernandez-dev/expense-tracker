@@ -160,11 +160,12 @@ class MovimientoBase(BaseModel):
     user_category_id: Optional[int] = None  # ID de categoría personalizada
     es_inicio_ciclo: bool = False  # Si True, este ingreso inició un ciclo financiero
     medio_pago: Optional[str] = None  # "efectivo" | "debito" | "credito" | "transferencia" | "otro"
-    ciclo_gasto_fijo_id: Optional[int] = None  # Vincula un gasto real a un compromiso del ciclo
+    ciclo_gasto_fijo_id: Optional[int] = None  # Vincula un gasto real a un item del presupuesto
+    presupuesto_item_id: Optional[int] = None  # Vincula un gasto real a un item del presupuesto (reemplaza ciclo_gasto_fijo_id)
 
 # Schema para CREAR un movimiento (POST)
 class MovimientoCreate(MovimientoBase):
-    es_fijo: bool = False  # Si True, crea un GastoFijo template asociado
+    pass
 
 # Schema para LEER un movimiento (GET)
 # Incluye el ID y la categoría completa relacionada
@@ -173,8 +174,7 @@ class MovimientoRead(MovimientoBase):
     user_id: int  # Usuario propietario
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    gasto_fijo_id: Optional[int] = None  # ID del template de gasto fijo (si aplica)
-    is_auto_generated: bool = False  # True si fue generado automáticamente por el scheduler
+    presupuesto_item_id: Optional[int] = None  # FK a item de presupuesto
     # RELACIÓN: Incluye la categoría completa, no solo el ID
     categoria: Optional[CategoryRead] = None  # Categoría del sistema (si está definida)
     user_category: Optional[UserCategoryRead] = None  # Categoría personalizada (si está definida)
@@ -344,7 +344,35 @@ class GroupBalanceSummary(BaseModel):
     simplified_debts: List[DebtTransfer]
 
 
-# ============== SCHEMAS PARA CICLO FINANCIERO (Daily Solvency) ==============
+# ============== SCHEMAS PARA PRESUPUESTO POR CICLO =============
+
+class PresupuestoItemCreate(BaseModel):
+    categoria_id: Optional[int] = None
+    user_category_id: Optional[int] = None
+    monto_estimado: MoneyDecimal
+    confirmado: bool = True
+    descripcion: Optional[str] = None
+
+
+class PresupuestoItemBulk(BaseModel):
+    items: List[PresupuestoItemCreate]
+
+
+class PresupuestoItemRead(BaseModel):
+    id: int
+    ciclo_id: int
+    categoria_id: Optional[int] = None
+    user_category_id: Optional[int] = None
+    monto_estimado: MoneyDecimal
+    monto_ejecutado: MoneyDecimal = Decimal('0')
+    monto_pendiente: MoneyDecimal = Decimal('0')
+    confirmado: bool
+    descripcion: Optional[str] = None
+    estado: str
+
+    class Config:
+        from_attributes = True
+
 
 class CicloCreate(BaseModel):
     movimiento_origen_id: Optional[int] = None
@@ -357,17 +385,12 @@ class CicloUpdate(BaseModel):
     ahorro_objetivo: Optional[MoneyDecimal] = None
 
 
-class CicloGastoFijoItemCreate(BaseModel):
-    gasto_fijo_id: Optional[int] = None  # None para gastos ad-hoc
-    monto_confirmado: MoneyDecimal
-    confirmado: bool = True
-    descripcion_override: Optional[str] = None
+# Alias for backwards compatibility
+CicloGastoFijoItemCreate = PresupuestoItemCreate
+CicloGastoFijoBulk = PresupuestoItemBulk
 
 
-class CicloGastoFijoBulk(BaseModel):
-    items: List[CicloGastoFijoItemCreate]
-
-
+# Legacy - keeping for backwards compatibility in API
 class CicloGastoFijoRead(BaseModel):
     id: int
     ciclo_id: int
@@ -382,27 +405,6 @@ class CicloGastoFijoRead(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class CicloResumen(BaseModel):
-    ciclo_id: int
-    fecha_inicio: datetime
-    fecha_fin: datetime
-    dias_restantes: int
-    total_ingresos: MoneyDecimal
-    ahorro_objetivo: MoneyDecimal
-    gastos_fijos_confirmados: MoneyDecimal
-    gastos_fijos_pendientes: MoneyDecimal
-    gastos_fijos_efectivizados: MoneyDecimal
-    saldo_disponible_total: MoneyDecimal
-    total_gastos: MoneyDecimal
-    gastos_no_planificados: MoneyDecimal
-    saldo_disponible_actual: MoneyDecimal
-    daily_cap: MoneyDecimal
-    gasto_hoy: MoneyDecimal
-    daily_cap_porcentaje_usado: float
-    semaforo: str  # "verde" | "amarillo" | "rojo"
-    gastos_fijos: List[CicloGastoFijoRead] = []
 
 
 class CicloRead(BaseModel):
