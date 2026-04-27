@@ -91,11 +91,11 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         m.importe
         for m in movimientos
         if m.tipo == "gasto" and m.fecha >= inicio_hoy and m.presupuesto_item_id is None
-    )
+)
 
     # Semáforo
     if daily_cap > 0:
-porcentaje = float(Decimal(str(gasto_hoy)) / daily_cap) * 100
+        porcentaje = float(Decimal(str(gasto_hoy)) / daily_cap) * 100
     else:
         porcentaje = 100.0 if gasto_hoy > 0 else 0.0
 
@@ -141,16 +141,7 @@ porcentaje = float(Decimal(str(gasto_hoy)) / daily_cap) * 100
         gasto_hoy=gasto_hoy,
         daily_cap_porcentaje_usado=round(min(porcentaje, 999.9), 1),
         semaforo=semaforo,
-        presupuesto_items=presupuesto_items_read,
-    )
-        .all()
-    )
-
-    total_ingresos = sum(
-        m.importe for m in movimientos if m.tipo == "ingreso"
-    )
-    total_gastos = sum(
-        m.importe for m in movimientos if m.tipo == "gasto"
+presupuesto_items=presupuesto_items_read,
     )
     gastos_no_planificados = sum(
         m.importe for m in movimientos if m.tipo == "gasto" and m.ciclo_gasto_fijo_id is None
