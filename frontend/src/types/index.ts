@@ -267,8 +267,6 @@ export interface CicloResumen {
   daily_cap_porcentaje_usado: number;
   semaforo: 'verde' | 'amarillo' | 'rojo';
   presupuesto_items: PresupuestoItem[];
-  presupuesto_items_pendientes?: PresupuestoItem[];
-  presupuesto_items_efectivizados?: PresupuestoItem[];
 }
 
 export interface Ciclo {

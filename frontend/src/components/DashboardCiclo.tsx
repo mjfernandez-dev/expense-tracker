@@ -429,14 +429,14 @@ export default function DashboardCiclo({ refreshKey }: Props) {
             {r.ahorro_objetivo > 0 && (
               <span>Ahorro: <span className="text-emerald-400">-{formatARS(r.ahorro_objetivo)}</span></span>
             )}
-            {r.presupuesto_items_pendientes && r.presupuesto_items_pendientes.length > 0 && (
-              <span>Comprometidos pendientes: <span className="text-orange-400">-{formatARS(r.presupuesto_items_pendientes.reduce((acc, item) => acc + item.monto_ejecutado, 0))}</span></span>
+            {r.presupuesto_items_pendientes > 0 && (
+              <span>Comprometidos pendientes: <span className="text-orange-400">-{formatARS(r.presupuesto_items_pendientes)}</span></span>
             )}
             {r.gastos_no_planificados > 0 && (
               <span>Gastos libres registrados: <span className="text-red-400">-{formatARS(r.gastos_no_planificados)}</span></span>
             )}
-            {r.presupuesto_items_efectivizados && r.presupuesto_items_efectivizados.length > 0 && (
-              <span>Ejecutado de comprometidos: <span className="text-blue-300">{formatARS(r.presupuesto_items_efectivizados.reduce((acc, item) => acc + item.monto_ejecutado, 0))}</span></span>
+            {r.presupuesto_items_efectivizados > 0 && (
+              <span>Ejecutado de comprometidos: <span className="text-blue-300">{formatARS(r.presupuesto_items_efectivizados)}</span></span>
             )}
             {r.total_gastos > 0 && (
               <span>Total gastos registrados: <span className="text-slate-300">{formatARS(r.total_gastos)}</span></span>
