@@ -22,6 +22,7 @@ class User(Base):
 
     # RELACIÓN 1-a-N: Un usuario tiene MUCHOS movimientos
     movimientos = relationship("Movimiento", back_populates="usuario")
+    gastos_fijos = relationship("GastoFijo", back_populates="usuario")
 
 
 # MODELO: Tabla de refresh tokens (para renovar access tokens sin re-login)
@@ -69,6 +70,7 @@ class Category(Base):
     
     # RELACIÓN: Movimientos que usan esta categoría del sistema
     movimientos = relationship("Movimiento", back_populates="categoria")
+    gastos_fijos = relationship("GastoFijo", back_populates="categoria")
 
 
 # MODELO: Tabla de categorías personalizadas del usuario (MULTI-TENANCY)
@@ -97,6 +99,7 @@ class UserCategory(Base):
     # RELACIONES
     usuario = relationship("User", backref="categorias_personalizadas")
     movimientos = relationship("Movimiento", back_populates="user_category")
+    gastos_fijos = relationship("GastoFijo", back_populates="user_category")
 
 
 
@@ -146,12 +149,15 @@ class Movimiento(Base):
 
     # PRESUPUESTO: FK opcional a item del presupuesto del ciclo
     presupuesto_item_id = Column(Integer, ForeignKey("presupuesto_items.id"), nullable=True, index=True)
+    # GASTO FIJO: FK opcional al gasto fijo recurrente
+    gasto_fijo_id = Column(Integer, ForeignKey("gastos_fijos.id"), nullable=True, index=True)
 
     # RELACIONES
     categoria = relationship("Category", back_populates="movimientos")  # Categoría del sistema
     user_category = relationship("UserCategory", back_populates="movimientos")  # Categoría personalizada
     usuario = relationship("User", back_populates="movimientos")
     presupuesto_item = relationship("PresupuestoItem", back_populates="movimientos")
+    gasto_fijo = relationship("GastoFijo", back_populates="movimientos")
 
     # CICLO FINANCIERO: flag que indica si este ingreso inició un ciclo
     es_inicio_ciclo = Column(Boolean, default=False, nullable=False)
@@ -166,6 +172,24 @@ class Movimiento(Base):
         if self.categoria_id is None and self.user_category_id is None:
             raise ValueError("Un movimiento debe tener al menos una categoría (sistema o personalizada)")
 
+
+# ============== MODELO PARA GASTOS FIJOS RECURRENTES ==============
+class GastoFijo(Base):
+    __tablename__ = "gastos_fijos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    descripcion = Column(EncryptedString, nullable=False)
+    categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+    # RELACIONES
+    usuario = relationship("User", back_populates="gastos_fijos")
+    categoria = relationship("Category", back_populates="gastos_fijos")
+    user_category = relationship("UserCategory", back_populates="gastos_fijos")
+    movimientos = relationship("Movimiento", back_populates="gasto_fijo")
 
 
 # ============== MODELOS PARA DIVIDIR GASTOS ==============
