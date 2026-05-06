@@ -20,5 +20,5 @@ USER appuser
 # Exponer puerto 8000
 EXPOSE 8000
 
-# Comando para ejecutar la aplicación
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Aplicar migraciones pendientes y luego arrancar la app
+CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"]
