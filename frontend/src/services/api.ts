@@ -24,12 +24,11 @@ import type {
   SplitGroupMember,
   SplitExpense,
   SplitExpenseCreate,
-  QuickAddMemberData,
   GroupBalanceSummary,
   Ciclo,
   CicloCreate,
-  CicloGastoFijoItemCreate,
-  AuthResponse,
+  PresupuestoItemCreate,
+  CicloResumen,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)

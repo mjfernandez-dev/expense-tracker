@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { CicloGastoFijoItemCreate } from '../types';
-import { getGastosFijos, createCiclo, confirmarGastosFijos } from '../services/api';
+import type { PresupuestoItemCreate, GastoFijo } from '../types';
+import { getGastosFijos, createCiclo, confirmarPresupuesto } from '../services/api';
 import {
   getDaysRemainingInclusiveBA,
   getLastDayOfCurrentMonthBA,
@@ -36,6 +36,7 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
   const [fechaFin, setFechaFin] = useState(getUltimoDiaMes());
   const [ahorro, setAhorro] = useState('0');
   const [gastosFijosWizard, setGastosFijosWizard] = useState<GastoFijoWizard[]>([]);
+  const [gastosFijosCompletos, setGastosFijosCompletos] = useState<GastoFijo[]>([]);
   const [loadingGF, setLoadingGF] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -47,6 +48,7 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
       setLoadingGF(true);
       getGastosFijos()
         .then(gfs => {
+          setGastosFijosCompletos(gfs.filter(gf => gf.activo));
           setGastosFijosWizard(
             gfs.filter(gf => gf.activo).map(gf => ({
               gasto_fijo_id: gf.id,
@@ -115,17 +117,33 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
       const ciclo = await createCiclo(cicloData);
 
       // 2. Confirmar gastos fijos si hay alguno marcado
-      const itemsConfirmados: CicloGastoFijoItemCreate[] = gastosFijosWizard
-        .filter(gf => gf.confirmado)
+      const itemsConfirmados: PresupuestoItemCreate[] = gastosFijosWizard
+        .filter(gf => gf.confirmado && gf.gasto_fijo_id)
+        .map(gf => {
+          const gastoFijoCompleto = gastosFijosCompletos.find(g => g.id === gf.gasto_fijo_id);
+          return {
+            categoria_id: gastoFijoCompleto?.categoria_id ?? null,
+            user_category_id: gastoFijoCompleto?.user_category_id ?? null,
+            monto_estimado: parseFloat(gf.monto) || 0,
+            confirmado: true,
+            descripcion: gf.esAdhoc ? gf.descripcion : (gastoFijoCompleto?.descripcion || gf.descripcion),
+          };
+        });
+
+      // Agregar ítems ad-hoc (sin gasto_fijo_id)
+      const itemsAdHoc: PresupuestoItemCreate[] = gastosFijosWizard
+        .filter(gf => gf.confirmado && gf.esAdhoc)
         .map(gf => ({
-          gasto_fijo_id: gf.gasto_fijo_id,
-          monto_confirmado: parseFloat(gf.monto) || 0,
+          categoria_id: null,
+          user_category_id: null,
+          monto_estimado: parseFloat(gf.monto) || 0,
           confirmado: true,
-          descripcion_override: gf.esAdhoc ? gf.descripcion : undefined,
+          descripcion: gf.descripcion,
         }));
 
-      if (itemsConfirmados.length > 0) {
-        await confirmarGastosFijos(ciclo.id, itemsConfirmados);
+      const todosLosItems = itemsConfirmados.concat(itemsAdHoc);
+      if (todosLosItems.length > 0) {
+        await confirmarPresupuesto(ciclo.id, todosLosItems);
       }
 
       onComplete();
