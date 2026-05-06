@@ -40,7 +40,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
-  timeout: 10000,
+  timeout: 35000, // cubre cold start de Render free tier (~20-50s)
 });
 
 // ============== INTERCEPTOR: REFRESH TOKEN AUTOMÁTICO ==============
@@ -91,12 +91,8 @@ api.interceptors.response.use(
       } catch {
         isRefreshing = false;
         refreshSubscribers = [];
-        // Solo redirigir si no estamos ya en una página pública
-        const publicPaths = ['/login', '/register', '/reset-password', '/forgot-password'];
-        const isPublicPage = publicPaths.some((p) => window.location.pathname.startsWith(p));
-        if (!isPublicPage) {
-          window.location.href = '/login';
-        }
+        // No redirigir desde aquí — AuthProvider maneja el estado de sesión
+        // expirada vía React Router. window.location.href cancela requests en vuelo.
         return Promise.reject(error);
       }
     }
