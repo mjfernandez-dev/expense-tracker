@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Ciclo, CicloCreate, GastoFijo, PresupuestoItem, PresupuestoItemCreate } from '../types';
+import type { Ciclo, CicloCreate, GastoFijo, PresupuestoItemCreate } from '../types';
 import { getCicloActivo, updateCiclo, cerrarCiclo, getGastosFijos, confirmarPresupuesto } from '../services/api';
 import { isDateAtOrAfterTodayBA } from '../utils/buenosAiresDate';
 
@@ -66,10 +66,19 @@ function EditCicloModal({
     getGastosFijos()
       .then((templates: GastoFijo[]) => {
         const confirmados = ciclo.resumen?.presupuesto_items ?? [];
+        
+        // Crear un mapa de confirmados por gasto_fijo_id para búsqueda rápida
+        const confirmadosMap = new Map<number, PresupuestoItem>();
+        confirmados.forEach((c) => {
+          if (c.gasto_fijo_id) {
+            confirmadosMap.set(c.gasto_fijo_id, c);
+          }
+        });
+
         const items: GastoFijoEdit[] = templates
           .filter((t) => t.activo)
           .map((t) => {
-            const yaConfirmado = confirmados.find((c) => c.gasto_fijo_id === t.id);
+            const yaConfirmado = confirmadosMap.get(t.id);
             return {
               gasto_fijo_id: t.id,
               categoria_id: t.categoria_id,
@@ -82,7 +91,7 @@ function EditCicloModal({
           });
 
         const adhocs: GastoFijoEdit[] = confirmados
-          .filter((c) => c.gasto_fijo_id === null)
+          .filter((c) => !c.gasto_fijo_id)
           .map((c) => ({
             gasto_fijo_id: null,
             categoria_id: c.categoria_id,

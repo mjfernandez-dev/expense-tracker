@@ -237,6 +237,7 @@ export interface PresupuestoItem {
   confirmado: boolean;
   descripcion: string | null;
   estado: 'pendiente' | 'parcial' | 'efectivado' | string;
+  gasto_fijo_id: number | null; // FK al gasto fijo (si viene de un gasto fijo)
 }
 
 export interface PresupuestoItemCreate {

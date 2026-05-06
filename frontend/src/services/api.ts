@@ -30,7 +30,6 @@ import type {
   Ciclo,
   CicloCreate,
   PresupuestoItemCreate,
-  CicloResumen,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
