@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Ciclo, CicloCreate, GastoFijo, CicloGastoFijoItemCreate } from '../types';
-import { getCicloActivo, updateCiclo, cerrarCiclo, getGastosFijos, confirmarGastosFijos } from '../services/api';
+import type { Ciclo, CicloCreate, GastoFijo, PresupuestoItem, PresupuestoItemCreate } from '../types';
+import { getCicloActivo, updateCiclo, cerrarCiclo, getGastosFijos, confirmarPresupuesto } from '../services/api';
 import { isDateAtOrAfterTodayBA } from '../utils/buenosAiresDate';
 
 interface Props {
@@ -36,6 +36,8 @@ const SEMAFORO_COLORS = {
 
 interface GastoFijoEdit {
   gasto_fijo_id: number | null;
+  categoria_id: number | null;
+  user_category_id: number | null;
   descripcion: string;
   monto: string;
   confirmado: boolean;
@@ -70,8 +72,10 @@ function EditCicloModal({
             const yaConfirmado = confirmados.find((c) => c.gasto_fijo_id === t.id);
             return {
               gasto_fijo_id: t.id,
+              categoria_id: t.categoria_id,
+              user_category_id: t.user_category_id,
               descripcion: t.descripcion,
-              monto: String(yaConfirmado?.monto_confirmado ?? t.ultimo_importe ?? t.max_importe ?? 0),
+              monto: String(yaConfirmado?.monto_estimado ?? t.ultimo_importe ?? t.max_importe ?? 0),
               confirmado: !!yaConfirmado,
               esAdhoc: false,
             };
@@ -81,8 +85,10 @@ function EditCicloModal({
           .filter((c) => c.gasto_fijo_id === null)
           .map((c) => ({
             gasto_fijo_id: null,
-            descripcion: c.descripcion_override ?? 'Sin descripción',
-            monto: String(c.monto_confirmado),
+            categoria_id: c.categoria_id,
+            user_category_id: c.user_category_id,
+            descripcion: c.descripcion ?? 'Sin descripción',
+            monto: String(c.monto_estimado),
             confirmado: true,
             esAdhoc: true,
           }));
@@ -98,6 +104,8 @@ function EditCicloModal({
       ...prev,
       {
         gasto_fijo_id: null,
+        categoria_id: null,
+        user_category_id: null,
         descripcion: nuevoAdHoc.trim(),
         monto: nuevoAdHocMonto,
         confirmado: true,
@@ -122,16 +130,33 @@ function EditCicloModal({
         ahorro_objetivo: parseFloat(ahorro) || 0,
       } as Partial<CicloCreate>);
 
-      const items: CicloGastoFijoItemCreate[] = gastosFijos
-        .filter((gf) => gf.confirmado)
+      // Items vinculados a gastos fijos
+      const itemsConfirmados: PresupuestoItemCreate[] = gastosFijos
+        .filter((gf) => gf.confirmado && gf.gasto_fijo_id)
         .map((gf) => ({
-          gasto_fijo_id: gf.gasto_fijo_id,
-          monto_confirmado: parseFloat(gf.monto) || 0,
+          categoria_id: gf.categoria_id,
+          user_category_id: gf.user_category_id,
+          monto_estimado: parseFloat(gf.monto) || 0,
           confirmado: true,
-          descripcion_override: gf.esAdhoc ? gf.descripcion : undefined,
+          descripcion: gf.descripcion,
         }));
 
-      await confirmarGastosFijos(ciclo.id, items);
+      // Items ad-hoc (sin gasto_fijo_id)
+      const itemsAdHoc: PresupuestoItemCreate[] = gastosFijos
+        .filter((gf) => gf.confirmado && gf.esAdhoc)
+        .map((gf) => ({
+          categoria_id: null,
+          user_category_id: null,
+          monto_estimado: parseFloat(gf.monto) || 0,
+          confirmado: true,
+          descripcion: gf.descripcion,
+        }));
+
+      const todosLosItems = itemsConfirmados.concat(itemsAdHoc);
+      if (todosLosItems.length > 0) {
+        await confirmarPresupuesto(ciclo.id, todosLosItems);
+      }
+
       onSaved();
       onClose();
     } catch {
@@ -395,14 +420,14 @@ export default function DashboardCiclo({ refreshKey }: Props) {
             {r.ahorro_objetivo > 0 && (
               <span>Ahorro: <span className="text-emerald-400">-{formatARS(r.ahorro_objetivo)}</span></span>
             )}
-            {r.presupuesto_items_pendientes > 0 && (
-              <span>Comprometidos pendientes: <span className="text-orange-400">-{formatARS(r.presupuesto_items_pendientes)}</span></span>
+            {r.presupuesto_items_pendientes && r.presupuesto_items_pendientes.length > 0 && (
+              <span>Comprometidos pendientes: <span className="text-orange-400">-{formatARS(r.presupuesto_items_pendientes.reduce((acc, item) => acc + item.monto_ejecutado, 0))}</span></span>
             )}
             {r.gastos_no_planificados > 0 && (
               <span>Gastos libres registrados: <span className="text-red-400">-{formatARS(r.gastos_no_planificados)}</span></span>
             )}
-            {r.presupuesto_items_efectivizados > 0 && (
-              <span>Ejecutado de comprometidos: <span className="text-blue-300">{formatARS(r.presupuesto_items_efectivizados)}</span></span>
+            {r.presupuesto_items_efectivizados && r.presupuesto_items_efectivizados.length > 0 && (
+              <span>Ejecutado de comprometidos: <span className="text-blue-300">{formatARS(r.presupuesto_items_efectivizados.reduce((acc, item) => acc + item.monto_ejecutado, 0))}</span></span>
             )}
             {r.total_gastos > 0 && (
               <span>Total gastos registrados: <span className="text-slate-300">{formatARS(r.total_gastos)}</span></span>

@@ -73,6 +73,8 @@ export interface Movimiento {
   user_category: UserCategory | null;
   presupuesto_item_id: number | null; // FK a item de presupuesto
   es_inicio_ciclo: boolean;          // true si este ingreso inició un ciclo
+  is_auto_generated: boolean;         // true si fue generado automáticamente
+  gasto_fijo_id: number | null;       // FK a gasto fijo recurrente
   medio_pago: string | null;         // "efectivo"|"debito"|"credito"|"transferencia"|"otro"
 }
 
@@ -264,6 +266,8 @@ export interface CicloResumen {
   daily_cap_porcentaje_usado: number;
   semaforo: 'verde' | 'amarillo' | 'rojo';
   presupuesto_items: PresupuestoItem[];
+  presupuesto_items_pendientes?: PresupuestoItem[];
+  presupuesto_items_efectivizados?: PresupuestoItem[];
 }
 
 export interface Ciclo {
