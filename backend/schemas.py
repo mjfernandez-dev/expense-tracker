@@ -160,8 +160,7 @@ class MovimientoBase(BaseModel):
     user_category_id: Optional[int] = None  # ID de categoría personalizada
     es_inicio_ciclo: bool = False  # Si True, este ingreso inició un ciclo financiero
     medio_pago: Optional[str] = None  # "efectivo" | "debito" | "credito" | "transferencia" | "otro"
-    ciclo_gasto_fijo_id: Optional[int] = None  # Vincula un gasto real a un item del presupuesto
-    presupuesto_item_id: Optional[int] = None  # Vincula un gasto real a un item del presupuesto (reemplaza ciclo_gasto_fijo_id)
+    presupuesto_item_id: Optional[int] = None  # Vincula un gasto real a un item del presupuesto
 
 # Schema para CREAR un movimiento (POST)
 class MovimientoCreate(MovimientoBase):

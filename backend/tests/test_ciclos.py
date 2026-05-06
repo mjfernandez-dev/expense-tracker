@@ -13,14 +13,14 @@ def _ingreso(user_category_id: int, importe: float = 1000.0) -> dict:
     }
 
 
-def _gasto(user_category_id: int, importe: float = 200.0, ciclo_gasto_fijo_id: int | None = None) -> dict:
+def _gasto(user_category_id: int, importe: float = 200.0, presupuesto_item_id: int | None = None) -> dict:
     return {
         "importe": importe,
         "fecha": datetime.now().isoformat(),
         "descripcion": "Pago",
         "tipo": "gasto",
         "user_category_id": user_category_id,
-        "ciclo_gasto_fijo_id": ciclo_gasto_fijo_id,
+        "presupuesto_item_id": presupuesto_item_id,
     }
 
 
@@ -55,7 +55,7 @@ def test_gasto_vinculado_no_duplica_descuento_en_ciclo(logged_in_client, user_ca
 
     gasto = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 200.0, compromiso["id"]))
     assert gasto.status_code == 200, gasto.text
-    assert gasto.json()["ciclo_gasto_fijo_id"] == compromiso["id"]
+    assert gasto.json()["presupuesto_item_id"] == compromiso["id"]
 
     ciclo_actualizado = logged_in_client.get("/ciclos/activo").json()
     resumen = ciclo_actualizado["resumen"]
