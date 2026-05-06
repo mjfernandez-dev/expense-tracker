@@ -68,7 +68,7 @@ function EditCicloModal({
         const confirmados = ciclo.resumen?.presupuesto_items ?? [];
         
         // Crear un mapa de confirmados por gasto_fijo_id para búsqueda rápida
-        const confirmadosMap = new Map<number, PresupuestoItem>();
+        const confirmadosMap = new Map<number, typeof confirmados[0]>();
         confirmados.forEach((c) => {
           if (c.gasto_fijo_id) {
             confirmadosMap.set(c.gasto_fijo_id, c);
