@@ -155,6 +155,8 @@ class Movimiento(Base):
 
     # CICLO FINANCIERO: flag que indica si este ingreso inició un ciclo
     es_inicio_ciclo = Column(Boolean, default=False, nullable=False)
+    # FLAG: indica si el movimiento fue generado automáticamente (ej. gastos fijos)
+    is_auto_generated = Column(Boolean, default=False, nullable=False)
     # MEDIO DE PAGO: "efectivo" | "debito" | "credito" | "transferencia" | "otro"
     medio_pago = Column(String, nullable=True)
 

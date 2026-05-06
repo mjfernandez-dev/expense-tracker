@@ -159,6 +159,7 @@ class MovimientoBase(BaseModel):
     categoria_id: Optional[int] = None  # ID de categoría del sistema
     user_category_id: Optional[int] = None  # ID de categoría personalizada
     es_inicio_ciclo: bool = False  # Si True, este ingreso inició un ciclo financiero
+    is_auto_generated: bool = False  # Indica si el movimiento fue generado automáticamente
     medio_pago: Optional[str] = None  # "efectivo" | "debito" | "credito" | "transferencia" | "otro"
     presupuesto_item_id: Optional[int] = None  # Vincula un gasto real a un item del presupuesto
 
