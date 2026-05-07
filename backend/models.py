@@ -129,6 +129,7 @@ class Movimiento(Base):
     __tablename__ = "movimientos"
 
     # COLUMNAS principales
+    id = Column(Integer, primary_key=True, index=True)
     importe = Column(Numeric(10, 2), nullable=False)  # Monto del movimiento
     fecha = Column(DateTime, default=ahora_buenos_aires)  # Se asigna automáticamente la fecha actual
     descripcion = Column(EncryptedString, nullable=False)  # Obligatoria
