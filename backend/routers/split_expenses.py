@@ -11,6 +11,7 @@ import schemas
 from auth import get_current_active_user
 from database import get_db
 from services.split_service import calcular_shares
+from services.ciclo_time_service import ahora_buenos_aires
 
 router = APIRouter(tags=["split-expenses"])
 
@@ -57,7 +58,7 @@ def create_split_expense(
         descripcion=expense.descripcion,
         importe=expense.importe,
         paid_by_member_id=expense.paid_by_member_id,
-        fecha=expense.fecha or datetime.now(),
+        fecha=expense.fecha or ahora_buenos_aires(),
     )
     db.add(db_expense)
     db.flush()
