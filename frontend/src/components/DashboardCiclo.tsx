@@ -395,81 +395,114 @@ export default function DashboardCiclo({ refreshKey }: Props) {
             </div>
           </div>
 
-          <div className="p-5 space-y-4">
-            {/* Daily Cap - Main Number */}
-            <div className="text-center">
-              <p className="text-slate-400 text-xs font-mono mb-1 tracking-wide">PODÉS GASTAR HOY</p>
-              <p className="text-5xl font-mono font-bold text-white mb-1 tracking-tight">
-                {formatARSDecimal(r.daily_cap)}
-              </p>
-              <p className="text-slate-500 text-xs font-mono">
-                = saldo disponible no comprometido / {r.dias_restantes} días
-              </p>
-            </div>
+          <div className="divide-y divide-slate-600/30">
 
-            {/* Semáforo Badge */}
-            <div className="flex justify-center">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium border ${
-                colors.bar === 'bg-emerald-500' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
-                colors.bar === 'bg-amber-400' ? 'bg-amber-400/10 border-amber-400/30 text-amber-300' :
-                'bg-red-500/10 border-red-500/30 text-red-400'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${
-                  colors.bar === 'bg-emerald-500' ? 'bg-emerald-400' :
-                  colors.bar === 'bg-amber-400' ? 'bg-amber-300' :
-                  'bg-red-400'
-                }`}></span>
-                {colors.msg}
-              </span>
-            </div>
+            {/* ── Sección 1: Daily Cap ──────────────────────────── */}
+            <div className="p-5 space-y-4">
+              <div className="text-center">
+                <p className="text-slate-400 text-[10px] font-mono mb-2 tracking-widest uppercase">Podés gastar hoy</p>
+                <p className="text-5xl font-mono font-bold text-white tracking-tight leading-none">
+                  {formatARSDecimal(r.daily_cap)}
+                </p>
+              </div>
 
-            {/* Progress Bar - Industrial Style */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs font-mono">
-                <span className="text-slate-400">Gastaste hoy: <span className="text-slate-200">{formatARS(r.gasto_hoy)}</span></span>
-                <span className="text-slate-400">{pct.toFixed(0)}%</span>
+              <div className="flex justify-center">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium border ${
+                  colors.bar === 'bg-emerald-500' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+                  colors.bar === 'bg-amber-400' ? 'bg-amber-400/10 border-amber-400/30 text-amber-300' :
+                  'bg-red-500/10 border-red-500/30 text-red-400'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    colors.bar === 'bg-emerald-500' ? 'bg-emerald-400' :
+                    colors.bar === 'bg-amber-400' ? 'bg-amber-300' :
+                    'bg-red-400'
+                  }`} />
+                  {colors.msg}
+                </span>
               </div>
-              <div className="w-full h-1.5 bg-slate-700/80 rounded-none overflow-hidden">
-                <div
-                  className={`h-full rounded-none transition-all duration-700 ${colors.bar}`}
-                  style={{ width: `${Math.min(pct, 100)}%` }}
-                />
-              </div>
-            </div>
 
-            {/* Info Grid - Always Visible */}
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-600/30">
-              <div className="space-y-0.5">
-                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">💰 Ingresos</p>
-                <p className="text-slate-200 text-sm font-mono font-medium">{formatARS(r.total_ingresos)}</p>
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">🎯 Ahorro objetivo</p>
-                <p className="text-emerald-400 text-sm font-mono font-medium">{formatARS(ciclo.ahorro_objetivo)}</p>
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">🔒 Comprometido</p>
-                <p className="text-orange-400 text-sm font-mono font-medium">{formatARS(r.gastos_fijos_pendientes)}</p>
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">⚠️ Gastos libres</p>
-                <p className="text-red-400 text-sm font-mono font-medium">{formatARS(r.gastos_no_planificados)}</p>
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">💸 Disponible</p>
-                <p className="text-slate-200 text-sm font-mono font-medium">{formatARS(r.saldo_disponible_actual)}</p>
-              </div>
-              {r.gastos_fijos_efectivizados > 0 && (
-                <div className="space-y-0.5">
-                  <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">✅ Fijos ya pagados</p>
-                  <p className="text-blue-300 text-sm font-mono font-medium">{formatARS(r.gastos_fijos_efectivizados)}</p>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs font-mono">
+                  <span className="text-slate-400">Gastaste hoy</span>
+                  <span className="text-slate-200 font-medium">{formatARS(r.gasto_hoy)}</span>
                 </div>
-              )}
-              <div className="space-y-0.5 col-span-2 pt-2 border-t border-slate-600/30">
-                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">Total gastos</p>
-                <p className="text-slate-300 text-sm font-mono font-medium">{formatARS(r.total_gastos)}</p>
+                <div className="w-full h-1.5 bg-slate-700/80 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${colors.bar}`}
+                    style={{ width: `${Math.min(pct, 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono text-slate-500">
+                  <span>$0</span>
+                  <span>Límite diario: {formatARS(r.daily_cap)}</span>
+                </div>
               </div>
             </div>
+
+            {/* ── Sección 2: Presupuesto del ciclo ─────────────── */}
+            <div className="px-5 py-4 space-y-2">
+              <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-3">Presupuesto del ciclo</p>
+
+              {/* Waterfall: ingresos → descuentos → disponible */}
+              <div className="space-y-1 text-xs font-mono">
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-slate-400 flex items-center gap-1.5"><span>💰</span> Ingresos</span>
+                  <span className="text-slate-200 font-medium">{formatARS(r.total_ingresos)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 pl-4 border-l-2 border-emerald-500/30">
+                  <span className="text-slate-500 flex items-center gap-1.5"><span>🎯</span> Ahorro objetivo</span>
+                  <span className="text-emerald-400">− {formatARS(ciclo.ahorro_objetivo)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 pl-4 border-l-2 border-orange-500/30">
+                  <span className="text-slate-500 flex items-center gap-1.5"><span>🔒</span> Comprometido</span>
+                  <span className="text-orange-400">− {formatARS(r.gastos_fijos_pendientes)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 mt-1 border-t border-slate-600/40">
+                  <span className="text-slate-300 font-semibold flex items-center gap-1.5"><span>💸</span> Disponible</span>
+                  <span className="text-slate-100 font-bold">{formatARS(r.saldo_disponible_actual)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Sección 3: Composición de gastos ─────────────── */}
+            <div className="px-5 py-4 space-y-2">
+              <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-3">Composición de gastos</p>
+
+              {(() => {
+                const total = r.total_gastos || 1;
+                const pctFijos = Math.round((r.gastos_fijos_efectivizados / total) * 100);
+                const pctLibres = Math.round((r.gastos_no_planificados / total) * 100);
+                return (
+                  <div className="space-y-2 text-xs font-mono">
+                    {r.gastos_fijos_efectivizados > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 flex items-center gap-1.5"><span>✅</span> Fijos ya pagados</span>
+                          <span className="text-blue-300 font-medium">{formatARS(r.gastos_fijos_efectivizados)}</span>
+                        </div>
+                        <div className="w-full h-1 bg-slate-700/60 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-400/70 rounded-full" style={{ width: `${pctFijos}%` }} />
+                        </div>
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 flex items-center gap-1.5"><span>⚠️</span> Sin planificar</span>
+                        <span className="text-red-400 font-medium">{formatARS(r.gastos_no_planificados)}</span>
+                      </div>
+                      <div className="w-full h-1 bg-slate-700/60 rounded-full overflow-hidden">
+                        <div className="h-full bg-red-400/70 rounded-full" style={{ width: `${pctLibres}%` }} />
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-600/40">
+                      <span className="text-slate-300 font-semibold uppercase tracking-wide">Total gastos</span>
+                      <span className="text-slate-100 font-bold">{formatARS(r.total_gastos)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
           </div>
         </div>
       </div>
