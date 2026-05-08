@@ -388,12 +388,11 @@ export default function DashboardCiclo({ refreshKey }: Props) {
 
         <div className="bg-slate-800/90 border border-slate-600/50 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm">
           {/* Header Industrial */}
-          <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border-b border-slate-600/30 px-5 py-3 flex items-center justify-between">
+          <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border-b border-slate-600/30 px-5 py-3 flex items-center">
             <div className="flex items-center gap-2">
               <span className="text-electric-400 text-lg">⚡</span>
-              <h3 className="text-slate-200 font-mono font-semibold text-sm tracking-wider">DAILY SOLVENCY</h3>
+              <h3 className="text-slate-200 font-mono font-semibold text-sm tracking-wider">SOLVENCIA DIARIA</h3>
             </div>
-            <span className="text-slate-400 text-xs font-mono">{r.dias_restantes}d restantes</span>
           </div>
 
           <div className="p-5 space-y-4">
@@ -445,20 +444,24 @@ export default function DashboardCiclo({ refreshKey }: Props) {
                 <p className="text-slate-200 text-sm font-mono font-medium">{formatARS(r.total_ingresos)}</p>
               </div>
               <div className="space-y-0.5">
-                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">🔒 Comprometido</p>
-                <p className="text-orange-400 text-sm font-mono font-medium">{formatARS(r.gastos_fijos_pendientes)}</p>
+                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">🎯 Ahorro objetivo</p>
+                <p className="text-emerald-400 text-sm font-mono font-medium">{formatARS(ciclo.ahorro_objetivo)}</p>
               </div>
               <div className="space-y-0.5">
-                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">💸 Disponible</p>
-                <p className="text-slate-200 text-sm font-mono font-medium">{formatARS(r.saldo_disponible_actual)}</p>
+                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">🔒 Comprometido</p>
+                <p className="text-orange-400 text-sm font-mono font-medium">{formatARS(r.gastos_fijos_pendientes)}</p>
               </div>
               <div className="space-y-0.5">
                 <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">⚠️ Gastos libres</p>
                 <p className="text-red-400 text-sm font-mono font-medium">{formatARS(r.gastos_no_planificados)}</p>
               </div>
+              <div className="space-y-0.5">
+                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">💸 Disponible</p>
+                <p className="text-slate-200 text-sm font-mono font-medium">{formatARS(r.saldo_disponible_actual)}</p>
+              </div>
               {r.gastos_fijos_efectivizados > 0 && (
-                <div className="space-y-0.5 col-span-2">
-                  <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">✅ Ejecutado</p>
+                <div className="space-y-0.5">
+                  <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">✅ Fijos ya pagados</p>
                   <p className="text-blue-300 text-sm font-mono font-medium">{formatARS(r.gastos_fijos_efectivizados)}</p>
                 </div>
               )}
