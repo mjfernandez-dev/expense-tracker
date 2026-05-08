@@ -44,6 +44,12 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     fetchMovimientos();
   }, []);
 
+  useEffect(() => {
+    const isOpen = deleteTarget !== null || autoDeleteTarget !== null;
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [deleteTarget, autoDeleteTarget]);
+
   const movimientosMes = useMemo(() => {
     return movimientos.filter((mov) => {
       const date = new Date(mov.fecha);
