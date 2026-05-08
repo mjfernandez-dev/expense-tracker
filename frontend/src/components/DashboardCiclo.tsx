@@ -298,7 +298,6 @@ export default function DashboardCiclo({ refreshKey }: Props) {
   const [ciclo, setCiclo] = useState<Ciclo | null | undefined>(undefined);
   const [showEdit, setShowEdit] = useState(false);
   const [closingCiclo, setClosingCiclo] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
 
   const fetchCiclo = useCallback(async () => {
     try {
