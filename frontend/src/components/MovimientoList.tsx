@@ -544,8 +544,9 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
       {/* Modal normal: eliminar movimiento regular */}
       {deleteTarget !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeleting && setDeleteTarget(null)} />
+          <div className="flex min-h-full items-center justify-center p-4">
           <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 max-w-sm w-full">
             <h3 className="text-lg font-semibold text-white mb-2">Eliminar movimiento</h3>
             <p className="text-sm text-slate-300 mb-6">
@@ -568,13 +569,15 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
               </button>
             </div>
           </div>
+          </div>
         </div>
       )}
 
       {/* Modal 3 opciones: eliminar movimiento auto-generado */}
       {autoDeleteTarget !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeleting && setAutoDeleteTarget(null)} />
+          <div className="flex min-h-full items-center justify-center p-4">
           <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 max-w-sm w-full">
             <div className="flex items-center gap-2 mb-1">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-400/30">Auto</span>
@@ -617,6 +620,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
               </button>
             </div>
             {isDeleting && <p className="text-xs text-slate-400 text-center mt-3">Procesando...</p>}
+          </div>
           </div>
         </div>
       )}

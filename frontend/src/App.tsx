@@ -140,14 +140,13 @@ function App() {
         />
       </div>
 
-      {/* FAB mobile: centrado en el fondo, solo visible en mobile */}
+      {/* FAB mobile: círculo fijo bottom-right, solo visible en mobile */}
       <button
         onClick={() => setShowModal(true)}
-        className="sm:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-7 py-3.5 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold shadow-[0_0_28px_rgba(59,130,246,0.6)] border border-blue-300/30 active:scale-95 transition-all duration-150"
+        className="sm:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-[0_0_28px_rgba(59,130,246,0.6)] border border-blue-300/30 active:scale-95 transition-all duration-150 flex items-center justify-center"
         aria-label="Registrar movimiento"
       >
-        <span className="text-xl leading-none font-light">+</span>
-        Registrar
+        <span className="text-3xl leading-none font-light mt-[-2px]">+</span>
       </button>
 
       {/* MODAL: Registrar / Editar movimiento */}
