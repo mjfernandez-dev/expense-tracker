@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { User } from '../types';
-import { getCurrentUser, logoutUser } from '../services/api';
+import { getCurrentUser, refreshSession, logoutUser } from '../services/api';
 import { clearCachedUser } from '../services/offlineDB';
 import { AuthContext, type AuthContextType } from './AuthContext';
 
@@ -11,22 +11,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [sessionExpired, setSessionExpired] = useState<boolean>(false);
 
-  // Verificar sesión al montar (la cookie httpOnly se envía automáticamente)
+  // Verificar sesión al montar usando refresh proactivo.
+  // Llama a /auth/refresh directamente en vez de /auth/me para evitar el ciclo
+  // /auth/me → 401 → refresh → retry que genera requests fallidas y agrega latencia,
+  // especialmente en cold start de Render free tier.
   const checkSession = useCallback(async () => {
     try {
-      const userData = await getCurrentUser();
+      const userData = await refreshSession();
       setUser(userData);
       setSessionExpired(false);
       localStorage.setItem(AUTH_PREVIOUS_SESSION_KEY, '1');
     } catch (error: unknown) {
       const isExpired =
         !!error && typeof error === 'object' && 'response' in error && (error as any).response?.status === 401;
-      // Mostrar "sesión expirada" solo si hubo una sesión previa en este navegador.
       const hadSession = localStorage.getItem(AUTH_PREVIOUS_SESSION_KEY) === '1';
       const shouldShowExpired = isExpired && hadSession;
       setSessionExpired(shouldShowExpired);
       if (shouldShowExpired) {
-        // Evita mostrar el mismo banner en cada refresh de /login.
         localStorage.removeItem(AUTH_PREVIOUS_SESSION_KEY);
       }
       setUser(null);

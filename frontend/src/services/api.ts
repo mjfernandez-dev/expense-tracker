@@ -185,6 +185,26 @@ export const getCurrentUser = async (): Promise<User> => {
   }
 };
 
+// Refresh proactivo de sesión al iniciar la app.
+// Llama directamente a /auth/refresh (sin pasar por el interceptor de 401),
+// lo que evita el ciclo /auth/me → 401 → refresh → retry en cada cold start.
+export const refreshSession = async (): Promise<User> => {
+  if (!navigator.onLine) {
+    const cached = await getCachedUser();
+    if (cached) return cached;
+    throw new Error('Sin conexión y sin datos guardados');
+  }
+
+  const refreshResponse = await api.post<{ message: string; user?: User }>('/auth/refresh');
+  const user = refreshResponse.data.user ?? (await api.get<User>('/auth/me')).data;
+  try {
+    await saveUser(user);
+  } catch {
+    // cache failure no bloquea el login
+  }
+  return user;
+};
+
 // Actualizar datos de pago del usuario
 // PUT /auth/payment-info
 export const updatePaymentInfo = async (aliasBancario: string | null, cvu: string | null): Promise<User> => {

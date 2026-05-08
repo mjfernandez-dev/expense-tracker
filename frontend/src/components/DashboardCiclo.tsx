@@ -387,62 +387,89 @@ export default function DashboardCiclo({ refreshKey }: Props) {
           </div>
         </div>
 
-        <div className="flex items-end gap-3 mb-3">
-          <div>
-            <p className="text-slate-400 text-xs mb-0.5">Podés gastar hoy</p>
-            <p className="text-3xl font-bold text-white">{formatARSDecimal(r.daily_cap)}</p>
-            <p className="text-slate-500 text-xs mt-0.5">
-              = dinero disponible no comprometido / {r.dias_restantes} días restantes
-            </p>
+        <div className="bg-slate-800/90 border border-slate-600/50 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm">
+          {/* Header Industrial */}
+          <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border-b border-slate-600/30 px-5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-electric-400 text-lg">⚡</span>
+              <h3 className="text-slate-200 font-mono font-semibold text-sm tracking-wider">DAILY SOLVENCY</h3>
+            </div>
+            <span className="text-slate-400 text-xs font-mono">{r.dias_restantes}d restantes</span>
           </div>
-          <div className="mb-5">
-            <p className={`text-xs font-medium ${colors.text}`}>{colors.msg}</p>
+
+          <div className="p-5 space-y-4">
+            {/* Daily Cap - Main Number */}
+            <div className="text-center">
+              <p className="text-slate-400 text-xs font-mono mb-1 tracking-wide">PODÉS GASTAR HOY</p>
+              <p className="text-5xl font-mono font-bold text-white mb-1 tracking-tight">
+                {formatARSDecimal(r.daily_cap)}
+              </p>
+              <p className="text-slate-500 text-xs font-mono">
+                = saldo disponible no comprometido / {r.dias_restantes} días
+              </p>
+            </div>
+
+            {/* Semáforo Badge */}
+            <div className="flex justify-center">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium border ${
+                colors.bar === 'bg-emerald-500' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+                colors.bar === 'bg-amber-400' ? 'bg-amber-400/10 border-amber-400/30 text-amber-300' :
+                'bg-red-500/10 border-red-500/30 text-red-400'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${
+                  colors.bar === 'bg-emerald-500' ? 'bg-emerald-400' :
+                  colors.bar === 'bg-amber-400' ? 'bg-amber-300' :
+                  'bg-red-400'
+                }`}></span>
+                {colors.msg}
+              </span>
+            </div>
+
+            {/* Progress Bar - Industrial Style */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs font-mono">
+                <span className="text-slate-400">Gastaste hoy: <span className="text-slate-200">{formatARS(r.gasto_hoy)}</span></span>
+                <span className="text-slate-400">{pct.toFixed(0)}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-700/80 rounded-none overflow-hidden">
+                <div
+                  className={`h-full rounded-none transition-all duration-700 ${colors.bar}`}
+                  style={{ width: `${Math.min(pct, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Info Grid - Always Visible */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-600/30">
+              <div className="space-y-0.5">
+                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">💰 Ingresos</p>
+                <p className="text-slate-200 text-sm font-mono font-medium">{formatARS(r.total_ingresos)}</p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">🔒 Comprometido</p>
+                <p className="text-orange-400 text-sm font-mono font-medium">{formatARS(r.gastos_fijos_pendientes)}</p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">💸 Disponible</p>
+                <p className="text-slate-200 text-sm font-mono font-medium">{formatARS(r.saldo_disponible_actual)}</p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">⚠️ Gastos libres</p>
+                <p className="text-red-400 text-sm font-mono font-medium">{formatARS(r.gastos_no_planificados)}</p>
+              </div>
+              {r.gastos_fijos_efectivizados > 0 && (
+                <div className="space-y-0.5 col-span-2">
+                  <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">✅ Ejecutado</p>
+                  <p className="text-blue-300 text-sm font-mono font-medium">{formatARS(r.gastos_fijos_efectivizados)}</p>
+                </div>
+              )}
+              <div className="space-y-0.5 col-span-2 pt-2 border-t border-slate-600/30">
+                <p className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">Total gastos</p>
+                <p className="text-slate-300 text-sm font-mono font-medium">{formatARS(r.total_gastos)}</p>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div className="mb-3">
-          <div className="flex justify-between text-xs text-slate-400 mb-1">
-            <span>Gastaste hoy: {formatARS(r.gasto_hoy)}</span>
-            <span>{pct.toFixed(0)}%</span>
-          </div>
-          <div className="w-full h-2 bg-slate-600/60 rounded-full overflow-hidden">
-            <div
-              className={`h-2 rounded-full transition-all duration-500 ${colors.bar}`}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        </div>
-
-        <button
-          onClick={() => setShowInfo((v) => !v)}
-          className="flex items-center gap-2 w-full text-left border-t border-slate-600/50 pt-3"
-        >
-          <span className="text-xs text-slate-400">
-            Disponible: <span className="text-slate-200 font-medium">{formatARS(r.saldo_disponible_actual)}</span>
-          </span>
-          <span className="ml-auto text-slate-500 text-xs">{showInfo ? '▲' : '▼'}</span>
-        </button>
-
-        {showInfo && (
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 pb-1">
-            <span>Ingresos: <span className="text-slate-300">{formatARS(r.total_ingresos)}</span></span>
-            {r.ahorro_objetivo > 0 && (
-              <span>Ahorro: <span className="text-emerald-400">-{formatARS(r.ahorro_objetivo)}</span></span>
-            )}
-            {r.gastos_fijos_pendientes > 0 && (
-              <span>Comprometidos pendientes: <span className="text-orange-400">-{formatARS(r.gastos_fijos_pendientes)}</span></span>
-            )}
-            {r.gastos_no_planificados > 0 && (
-              <span>Gastos libres registrados: <span className="text-red-400">-{formatARS(r.gastos_no_planificados)}</span></span>
-            )}
-            {r.gastos_fijos_efectivizados > 0 && (
-              <span>Ejecutado de comprometidos: <span className="text-blue-300">{formatARS(r.gastos_fijos_efectivizados)}</span></span>
-            )}
-            {r.total_gastos > 0 && (
-              <span>Total gastos registrados: <span className="text-slate-300">{formatARS(r.total_gastos)}</span></span>
-            )}
-          </div>
-        )}
       </div>
     </>
   );

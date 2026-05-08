@@ -9,6 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import models
 from database import get_db
+from services.ciclo_time_service import ahora_buenos_aires
 
 logger = logging.getLogger("finanzaapp")
 
@@ -75,7 +76,7 @@ def _job_cleanup_tokens():
     """Job diario: elimina refresh tokens expirados o revocados."""
     db = next(get_db())
     try:
-        cutoff = datetime.now()
+        cutoff = ahora_buenos_aires()
         deleted = (
             db.query(models.RefreshToken)
             .filter(

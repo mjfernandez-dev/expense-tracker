@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
 from encryption import EncryptedString
+from services.ciclo_time_service import ahora_buenos_aires  # ← IMPORTAMOS FUNCIÓN BA
 
 
 # MODELO: Tabla de usuarios
@@ -16,7 +17,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
     alias_bancario = Column(EncryptedString, nullable=True)
     cvu = Column(EncryptedString, nullable=True)
 
@@ -34,7 +35,7 @@ class RefreshToken(Base):
     token_hash = Column(String, unique=True, index=True, nullable=False)  # SHA256 del token raw
     expires_at = Column(DateTime, nullable=False)
     revoked = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
 
     user = relationship("User")
 
@@ -48,7 +49,7 @@ class PasswordResetToken(Base):
     token = Column(String, unique=True, index=True, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     used = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
 
     # RELACIÓN N-a-1: Muchos tokens pertenecen a UN usuario
     user = relationship("User")
@@ -66,8 +67,8 @@ class Category(Base):
     nombre = Column(String, nullable=False, unique=True, index=True)  # Único global
     descripcion = Column(String, nullable=True)
     es_predeterminada = Column(Boolean, default=True)  # Siempre True para este modelo
-    created_at = Column(DateTime, default=datetime.now)
-    
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+
     # RELACIÓN: Movimientos que usan esta categoría del sistema
     movimientos = relationship("Movimiento", back_populates="categoria")
     gastos_fijos = relationship("GastoFijo", back_populates="categoria")
@@ -88,8 +89,8 @@ class UserCategory(Base):
     descripcion = Column(String, nullable=True)
     color = Column(String, default="#6366f1", nullable=False)  # Color para UI (hex)
     icon = Column(String, nullable=True)  # Ícono para UI (emoji o nombre)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+    updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
     
     # ✅ Unique constraint por usuario: permite mismo nombre en diferentes usuarios
     __table_args__ = (
@@ -130,12 +131,12 @@ class Movimiento(Base):
     # COLUMNAS principales
     id = Column(Integer, primary_key=True, index=True)
     importe = Column(Numeric(10, 2), nullable=False)  # Monto del movimiento
-    fecha = Column(DateTime, default=datetime.now)  # Se asigna automáticamente la fecha actual
+    fecha = Column(DateTime, default=ahora_buenos_aires)  # Se asigna automáticamente la fecha actual
     descripcion = Column(EncryptedString, nullable=False)  # Obligatoria
     nota = Column(EncryptedString, nullable=True)  # Opcional (puede ser NULL)
     tipo = Column(String, default="gasto", nullable=False)  # "gasto" | "ingreso"
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+    updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
 
     # CLAVES FORÁNEAS: Un movimiento puede estar asociado con:
     # - Una categoría del sistema (categoria_id) O
@@ -183,7 +184,7 @@ class GastoFijo(Base):
     categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
     activo = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
 
     # RELACIONES
     usuario = relationship("User", back_populates="gastos_fijos")
@@ -204,7 +205,7 @@ class Contact(Base):
     alias_bancario = Column(EncryptedString, nullable=True)
     cvu = Column(EncryptedString, nullable=True)
     linked_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
 
     # RELACIONES
     owner = relationship("User", foreign_keys=[owner_id], backref="contacts")
@@ -219,7 +220,7 @@ class SplitGroup(Base):
     nombre = Column(String, nullable=False)
     descripcion = Column(String, nullable=True)
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
     is_active = Column(Boolean, default=True)
 
     # RELACIONES
@@ -253,8 +254,8 @@ class SplitExpense(Base):
     descripcion = Column(EncryptedString, nullable=False)
     importe = Column(Numeric(10, 2), nullable=False)
     paid_by_member_id = Column(Integer, ForeignKey("split_group_members.id"), nullable=False)
-    fecha = Column(DateTime, default=datetime.now)
-    created_at = Column(DateTime, default=datetime.now)
+    fecha = Column(DateTime, default=ahora_buenos_aires)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
 
     # RELACIONES
     group = relationship("SplitGroup", back_populates="expenses")
@@ -290,7 +291,7 @@ class Ciclo(Base):
     fecha_fin = Column(DateTime, nullable=False)      # Hasta cuándo debe durar el dinero
     ahorro_objetivo = Column(Numeric(10, 2), default=0, nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
 
     # RELACIONES
     usuario = relationship("User")
