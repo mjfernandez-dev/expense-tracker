@@ -439,69 +439,86 @@ export default function DashboardCiclo({ refreshKey }: Props) {
               </div>
             </div>
 
-            {/* ── Sección 2: Presupuesto del ciclo ─────────────── */}
-            <div className="px-5 py-4 space-y-2">
-              <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-3">Presupuesto del ciclo</p>
+            {/* ── Sección 2: Cascada unificada ─────────────────── */}
+            {(() => {
+              const total = r.total_gastos || 1;
+              const pctFijos = Math.round((r.gastos_fijos_efectivizados / total) * 100);
+              const pctVariables = Math.round((r.gastos_no_planificados / total) * 100);
+              return (
+                <div className="px-5 py-4">
+                  <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-4">Presupuesto del ciclo</p>
 
-              {/* Waterfall: ingresos → descuentos → disponible */}
-              <div className="space-y-1 text-xs font-mono">
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-slate-400 flex items-center gap-1.5"><span>💰</span> Ingresos</span>
-                  <span className="text-slate-200 font-medium">{formatARS(r.total_ingresos)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1 pl-4 border-l-2 border-emerald-500/30">
-                  <span className="text-slate-500 flex items-center gap-1.5"><span>🎯</span> Ahorro objetivo</span>
-                  <span className="text-emerald-400">− {formatARS(ciclo.ahorro_objetivo)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1 pl-4 border-l-2 border-orange-500/30">
-                  <span className="text-slate-500 flex items-center gap-1.5"><span>🔒</span> Comprometido</span>
-                  <span className="text-orange-400">− {formatARS(r.gastos_fijos_pendientes)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-2 mt-1 border-t border-slate-600/40">
-                  <span className="text-slate-300 font-semibold flex items-center gap-1.5"><span>💸</span> Disponible</span>
-                  <span className="text-slate-100 font-bold">{formatARS(r.saldo_disponible_actual)}</span>
-                </div>
-              </div>
-            </div>
+                  <div className="space-y-0 text-xs font-mono">
 
-            {/* ── Sección 3: Composición de gastos ─────────────── */}
-            <div className="px-5 py-4 space-y-2">
-              <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-3">Composición de gastos</p>
+                    {/* Ingresos */}
+                    <div className="flex items-center py-1.5">
+                      <span className="w-5 text-center flex-shrink-0">💰</span>
+                      <span className="text-slate-300 ml-1.5 flex-1">Ingresos</span>
+                      <span className="text-slate-100 font-semibold tabular-nums">{formatARS(r.total_ingresos)}</span>
+                    </div>
 
-              {(() => {
-                const total = r.total_gastos || 1;
-                const pctFijos = Math.round((r.gastos_fijos_efectivizados / total) * 100);
-                const pctLibres = Math.round((r.gastos_no_planificados / total) * 100);
-                return (
-                  <div className="space-y-2 text-xs font-mono">
+                    {/* Ahorro objetivo */}
+                    <div className="flex items-center py-1.5 pl-5 border-l-2 border-emerald-500/40 ml-2.5">
+                      <span className="w-5 text-center flex-shrink-0">🎯</span>
+                      <span className="text-slate-500 ml-1.5 flex-1">Ahorro objetivo</span>
+                      <span className="text-emerald-400 tabular-nums">− {formatARS(ciclo.ahorro_objetivo)}</span>
+                    </div>
+
+                    {/* Comprometido */}
+                    <div className="flex items-center py-1.5 pl-5 border-l-2 border-orange-500/40 ml-2.5">
+                      <span className="w-5 text-center flex-shrink-0">🔒</span>
+                      <span className="text-slate-500 ml-1.5 flex-1">Comprometido</span>
+                      <span className="text-orange-400 tabular-nums">− {formatARS(r.gastos_fijos_pendientes)}</span>
+                    </div>
+
+                    {/* Gastos realizados — total con desglose anidado */}
+                    <div className="flex items-center py-1.5 pl-5 border-l-2 border-slate-500/40 ml-2.5">
+                      <span className="w-5 text-center flex-shrink-0">📊</span>
+                      <span className="text-slate-500 ml-1.5 flex-1">Gastos realizados</span>
+                      <span className="text-slate-400 tabular-nums">− {formatARS(r.total_gastos)}</span>
+                    </div>
+
+                    {/* ↳ Fijos ya pagados */}
                     {r.gastos_fijos_efectivizados > 0 && (
-                      <div className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-400 flex items-center gap-1.5"><span>✅</span> Fijos ya pagados</span>
-                          <span className="text-blue-300 font-medium">{formatARS(r.gastos_fijos_efectivizados)}</span>
+                      <div className="pl-10 ml-2.5 space-y-1 py-1">
+                        <div className="flex items-center">
+                          <span className="text-slate-600 mr-1.5 flex-shrink-0">↳</span>
+                          <span className="w-4 text-center flex-shrink-0">✅</span>
+                          <span className="text-slate-500 ml-1.5 flex-1">Fijos ya pagados</span>
+                          <span className="text-blue-300 tabular-nums">{formatARS(r.gastos_fijos_efectivizados)}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-700/60 rounded-full overflow-hidden">
                           <div className="h-full bg-blue-400/70 rounded-full" style={{ width: `${pctFijos}%` }} />
                         </div>
                       </div>
                     )}
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400 flex items-center gap-1.5"><span>⚠️</span> Sin planificar</span>
-                        <span className="text-red-400 font-medium">{formatARS(r.gastos_no_planificados)}</span>
+
+                    {/* ↳ Gastos variables */}
+                    <div className="pl-10 ml-2.5 space-y-1 py-1">
+                      <div className="flex items-center">
+                        <span className="text-slate-600 mr-1.5 flex-shrink-0">↳</span>
+                        <span className="w-4 text-center flex-shrink-0">⚠️</span>
+                        <span className="text-slate-500 ml-1.5 flex-1">Gastos variables</span>
+                        <span className="text-red-400 tabular-nums">{formatARS(r.gastos_no_planificados)}</span>
                       </div>
                       <div className="w-full h-1 bg-slate-700/60 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-400/70 rounded-full" style={{ width: `${pctLibres}%` }} />
+                        <div className="h-full bg-red-400/70 rounded-full" style={{ width: `${pctVariables}%` }} />
                       </div>
                     </div>
-                    <div className="flex justify-between items-center pt-2 border-t border-slate-600/40">
-                      <span className="text-slate-300 font-semibold uppercase tracking-wide">Total gastos</span>
-                      <span className="text-slate-100 font-bold">{formatARS(r.total_gastos)}</span>
+
+                    {/* Separador resultado */}
+                    <div className="border-t border-slate-600/50 mt-2 pt-3">
+                      <div className="flex items-center">
+                        <span className="w-5 text-center flex-shrink-0">💸</span>
+                        <span className="text-slate-200 ml-1.5 flex-1 font-semibold">Disponible</span>
+                        <span className="text-slate-100 font-bold text-sm tabular-nums">{formatARS(r.saldo_disponible_actual)}</span>
+                      </div>
                     </div>
+
                   </div>
-                );
-              })()}
-            </div>
+                </div>
+              );
+            })()}
 
           </div>
         </div>
