@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import type { UserCategory, MovimientoCreate, Movimiento, PresupuestoItem } from '../types';
 import { getUserCategories, createMovimiento, updateMovimiento, createCategory, getCicloActivo } from '../services/api';
+import { getCurrentBADateInputValue } from '../utils/buenosAiresDate';
 
 interface MovimientoFormProps {
   onMovimientoCreated: (movimiento?: Movimiento) => void;
@@ -24,7 +25,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [nota, setNota] = useState<string>('');
   const [categoriaId, setCategoriaId] = useState<string>('');
 
-  const [fecha, setFecha] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [fecha, setFecha] = useState<string>(getCurrentBADateInputValue());
   const [esInicioCiclo, setEsInicioCiclo] = useState<boolean>(false);
   const [medioPago, setMedioPago] = useState<string>('');
   const [presupuestoItems, setPresupuestoItems] = useState<PresupuestoItem[]>([]);
@@ -84,7 +85,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setImporte('');
       setDescripcion('');
       setNota('');
-      setFecha(new Date().toISOString().split('T')[0]);
+      setFecha(getCurrentBADateInputValue());
       setEsInicioCiclo(false);
       setMedioPago('');
       setPresupuestoItemId('');
