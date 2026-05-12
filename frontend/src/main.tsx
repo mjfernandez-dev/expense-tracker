@@ -21,8 +21,6 @@ const ContactsPage = lazy(() => import('./pages/ContactsPage.tsx'));
 const Tools = lazy(() => import('./pages/Tools.tsx'));
 const CategoriasPage = lazy(() => import('./pages/CategoriasPage.tsx'));
 const RecurrentesPage = lazy(() => import('./pages/RecurrentesPage.tsx'));
-const SplitGroupsPage = lazy(() => import('./pages/SplitGroupsPage.tsx'));
-const SplitGroupDetail = lazy(() => import('./pages/SplitGroupDetail.tsx'));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -81,22 +79,6 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <ProtectedRoute>
                     <RecurrentesPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/tools/split-groups"
-                element={
-                  <ProtectedRoute>
-                    <SplitGroupsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/tools/split-groups/:groupId"
-                element={
-                  <ProtectedRoute>
-                    <SplitGroupDetail />
                   </ProtectedRoute>
                 }
               />

@@ -24,20 +24,6 @@ function Tools() {
         {/* GRID DE HERRAMIENTAS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
 
-          {/* Card: Dividir Gastos */}
-          <div
-            onClick={() => navigate('/tools/split-groups')}
-            className="bg-slate-700/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6 hover:border-blue-400/60 hover:bg-slate-700/80 hover:shadow-[0_0_30px_rgba(59,130,246,0.2)] transition-all duration-300 cursor-pointer group"
-          >
-            <div className="text-4xl mb-4">💸</div>
-            <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
-              Dividir Gastos
-            </h3>
-            <p className="text-sm text-slate-400">
-              Crea grupos, registra gastos compartidos y calcula quien le debe a quien.
-            </p>
-          </div>
-
           {/* Card: Categorías */}
           <div
             onClick={() => navigate('/tools/categorias')}
