@@ -53,6 +53,48 @@ def _load_presupuesto_item(item_id: int, current_user_id: int, db: Session) -> m
     return item
 
 
+def _auto_detectar_presupuesto_item(
+    categoria_id: Optional[int],
+    user_category_id: Optional[int],
+    importe: Decimal,
+    user_id: int,
+    db: Session,
+    exclude_movimiento_id: Optional[int] = None,
+) -> Optional[int]:
+    """Busca automáticamente el PresupuestoItem del ciclo activo para la categoría dada.
+    Retorna el ID del item si hay uno confirmado con saldo pendiente suficiente, sino None.
+    """
+    ciclo_activo = db.query(models.Ciclo).filter(
+        models.Ciclo.user_id == user_id,
+        models.Ciclo.activo == True,
+    ).first()
+
+    if not ciclo_activo:
+        return None
+
+    query = db.query(models.PresupuestoItem).filter(
+        models.PresupuestoItem.ciclo_id == ciclo_activo.id,
+        models.PresupuestoItem.confirmado == True,
+    )
+
+    if categoria_id is not None:
+        query = query.filter(models.PresupuestoItem.categoria_id == categoria_id)
+    elif user_category_id is not None:
+        query = query.filter(models.PresupuestoItem.user_category_id == user_category_id)
+    else:
+        return None
+
+    item = query.first()
+    if not item:
+        return None
+
+    progreso = calcular_progreso_presupuesto(item, exclude_movimiento_id=exclude_movimiento_id)
+    if progreso.pendiente <= 0 or importe > progreso.pendiente:
+        return None
+
+    return item.id
+
+
 def _apply_presupuesto_item_link(
     db_movimiento: models.Movimiento,
     presupuesto_item_id: Optional[int],
@@ -127,7 +169,17 @@ def create_movimiento(
     db_movimiento = models.Movimiento(**datos, user_id=current_user.id)
     db.add(db_movimiento)
 
-    _apply_presupuesto_item_link(db_movimiento, movimiento.presupuesto_item_id, current_user.id, db)
+    item_id = movimiento.presupuesto_item_id
+    if item_id is None and movimiento.tipo == "gasto":
+        item_id = _auto_detectar_presupuesto_item(
+            movimiento.categoria_id,
+            movimiento.user_category_id,
+            Decimal(str(movimiento.importe)),
+            current_user.id,
+            db,
+        )
+
+    _apply_presupuesto_item_link(db_movimiento, item_id, current_user.id, db)
 
     db.commit()
     db.refresh(db_movimiento)
@@ -192,7 +244,18 @@ def update_movimiento(
     db_movimiento.medio_pago = movimiento_update.medio_pago
     db_movimiento.es_inicio_ciclo = movimiento_update.es_inicio_ciclo
 
-    _apply_presupuesto_item_link(db_movimiento, movimiento_update.presupuesto_item_id, current_user.id, db)
+    item_id = movimiento_update.presupuesto_item_id
+    if item_id is None and movimiento_update.tipo == "gasto":
+        item_id = _auto_detectar_presupuesto_item(
+            movimiento_update.categoria_id,
+            movimiento_update.user_category_id,
+            Decimal(str(movimiento_update.importe)),
+            current_user.id,
+            db,
+            exclude_movimiento_id=movimiento_id,
+        )
+
+    _apply_presupuesto_item_link(db_movimiento, item_id, current_user.id, db)
 
     db.commit()
     db.refresh(db_movimiento)
