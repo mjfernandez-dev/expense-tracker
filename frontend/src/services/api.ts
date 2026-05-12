@@ -13,20 +13,10 @@ import type {
   UserCategory,
   Movimiento,
   MovimientoCreate,
-  GastoFijo,
   User,
   UserCreate,
   PasswordResetResponse,
   AuthResponse,
-  Contact,
-  ContactCreate,
-  SplitGroup,
-  SplitGroupCreate,
-  SplitGroupMember,
-  SplitExpense,
-  SplitExpenseCreate,
-  QuickAddMemberData,
-  GroupBalanceSummary,
   Ciclo,
   CicloCreate,
   PresupuestoItemCreate,
@@ -205,16 +195,6 @@ export const refreshSession = async (): Promise<User> => {
   return user;
 };
 
-// Actualizar datos de pago del usuario
-// PUT /auth/payment-info
-export const updatePaymentInfo = async (aliasBancario: string | null, cvu: string | null): Promise<User> => {
-  const response = await api.put('/auth/payment-info', {
-    alias_bancario: aliasBancario,
-    cvu: cvu,
-  });
-  return response.data;
-};
-
 // ============== FUNCIONES PARA CATEGORÍAS ==============
 
 // Obtener categorías del sistema (predeterminadas, solo lectura)
@@ -329,13 +309,6 @@ export const updateMovimiento = async (id: number, movimiento: MovimientoCreate)
   return response.data;
 };
 
-// Alias de compatibilidad para imports existentes
-export const getExpenses = getMovimientos;
-export const createExpense = createMovimiento;
-export const getExpense = getMovimiento;
-export const deleteExpense = deleteMovimiento;
-export const updateExpense = (id: number, expense: MovimientoCreate) => updateMovimiento(id, expense);
-
 // Eliminar una categoría personalizada
 // DELETE /user-categories/{id}
 export const deleteCategory = async (id: number): Promise<void> => {
@@ -346,129 +319,6 @@ export const deleteCategory = async (id: number): Promise<void> => {
 // PUT /user-categories/{id} → envía {nombre}, devuelve UserCategory
 export const updateCategory = async (id: number, nombre: string): Promise<UserCategory> => {
   const response = await api.put(`/user-categories/${id}`, { nombre });
-  return response.data;
-};
-
-// ============== FUNCIONES PARA CONTACTOS ==============
-
-export const getContacts = async (): Promise<Contact[]> => {
-  const response = await api.get('/contacts/');
-  return response.data;
-};
-
-export const createContact = async (contact: ContactCreate): Promise<Contact> => {
-  const response = await api.post('/contacts/', contact);
-  return response.data;
-};
-
-export const updateContact = async (id: number, contact: ContactCreate): Promise<Contact> => {
-  const response = await api.put(`/contacts/${id}`, contact);
-  return response.data;
-};
-
-export const deleteContact = async (id: number): Promise<void> => {
-  await api.delete(`/contacts/${id}`);
-};
-
-// ============== FUNCIONES PARA GRUPOS DIVIDIDOS ==============
-
-export const getSplitGroups = async (): Promise<SplitGroup[]> => {
-  const response = await api.get('/split-groups/');
-  return response.data;
-};
-
-export const getSplitGroup = async (id: number): Promise<SplitGroup> => {
-  const response = await api.get(`/split-groups/${id}`);
-  return response.data;
-};
-
-export const createSplitGroup = async (group: SplitGroupCreate): Promise<SplitGroup> => {
-  const response = await api.post('/split-groups/', group);
-  return response.data;
-};
-
-export const updateSplitGroup = async (id: number, data: { nombre: string; descripcion: string | null }): Promise<SplitGroup> => {
-  const response = await api.put(`/split-groups/${id}`, data);
-  return response.data;
-};
-
-export const deleteSplitGroup = async (id: number): Promise<void> => {
-  await api.delete(`/split-groups/${id}`);
-};
-
-export const toggleGroupActive = async (id: number): Promise<SplitGroup> => {
-  const response = await api.put(`/split-groups/${id}/toggle-active`);
-  return response.data;
-};
-
-export const addGroupMember = async (groupId: number, contactId: number): Promise<SplitGroupMember> => {
-  const response = await api.post(`/split-groups/${groupId}/members`, { contact_id: contactId });
-  return response.data;
-};
-
-export const removeGroupMember = async (groupId: number, memberId: number): Promise<void> => {
-  await api.delete(`/split-groups/${groupId}/members/${memberId}`);
-};
-
-export const quickAddGroupMember = async (groupId: number, data: QuickAddMemberData): Promise<SplitGroupMember> => {
-  const response = await api.post(`/split-groups/${groupId}/members/quick`, data);
-  return response.data;
-};
-
-// ============== FUNCIONES PARA GASTOS DIVIDIDOS ==============
-
-export const getSplitExpenses = async (groupId: number): Promise<SplitExpense[]> => {
-  const response = await api.get(`/split-groups/${groupId}/expenses`);
-  return response.data;
-};
-
-export const createSplitExpense = async (groupId: number, expense: SplitExpenseCreate): Promise<SplitExpense> => {
-  const response = await api.post(`/split-groups/${groupId}/expenses`, expense);
-  return response.data;
-};
-
-export const updateSplitExpense = async (groupId: number, expenseId: number, expense: SplitExpenseCreate): Promise<SplitExpense> => {
-  const response = await api.put(`/split-groups/${groupId}/expenses/${expenseId}`, expense);
-  return response.data;
-};
-
-export const deleteSplitExpense = async (groupId: number, expenseId: number): Promise<void> => {
-  await api.delete(`/split-groups/${groupId}/expenses/${expenseId}`);
-};
-
-// ============== FUNCIONES PARA BALANCES ==============
-
-export const getGroupBalances = async (groupId: number): Promise<GroupBalanceSummary> => {
-  const response = await api.get(`/split-groups/${groupId}/balances`);
-  return response.data;
-};
-
-// ============== FUNCIONES PARA GASTOS FIJOS ==============
-
-// Listar gastos fijos del usuario con stats históricos
-// GET /gastos-fijos/ → devuelve GastoFijo[]
-export const getGastosFijos = async (): Promise<GastoFijo[]> => {
-  const response = await api.get('/gastos-fijos/');
-  return response.data;
-};
-
-// Activar o pausar un gasto fijo
-// PUT /gastos-fijos/{id} → envía {activo}, devuelve GastoFijo actualizado
-export const toggleGastoFijo = async (id: number, activo: boolean): Promise<GastoFijo> => {
-  const response = await api.put(`/gastos-fijos/${id}`, { activo });
-  return response.data;
-};
-
-// Eliminar un gasto fijo (los movimientos existentes quedan desvinculados)
-// DELETE /gastos-fijos/{id}
-export const deleteGastoFijo = async (id: number): Promise<void> => {
-  await api.delete(`/gastos-fijos/${id}`);
-};
-
-// Triggerear generación manual del mes actual (idempotente)
-// POST /gastos-fijos/sincronizar-ciclo
-export const sincronizarGastosFijosCiclo = async (): Promise<{ message: string }> => {
-  const response = await api.post('/gastos-fijos/sincronizar-ciclo');
   return response.data;
 };
 
@@ -501,9 +351,6 @@ export const confirmarPresupuesto = async (
   const response = await api.post(`/ciclos/${cicloId}/presupuesto/`, { items });
   return response.data;
 };
-
-// Alias for backwards compatibility
-export const confirmarGastosFijos = confirmarPresupuesto;
 
 // DELETE /ciclos/{id} → cierra el ciclo activo
 export const cerrarCiclo = async (id: number): Promise<void> => {

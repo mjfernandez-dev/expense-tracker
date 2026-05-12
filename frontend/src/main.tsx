@@ -17,10 +17,8 @@ import ResetPassword from './pages/ResetPassword.tsx';
 const App = lazy(() => import('./App.tsx'));
 const AccountPage = lazy(() => import('./pages/AccountPage.tsx'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword.tsx'));
-const ContactsPage = lazy(() => import('./pages/ContactsPage.tsx'));
 const Tools = lazy(() => import('./pages/Tools.tsx'));
 const CategoriasPage = lazy(() => import('./pages/CategoriasPage.tsx'));
-const RecurrentesPage = lazy(() => import('./pages/RecurrentesPage.tsx'));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -51,14 +49,6 @@ createRoot(document.getElementById('root')!).render(
                 }
               />
               <Route
-                path="/account/contacts"
-                element={
-                  <ProtectedRoute>
-                    <ContactsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/tools"
                 element={
                   <ProtectedRoute>
@@ -71,14 +61,6 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <ProtectedRoute>
                     <CategoriasPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/tools/recurrentes"
-                element={
-                  <ProtectedRoute>
-                    <RecurrentesPage />
                   </ProtectedRoute>
                 }
               />
