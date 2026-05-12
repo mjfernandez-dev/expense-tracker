@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { PresupuestoItemCreate, UserCategory } from '../types';
-import { getUserCategories, getCicloActivo, createCiclo, confirmarPresupuesto } from '../services/api';
+import { getUserCategories, getCicloActivo, createCiclo, confirmarPresupuesto, cerrarCiclo } from '../services/api';
 import {
   getDaysRemainingInclusiveBA,
   getLastDayOfCurrentMonthBA,
@@ -21,8 +21,16 @@ interface CategoriaPresupuesto {
   activa: boolean;
 }
 
+interface CicloActivoInfo {
+  id: number;
+  fecha_fin: string;
+}
+
 const formatARS = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+
+const formatFecha = (iso: string) =>
+  new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
 
 const STEPS = ['Duración', 'Ahorro', 'Presupuesto'] as const;
 
@@ -34,16 +42,24 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
   const [loadingCats, setLoadingCats] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // undefined = verificando, null = no hay ciclo activo, objeto = hay ciclo activo a cerrar
+  const [cicloActivo, setCicloActivo] = useState<CicloActivoInfo | null | undefined>(undefined);
+
+  useEffect(() => {
+    getCicloActivo()
+      .then(c => setCicloActivo(c ? { id: c.id, fecha_fin: c.fecha_fin } : null))
+      .catch(() => setCicloActivo(null));
+  }, []);
 
   useEffect(() => {
     if (step !== 2) return;
     setLoadingCats(true);
 
     Promise.all([getUserCategories(), getCicloActivo()])
-      .then(([cats, cicloActivo]) => {
+      .then(([cats, cicloActualData]) => {
         const sugerencias: Record<number, number> = {};
-        if (cicloActivo?.resumen?.presupuesto_items) {
-          for (const item of cicloActivo.resumen.presupuesto_items) {
+        if (cicloActualData?.resumen?.presupuesto_items) {
+          for (const item of cicloActualData.resumen.presupuesto_items) {
             if (item.user_category_id) {
               sugerencias[item.user_category_id] = Math.max(
                 Number(item.monto_estimado),
@@ -52,7 +68,6 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
             }
           }
         }
-
         setCategorias(
           cats.map((cat: UserCategory) => ({
             user_category_id: cat.id,
@@ -103,6 +118,9 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
     setError('');
     setLoading(true);
     try {
+      if (cicloActivo) {
+        await cerrarCiclo(cicloActivo.id);
+      }
       const ciclo = await createCiclo({
         movimiento_origen_id: movimientoOrigenId ?? undefined,
         fecha_fin: fechaFin + 'T23:59:59',
@@ -131,184 +149,238 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
     }
   };
 
+  const renderContent = () => {
+    if (cicloActivo === undefined) {
+      return <p className="text-slate-400 text-sm text-center py-6">Verificando ciclo activo...</p>;
+    }
+
+    if (cicloActivo !== null) {
+      return (
+        <div className="space-y-4">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-4 space-y-2">
+            <p className="text-amber-300 font-semibold text-sm">Tenés un ciclo activo</p>
+            <p className="text-slate-300 text-sm">
+              Tu ciclo actual vence el{' '}
+              <span className="text-white font-medium">{formatFecha(cicloActivo.fecha_fin)}</span>.
+              Para iniciar uno nuevo, primero hay que cerrarlo.
+            </p>
+            <p className="text-slate-400 text-xs">
+              Los movimientos ya registrados y el historial quedan intactos.
+            </p>
+          </div>
+          <p className="text-slate-400 text-sm text-center">¿Querés cerrar el ciclo actual y empezar uno nuevo?</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {step === 0 && (
+          <div className="space-y-4">
+            <div>
+              <p className="text-slate-200 font-medium mb-1">¿Hasta cuándo debe durar el dinero?</p>
+              <p className="text-slate-400 text-sm">Esta es la fecha en que esperás tu próximo cobro.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-slate-300 text-sm">Fecha de fin del ciclo</label>
+              <input
+                type="date"
+                value={fechaFin}
+                onChange={e => setFechaFin(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm [color-scheme:dark]"
+              />
+            </div>
+            <div className="bg-slate-800/60 rounded-xl px-4 py-3 text-sm text-slate-300">
+              Sueldo registrado: <span className="text-white font-semibold">{formatARS(importeReferencia)}</span>
+              {' · '}
+              <span className="text-blue-300">{diasRestantes} días de ciclo</span>
+            </div>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className="space-y-4">
+            <div>
+              <p className="text-slate-200 font-medium mb-1">¿Cuánto querés ahorrar este mes?</p>
+              <p className="text-slate-400 text-sm">Este monto se reserva de inmediato y no cuenta como disponible.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-slate-300 text-sm">Objetivo de ahorro ($)</label>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                value={ahorro}
+                onChange={e => setAhorro(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm"
+                placeholder="0"
+              />
+            </div>
+            <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1 text-sm">
+              <div className="flex justify-between text-slate-300">
+                <span>Sueldo</span>
+                <span className="text-white">{formatARS(importeReferencia)}</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>− Ahorro</span>
+                <span className="text-red-400">−{formatARS(ahorroNum)}</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-700 pt-1 font-medium">
+                <span className="text-slate-200">Para presupuestar</span>
+                <span className="text-white">{formatARS(Math.max(0, importeReferencia - ahorroNum))}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-3">
+            <div>
+              <p className="text-slate-200 font-medium mb-1">¿A qué categorías vas a destinar dinero?</p>
+              <p className="text-slate-400 text-sm">Marcá las que tienen monto fijo este ciclo. Los gastos en esas categorías no afectarán tu Daily Cap.</p>
+            </div>
+
+            {loadingCats && <p className="text-slate-400 text-sm text-center py-4">Cargando categorías...</p>}
+
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+              {categorias.map((cat, idx) => (
+                <div
+                  key={cat.user_category_id}
+                  className={`flex items-center gap-3 bg-slate-800/60 rounded-xl px-3 py-2.5 border transition-colors ${cat.activa ? 'border-blue-500/30' : 'border-slate-700/40 opacity-50'}`}
+                >
+                  <button
+                    onClick={() => toggleCategoria(idx)}
+                    className={`w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-colors ${cat.activa ? 'bg-blue-600 border-blue-600' : 'border-slate-500'}`}
+                  >
+                    {cat.activa && <span className="text-white text-xs font-bold">✓</span>}
+                  </button>
+                  <span className="flex-1 text-slate-200 text-sm truncate">{cat.nombre}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={cat.monto}
+                    onChange={e => { setMonto(idx, e.target.value); if (!cat.activa && e.target.value) toggleCategoria(idx); }}
+                    placeholder="$0"
+                    className="w-24 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-white text-sm text-right focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1 text-sm">
+              <div className="flex justify-between text-slate-300">
+                <span>Sueldo</span>
+                <span className="text-white">{formatARS(importeReferencia)}</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>− Ahorro</span>
+                <span className="text-red-400">−{formatARS(ahorroNum)}</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>− Presupuestado</span>
+                <span className="text-amber-400">−{formatARS(totalPresupuestado)}</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-700 pt-1 font-semibold">
+                <span className="text-slate-200">Daily Cap ({diasRestantes} días)</span>
+                <span className="text-blue-300">{formatARS(dailyCapPreview)}/día</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  const renderFooter = () => {
+    if (cicloActivo === undefined) return null;
+
+    if (cicloActivo !== null) {
+      return (
+        <>
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-slate-600 text-slate-300 text-sm font-medium hover:bg-slate-800 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => setCicloActivo(null)}
+            className="flex-1 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
+          >
+            Sí, cerrar y continuar
+          </button>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {step > 0 && (
+          <button
+            onClick={() => setStep(s => s - 1)}
+            className="flex-1 py-3 rounded-xl border border-slate-600 text-slate-300 text-sm font-medium hover:bg-slate-800 transition-colors"
+          >
+            Anterior
+          </button>
+        )}
+        {step < 2 ? (
+          <button
+            onClick={step === 0 ? handleNextStep1 : handleNextStep2}
+            className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors"
+          >
+            Siguiente
+          </button>
+        ) : (
+          <button
+            onClick={handleFinish}
+            disabled={loading}
+            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold transition-all disabled:opacity-50"
+          >
+            {loading ? 'Creando ciclo...' : '¡Activar ciclo!'}
+          </button>
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
 
-        {/* Header */}
         <div className="bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-b border-slate-700 px-6 py-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-white font-semibold text-lg">Nuevo ciclo financiero</h2>
             <button onClick={onClose} className="text-slate-400 hover:text-white text-xl leading-none transition-colors">×</button>
           </div>
-          <div className="flex items-center gap-2">
-            {STEPS.map((label, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className={`flex items-center gap-1.5 ${i === step ? 'opacity-100' : i < step ? 'opacity-70' : 'opacity-30'}`}>
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${i < step ? 'bg-blue-500 text-white' : i === step ? 'bg-white text-slate-900' : 'bg-slate-600 text-slate-400'}`}>
-                    {i < step ? '✓' : i + 1}
+          {cicloActivo === null && (
+            <div className="flex items-center gap-2">
+              {STEPS.map((label, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className={`flex items-center gap-1.5 ${i === step ? 'opacity-100' : i < step ? 'opacity-70' : 'opacity-30'}`}>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${i < step ? 'bg-blue-500 text-white' : i === step ? 'bg-white text-slate-900' : 'bg-slate-600 text-slate-400'}`}>
+                      {i < step ? '✓' : i + 1}
+                    </div>
+                    <span className={`text-xs font-medium ${i === step ? 'text-white' : 'text-slate-400'}`}>{label}</span>
                   </div>
-                  <span className={`text-xs font-medium ${i === step ? 'text-white' : 'text-slate-400'}`}>{label}</span>
+                  {i < STEPS.length - 1 && <div className={`w-6 h-px ${i < step ? 'bg-blue-500' : 'bg-slate-600'}`} />}
                 </div>
-                {i < STEPS.length - 1 && <div className={`w-6 h-px ${i < step ? 'bg-blue-500' : 'bg-slate-600'}`} />}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Content */}
         <div className="px-6 py-5 space-y-4">
           {error && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 text-red-400 text-sm">
               {error}
             </div>
           )}
-
-          {/* PASO 1: Fecha fin */}
-          {step === 0 && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-slate-200 font-medium mb-1">¿Hasta cuándo debe durar el dinero?</p>
-                <p className="text-slate-400 text-sm">Esta es la fecha en que esperás tu próximo cobro.</p>
-              </div>
-              <div className="space-y-1">
-                <label className="text-slate-300 text-sm">Fecha de fin del ciclo</label>
-                <input
-                  type="date"
-                  value={fechaFin}
-                  onChange={e => setFechaFin(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm [color-scheme:dark]"
-                />
-              </div>
-              <div className="bg-slate-800/60 rounded-xl px-4 py-3 text-sm text-slate-300">
-                Sueldo registrado: <span className="text-white font-semibold">{formatARS(importeReferencia)}</span>
-                {' · '}
-                <span className="text-blue-300">{diasRestantes} días de ciclo</span>
-              </div>
-            </div>
-          )}
-
-          {/* PASO 2: Ahorro */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-slate-200 font-medium mb-1">¿Cuánto querés ahorrar este mes?</p>
-                <p className="text-slate-400 text-sm">Este monto se reserva de inmediato y no cuenta como disponible.</p>
-              </div>
-              <div className="space-y-1">
-                <label className="text-slate-300 text-sm">Objetivo de ahorro ($)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="100"
-                  value={ahorro}
-                  onChange={e => setAhorro(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm"
-                  placeholder="0"
-                />
-              </div>
-              <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1 text-sm">
-                <div className="flex justify-between text-slate-300">
-                  <span>Sueldo</span>
-                  <span className="text-white">{formatARS(importeReferencia)}</span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>− Ahorro</span>
-                  <span className="text-red-400">−{formatARS(ahorroNum)}</span>
-                </div>
-                <div className="flex justify-between border-t border-slate-700 pt-1 font-medium">
-                  <span className="text-slate-200">Para presupuestar</span>
-                  <span className="text-white">{formatARS(Math.max(0, importeReferencia - ahorroNum))}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* PASO 3: Presupuesto por categoría */}
-          {step === 2 && (
-            <div className="space-y-3">
-              <div>
-                <p className="text-slate-200 font-medium mb-1">¿A qué categorías vas a destinar dinero?</p>
-                <p className="text-slate-400 text-sm">Marcá las categorías que tienen un monto fijo este ciclo. Los gastos en esas categorías no afectarán tu Daily Cap.</p>
-              </div>
-
-              {loadingCats && <p className="text-slate-400 text-sm text-center py-4">Cargando categorías...</p>}
-
-              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                {categorias.map((cat, idx) => (
-                  <div
-                    key={cat.user_category_id}
-                    className={`flex items-center gap-3 bg-slate-800/60 rounded-xl px-3 py-2.5 border transition-colors ${cat.activa ? 'border-blue-500/30' : 'border-slate-700/40 opacity-50'}`}
-                  >
-                    <button
-                      onClick={() => toggleCategoria(idx)}
-                      className={`w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-colors ${cat.activa ? 'bg-blue-600 border-blue-600' : 'border-slate-500'}`}
-                    >
-                      {cat.activa && <span className="text-white text-xs font-bold">✓</span>}
-                    </button>
-                    <span className="flex-1 text-slate-200 text-sm truncate">{cat.nombre}</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="100"
-                      value={cat.monto}
-                      onChange={e => { setMonto(idx, e.target.value); if (!cat.activa && e.target.value) toggleCategoria(idx); }}
-                      placeholder="$0"
-                      className="w-24 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-white text-sm text-right focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Preview */}
-              <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1 text-sm border-t border-slate-700/40">
-                <div className="flex justify-between text-slate-300">
-                  <span>Sueldo</span>
-                  <span className="text-white">{formatARS(importeReferencia)}</span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>− Ahorro</span>
-                  <span className="text-red-400">−{formatARS(ahorroNum)}</span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>− Presupuestado</span>
-                  <span className="text-amber-400">−{formatARS(totalPresupuestado)}</span>
-                </div>
-                <div className="flex justify-between border-t border-slate-700 pt-1 font-semibold">
-                  <span className="text-slate-200">Daily Cap ({diasRestantes} días)</span>
-                  <span className="text-blue-300">{formatARS(dailyCapPreview)}/día</span>
-                </div>
-              </div>
-            </div>
-          )}
+          {renderContent()}
         </div>
 
-        {/* Footer */}
         <div className="px-6 pb-5 flex gap-3">
-          {step > 0 && (
-            <button
-              onClick={() => setStep(s => s - 1)}
-              className="flex-1 py-3 rounded-xl border border-slate-600 text-slate-300 text-sm font-medium hover:bg-slate-800 transition-colors"
-            >
-              Anterior
-            </button>
-          )}
-          {step < 2 ? (
-            <button
-              onClick={step === 0 ? handleNextStep1 : handleNextStep2}
-              className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors"
-            >
-              Siguiente
-            </button>
-          ) : (
-            <button
-              onClick={handleFinish}
-              disabled={loading}
-              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold transition-all disabled:opacity-50"
-            >
-              {loading ? 'Creando ciclo...' : '¡Activar ciclo!'}
-            </button>
-          )}
+          {renderFooter()}
         </div>
 
       </div>
