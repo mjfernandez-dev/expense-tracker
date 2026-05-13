@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import type { UserCategory, MovimientoCreate, Movimiento, PresupuestoItem } from '../types';
-import { getUserCategories, createMovimiento, updateMovimiento, createCategory, getCicloActivo } from '../services/api';
+import type { UserCategory, MovimientoCreate, Movimiento } from '../types';
+import { getUserCategories, createMovimiento, updateMovimiento, createCategory } from '../services/api';
 import { getCurrentBADateInputValue } from '../utils/buenosAiresDate';
 
 interface MovimientoFormProps {
@@ -13,23 +13,14 @@ interface MovimientoFormProps {
 }
 
 function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoToEdit, onCancelEdit, categoriesVersion }: MovimientoFormProps) {
-  const formatARS = (n: number) => new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    maximumFractionDigits: 0,
-  }).format(n);
-
   const [tipo, setTipo] = useState<'gasto' | 'ingreso'>('gasto');
   const [importe, setImporte] = useState<string>('');
   const [descripcion, setDescripcion] = useState<string>('');
   const [nota, setNota] = useState<string>('');
   const [categoriaId, setCategoriaId] = useState<string>('');
-
   const [fecha, setFecha] = useState<string>(getCurrentBADateInputValue());
   const [esInicioCiclo, setEsInicioCiclo] = useState<boolean>(false);
   const [medioPago, setMedioPago] = useState<string>('');
-  const [presupuestoItems, setPresupuestoItems] = useState<PresupuestoItem[]>([]);
-  const [presupuestoItemId, setPresupuestoItemId] = useState<string>('');
 
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -56,20 +47,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   }, [movimientoToEdit, categoriesVersion]);
 
   useEffect(() => {
-    const fetchCicloActivo = async () => {
-      try {
-        const ciclo = await getCicloActivo();
-        setPresupuestoItems(ciclo?.resumen?.presupuesto_items ?? []);
-      } catch (err) {
-        console.error('Error al cargar ciclo activo:', err);
-        setPresupuestoItems([]);
-      }
-    };
-
-    fetchCicloActivo();
-  }, [movimientoToEdit]);
-
-  useEffect(() => {
     if (movimientoToEdit) {
       setTipo(movimientoToEdit.tipo);
       setImporte(movimientoToEdit.importe.toString());
@@ -79,7 +56,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       const catId = movimientoToEdit.categoria_id ?? movimientoToEdit.user_category_id;
       setCategoriaId(catId ? catId.toString() : '');
       setMedioPago(movimientoToEdit.medio_pago || '');
-      setPresupuestoItemId(movimientoToEdit.presupuesto_item_id ? movimientoToEdit.presupuesto_item_id.toString() : '');
     } else {
       setTipo('gasto');
       setImporte('');
@@ -88,18 +64,11 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setFecha(getCurrentBADateInputValue());
       setEsInicioCiclo(false);
       setMedioPago('');
-      setPresupuestoItemId('');
       if (categories.length > 0) {
         setCategoriaId(categories[0].id.toString());
       }
     }
   }, [movimientoToEdit, categories]);
-
-  useEffect(() => {
-    if (tipo === 'ingreso') {
-      setPresupuestoItemId('');
-    }
-  }, [tipo]);
 
   const handleCreateCategory = async () => {
     const nombre = newCatNombre.trim();
@@ -140,7 +109,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         user_category_id: parseInt(categoriaId) || null,
         es_inicio_ciclo: !movimientoToEdit && tipo === 'ingreso' && esInicioCiclo,
         medio_pago: medioPago || null,
-        presupuesto_item_id: tipo === 'gasto' && presupuestoItemId ? parseInt(presupuestoItemId) : null,
+        presupuesto_item_id: null,
       };
 
       if (movimientoToEdit) {
@@ -161,7 +130,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setNota('');
       setEsInicioCiclo(false);
       setMedioPago('');
-      setPresupuestoItemId('');
 
     } catch (err) {
       setError(movimientoToEdit ? 'Error al actualizar el movimiento' : 'Error al registrar el movimiento');
@@ -173,9 +141,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
   const isIngreso = tipo === 'ingreso';
   const accentColor = isIngreso ? 'green' : 'red';
-  const itemsDisponibles = presupuestoItems.filter((item) =>
-    item.confirmado && (item.monto_pendiente > 0 || item.id.toString() === presupuestoItemId)
-  );
 
   return (
     <div className={`bg-slate-800/70 rounded-2xl border border-slate-600/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-6 mb-6`}>
@@ -365,30 +330,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           </select>
         </div>
 
-        {!isIngreso && itemsDisponibles.length > 0 && (
-          <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-4">
-            <label className="block text-sm font-medium text-amber-200 mb-1">
-              Vincular a item del presupuesto <span className="text-amber-300/70 font-normal">(opcional)</span>
-            </label>
-            <select
-              value={presupuestoItemId}
-              onChange={(e) => setPresupuestoItemId(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-amber-400/30 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
-            >
-              <option value="">No vincular este gasto</option>
-              {itemsDisponibles.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.descripcion || 'Categoría #' + (item.categoria_id || item.user_category_id)} - pendiente {formatARS(item.monto_pendiente)} de {formatARS(item.monto_estimado)}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-amber-100/80 mt-2">
-              Si lo vinculas, consume ese item de forma parcial o total y no vuelve a descontar tu disponible diario.
-            </p>
-          </div>
-        )}
-
-        {/* Toggle: Inicio de Ciclo (solo en creación de ingresos) */}
         {!movimientoToEdit && isIngreso && (
           <div
             onClick={() => setEsInicioCiclo(prev => !prev)}

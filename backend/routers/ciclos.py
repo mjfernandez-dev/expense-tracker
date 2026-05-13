@@ -78,16 +78,16 @@ def crear_ciclo(
     if data.fecha_fin <= ciclo_time_service.ahora_buenos_aires():
         raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a hoy")
 
-    # Cerrar ciclo activo anterior si existe
     ciclo_anterior = (
         db.query(models.Ciclo)
         .filter(models.Ciclo.user_id == current_user.id, models.Ciclo.activo == True)
         .first()
     )
     if ciclo_anterior:
-        ciclo_anterior.activo = False
-        # Recargar para obtener los items con movimientos
-        ciclo_anterior = _load_ciclo(ciclo_anterior.id, current_user.id, db)
+        raise HTTPException(
+            status_code=409,
+            detail=f"Ya existe un ciclo activo (id={ciclo_anterior.id}). Cerralo antes de crear uno nuevo.",
+        )
 
     # fecha_inicio = fecha del movimiento de origen para incluirlo en el cálculo
     fecha_inicio = ciclo_time_service.ahora_buenos_aires()
@@ -112,24 +112,6 @@ def crear_ciclo(
         activo=True,
     )
     db.add(ciclo)
-    db.flush()
-    db.refresh(ciclo)
-
-    # Si hay ciclo anterior, copiar presupuesto sugerido
-    if ciclo_anterior:
-        items_sugeridos = _sugerir_presupuesto_desde_ciclo_anterior(ciclo_anterior, db)
-        for item_data in items_sugeridos:
-            presupuesto_item = models.PresupuestoItem(
-                ciclo_id=ciclo.id,
-                categoria_id=item_data.get("categoria_id"),
-                user_category_id=item_data.get("user_category_id"),
-                monto_estimado=item_data.get("monto_estimado"),
-                confirmado=item_data.get("confirmado", True),
-                descripcion=item_data.get("descripcion"),
-                estado="pendiente",
-            )
-            db.add(presupuesto_item)
-
     db.commit()
     db.refresh(ciclo)
 
