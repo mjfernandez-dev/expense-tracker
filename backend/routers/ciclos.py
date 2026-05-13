@@ -197,11 +197,9 @@ def confirmar_presupuesto(
                 return existente
             if item.user_category_id is not None and existente.user_category_id == item.user_category_id:
                 return existente
-            if (
-                item.categoria_id is None and
-                item.user_category_id is None and
-                (existente.descripcion or "") == (item.descripcion or "")
-            ):
+            # Fallback: match by description even when IDs are present but don't align
+            # (handles items originally created with categoria_id when resent with user_category_id)
+            if (existente.descripcion or "").lower() == (item.descripcion or "").lower():
                 return existente
         return None
 
