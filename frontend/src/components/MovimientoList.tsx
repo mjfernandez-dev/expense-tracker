@@ -414,7 +414,6 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
             </>
           )}
         </>
-      )}
 
       {/* Modal normal: eliminar movimiento regular */}
       {deleteTarget !== null && (
