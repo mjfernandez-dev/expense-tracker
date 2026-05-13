@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Ciclo, CicloCreate, GastoFijo, PresupuestoItemCreate } from '../types';
-import { getCicloActivo, updateCiclo, cerrarCiclo, getGastosFijos, confirmarPresupuesto } from '../services/api';
+import type { Ciclo, CicloCreate, PresupuestoItemCreate } from '../types';
+import { getCicloActivo, updateCiclo, cerrarCiclo, confirmarPresupuesto } from '../services/api';
 import { isDateAtOrAfterTodayBA } from '../utils/buenosAiresDate';
 
 interface Props {
@@ -34,14 +34,12 @@ const SEMAFORO_COLORS = {
   },
 } as const;
 
-interface GastoFijoEdit {
-  gasto_fijo_id: number | null;
+interface PresupuestoEdit {
   categoria_id: number | null;
   user_category_id: number | null;
   descripcion: string;
   monto: string;
   confirmado: boolean;
-  esAdhoc: boolean;
 }
 
 function EditCicloModal({
@@ -55,70 +53,30 @@ function EditCicloModal({
 }) {
   const [fechaFin, setFechaFin] = useState(ciclo.fecha_fin.split('T')[0]);
   const [ahorro, setAhorro] = useState(String(ciclo.ahorro_objetivo));
-  const [gastosFijos, setGastosFijos] = useState<GastoFijoEdit[]>([]);
-  const [loadingGF, setLoadingGF] = useState(true);
+  const [gastosFijos, setGastosFijos] = useState<PresupuestoEdit[]>(
+    (ciclo.resumen?.presupuesto_items ?? []).map((c) => ({
+      categoria_id: c.categoria_id,
+      user_category_id: c.user_category_id,
+      descripcion: c.descripcion ?? 'Sin descripción',
+      monto: String(c.monto_estimado),
+      confirmado: c.confirmado,
+    }))
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [nuevoAdHoc, setNuevoAdHoc] = useState('');
   const [nuevoAdHocMonto, setNuevoAdHocMonto] = useState('');
-
-  useEffect(() => {
-    getGastosFijos()
-      .then((templates: GastoFijo[]) => {
-        const confirmados = ciclo.resumen?.presupuesto_items ?? [];
-        
-        // Crear un mapa de confirmados por gasto_fijo_id para búsqueda rápida
-        const confirmadosMap = new Map<number, typeof confirmados[0]>();
-        confirmados.forEach((c) => {
-          if (c.gasto_fijo_id) {
-            confirmadosMap.set(c.gasto_fijo_id, c);
-          }
-        });
-
-        const items: GastoFijoEdit[] = templates
-          .filter((t) => t.activo)
-          .map((t) => {
-            const yaConfirmado = confirmadosMap.get(t.id);
-            return {
-              gasto_fijo_id: t.id,
-              categoria_id: t.categoria_id,
-              user_category_id: t.user_category_id,
-              descripcion: t.descripcion,
-              monto: String(yaConfirmado?.monto_estimado ?? t.ultimo_importe ?? t.max_importe ?? 0),
-              confirmado: !!yaConfirmado,
-              esAdhoc: false,
-            };
-          });
-
-        const adhocs: GastoFijoEdit[] = confirmados
-          .filter((c) => !c.gasto_fijo_id)
-          .map((c) => ({
-            gasto_fijo_id: null,
-            categoria_id: c.categoria_id,
-            user_category_id: c.user_category_id,
-            descripcion: c.descripcion ?? 'Sin descripción',
-            monto: String(c.monto_estimado),
-            confirmado: true,
-            esAdhoc: true,
-          }));
-
-        setGastosFijos([...items, ...adhocs]);
-      })
-      .finally(() => setLoadingGF(false));
-  }, [ciclo]);
 
   const handleAddAdHoc = () => {
     if (!nuevoAdHoc.trim() || !nuevoAdHocMonto) return;
     setGastosFijos((prev) => [
       ...prev,
       {
-        gasto_fijo_id: null,
         categoria_id: null,
         user_category_id: null,
         descripcion: nuevoAdHoc.trim(),
         monto: nuevoAdHocMonto,
         confirmado: true,
-        esAdhoc: true,
       },
     ]);
     setNuevoAdHoc('');
@@ -139,9 +97,8 @@ function EditCicloModal({
         ahorro_objetivo: parseFloat(ahorro) || 0,
       } as Partial<CicloCreate>);
 
-      // Items vinculados a gastos fijos
-      const itemsConfirmados: PresupuestoItemCreate[] = gastosFijos
-        .filter((gf) => gf.confirmado && gf.gasto_fijo_id)
+      const todosLosItems: PresupuestoItemCreate[] = gastosFijos
+        .filter((gf) => gf.confirmado)
         .map((gf) => ({
           categoria_id: gf.categoria_id,
           user_category_id: gf.user_category_id,
@@ -149,19 +106,6 @@ function EditCicloModal({
           confirmado: true,
           descripcion: gf.descripcion,
         }));
-
-      // Items ad-hoc (sin gasto_fijo_id)
-      const itemsAdHoc: PresupuestoItemCreate[] = gastosFijos
-        .filter((gf) => gf.confirmado && gf.esAdhoc)
-        .map((gf) => ({
-          categoria_id: null,
-          user_category_id: null,
-          monto_estimado: parseFloat(gf.monto) || 0,
-          confirmado: true,
-          descripcion: gf.descripcion,
-        }));
-
-      const todosLosItems = itemsConfirmados.concat(itemsAdHoc);
       if (todosLosItems.length > 0) {
         await confirmarPresupuesto(ciclo.id, todosLosItems);
       }
@@ -204,11 +148,8 @@ function EditCicloModal({
         </div>
 
         <div className="space-y-2">
-          <label className="text-slate-300 text-sm">Gastos fijos del ciclo</label>
-          {loadingGF ? (
-            <p className="text-slate-500 text-xs text-center py-2">Cargando...</p>
-          ) : (
-            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+          <label className="text-slate-300 text-sm">Presupuesto del ciclo</label>
+          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
               {gastosFijos.map((gf, idx) => (
                 <div
                   key={idx}
@@ -241,10 +182,9 @@ function EditCicloModal({
                 </div>
               ))}
               {gastosFijos.length === 0 && (
-                <p className="text-slate-500 text-xs text-center py-2">Sin gastos fijos configurados</p>
+                <p className="text-slate-500 text-xs text-center py-2">Sin ítems de presupuesto</p>
               )}
             </div>
-          )}
 
           <div className="flex gap-1.5 pt-1">
             <input
