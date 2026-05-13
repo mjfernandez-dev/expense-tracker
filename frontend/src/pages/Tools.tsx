@@ -4,7 +4,7 @@ function Tools() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900/70 py-4 sm:py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 py-4 sm:py-8">
       <div className="max-w-4xl mx-auto px-3 sm:px-4">
 
         {/* HEADER */}

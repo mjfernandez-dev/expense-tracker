@@ -184,8 +184,8 @@ function App() {
         </div>
       </nav>
 
-      {/* FAB mobile (tab inicio) */}
-      {tab !== 'inicio' && (
+      {/* FAB: solo en Movimientos para no duplicar la acción */}
+      {tab === 'movimientos' && (
         <button
           onClick={() => setShowModal(true)}
           className="fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] border border-blue-300/30 active:scale-95 transition-all duration-150 flex items-center justify-center"
