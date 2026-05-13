@@ -481,7 +481,6 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
           </div>
         </div>
       )}
-    </>
     </div>
   );
 }
