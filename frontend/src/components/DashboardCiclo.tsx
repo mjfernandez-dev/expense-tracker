@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Ciclo, CicloCreate, PresupuestoItemCreate } from '../types';
-import { getCicloActivo, updateCiclo, cerrarCiclo, confirmarPresupuesto } from '../services/api';
+import type { Ciclo, CicloCreate, PresupuestoItemCreate, UserCategory } from '../types';
+import { getCicloActivo, updateCiclo, cerrarCiclo, confirmarPresupuesto, getUserCategories } from '../services/api';
 import { isDateAtOrAfterTodayBA } from '../utils/buenosAiresDate';
 
 interface Props {
@@ -53,19 +53,63 @@ function EditCicloModal({
 }) {
   const [fechaFin, setFechaFin] = useState(ciclo.fecha_fin.split('T')[0]);
   const [ahorro, setAhorro] = useState(String(ciclo.ahorro_objetivo));
-  const [gastosFijos, setGastosFijos] = useState<PresupuestoEdit[]>(
-    (ciclo.resumen?.presupuesto_items ?? []).map((c) => ({
-      categoria_id: c.categoria_id,
-      user_category_id: c.user_category_id,
-      descripcion: c.descripcion ?? 'Sin descripción',
-      monto: String(c.monto_estimado),
-      confirmado: c.confirmado,
-    }))
-  );
+  const [gastosFijos, setGastosFijos] = useState<PresupuestoEdit[]>([]);
+  const [loadingCats, setLoadingCats] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [nuevoAdHoc, setNuevoAdHoc] = useState('');
   const [nuevoAdHocMonto, setNuevoAdHocMonto] = useState('');
+
+  useEffect(() => {
+    const existingItems = ciclo.resumen?.presupuesto_items ?? [];
+    getUserCategories()
+      .then((cats: UserCategory[]) => {
+        // Una fila por categoría del usuario, mapeando al ítem existente si lo hay
+        const catRows: PresupuestoEdit[] = cats.map((cat) => {
+          const match = existingItems.find(
+            (item) =>
+              item.user_category_id === cat.id ||
+              item.descripcion?.toLowerCase() === cat.nombre.toLowerCase(),
+          );
+          return {
+            categoria_id: null,
+            user_category_id: cat.id,
+            descripcion: cat.nombre,
+            monto: match ? String(match.monto_estimado) : '',
+            confirmado: match ? match.confirmado : false,
+          };
+        });
+        // Ítems ad-hoc: sin categoría y sin match por nombre
+        const adHocRows: PresupuestoEdit[] = existingItems
+          .filter(
+            (item) =>
+              item.user_category_id === null &&
+              item.categoria_id === null &&
+              !cats.some((cat) => cat.nombre.toLowerCase() === item.descripcion?.toLowerCase()),
+          )
+          .map((item) => ({
+            categoria_id: null,
+            user_category_id: null,
+            descripcion: item.descripcion ?? 'Sin descripción',
+            monto: String(item.monto_estimado),
+            confirmado: item.confirmado,
+          }));
+        setGastosFijos([...catRows, ...adHocRows]);
+      })
+      .catch(() => {
+        // Fallback: usar los ítems existentes tal cual
+        setGastosFijos(
+          existingItems.map((c) => ({
+            categoria_id: c.categoria_id,
+            user_category_id: c.user_category_id,
+            descripcion: c.descripcion ?? 'Sin descripción',
+            monto: String(c.monto_estimado),
+            confirmado: c.confirmado,
+          })),
+        );
+      })
+      .finally(() => setLoadingCats(false));
+  }, []);
 
   const handleAddAdHoc = () => {
     if (!nuevoAdHoc.trim() || !nuevoAdHocMonto) return;
@@ -150,9 +194,11 @@ function EditCicloModal({
         <div className="space-y-2">
           <label className="text-slate-300 text-sm">Presupuesto del ciclo</label>
           <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-              {gastosFijos.map((gf, idx) => (
+              {loadingCats ? (
+                <p className="text-slate-500 text-xs text-center py-2">Cargando categorías...</p>
+              ) : gastosFijos.map((gf, idx) => (
                 <div
-                  key={idx}
+                  key={`${gf.user_category_id ?? 'adhoc'}-${idx}`}
                   className={`flex items-center gap-2 bg-slate-800/60 rounded-lg px-2.5 py-2 border ${gf.confirmado ? 'border-blue-500/30' : 'border-slate-700/40 opacity-50'}`}
                 >
                   <button
@@ -181,7 +227,7 @@ function EditCicloModal({
                   />
                 </div>
               ))}
-              {gastosFijos.length === 0 && (
+              {!loadingCats && gastosFijos.length === 0 && (
                 <p className="text-slate-500 text-xs text-center py-2">Sin ítems de presupuesto</p>
               )}
             </div>
