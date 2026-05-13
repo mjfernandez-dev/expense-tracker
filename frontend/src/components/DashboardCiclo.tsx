@@ -335,7 +335,7 @@ export default function DashboardCiclo({ refreshKey }: Props) {
             </div>
           </div>
 
-          <div className="divide-y divide-slate-600/30">
+          <div className="sm:grid sm:grid-cols-2 sm:divide-x sm:divide-y-0 divide-y divide-slate-600/30">
 
             {/* ── Sección 1: Daily Cap ──────────────────────────── */}
             <div className="p-5 space-y-4">

@@ -78,7 +78,7 @@ export default function BalanceCiclo({ refreshKey }: Props) {
           {items.length === 0 ? (
             <p className="text-slate-400 text-sm text-center py-6">Sin ítems de presupuesto confirmados</p>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {items.map((item) => {
                 const pct = item.monto_estimado > 0
                   ? Math.min((item.monto_ejecutado / item.monto_estimado) * 100, 100)
@@ -135,7 +135,7 @@ export default function BalanceCiclo({ refreshKey }: Props) {
           {gastosPorCategoria.length === 0 ? (
             <p className="text-slate-400 text-sm text-center py-6">Sin gastos en este ciclo</p>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {gastosPorCategoria.map(([cat, total]) => {
                 const pct = totalGastadoCiclo > 0 ? (total / totalGastadoCiclo) * 100 : 0;
                 return (

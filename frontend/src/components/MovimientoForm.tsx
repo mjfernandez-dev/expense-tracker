@@ -222,7 +222,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               onChange={(e) => setImporte(e.target.value)}
               placeholder="0"
               autoFocus
-              className={`w-48 text-4xl font-bold text-center bg-transparent border-b-2 ${isIngreso ? 'border-green-500 text-green-100 placeholder:text-green-800' : 'border-red-500 text-red-100 placeholder:text-red-900'} focus:outline-none`}
+              className={`w-full max-w-[200px] text-4xl font-bold text-center bg-transparent border-b-2 ${isIngreso ? 'border-green-500 text-green-100 placeholder:text-green-800' : 'border-red-500 text-red-100 placeholder:text-red-900'} focus:outline-none`}
             />
           </div>
         </div>

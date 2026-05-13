@@ -106,7 +106,7 @@ function App() {
 
       {/* HEADER */}
       <div className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/70 shadow-lg sticky top-0 z-20">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold text-white tracking-wide">Mis Finanzas</h1>
             <span className="text-slate-400 text-xs">
@@ -137,7 +137,7 @@ function App() {
       </div>
 
       {/* CONTENIDO POR TAB */}
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 pb-32 pt-4">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 pb-32 pt-4">
 
         {tab === 'inicio' && (
           <>
@@ -166,7 +166,7 @@ function App() {
 
       {/* BOTTOM TAB BAR */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/70 shadow-lg">
-        <div className="max-w-2xl mx-auto flex">
+        <div className="max-w-6xl mx-auto flex">
           {(['inicio', 'movimientos', 'balance'] as Tab[]).map((t) => (
             <button
               key={t}
