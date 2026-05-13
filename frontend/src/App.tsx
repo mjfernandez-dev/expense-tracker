@@ -5,13 +5,17 @@ import type { Movimiento } from './types';
 import MovimientoModal from './components/MovimientoModal';
 import MovimientoList from './components/MovimientoList';
 import DashboardCiclo from './components/DashboardCiclo';
+import BalanceCiclo from './components/BalanceCiclo';
 import CicloWizard from './components/CicloWizard';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
+
+type Tab = 'inicio' | 'movimientos' | 'balance';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
 
 function App() {
+  const [tab, setTab] = useState<Tab>('inicio');
   const [movimientoToEdit, setMovimientoToEdit] = useState<Movimiento | null>(null);
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [showModal, setShowModal] = useState<boolean>(false);
@@ -84,72 +88,112 @@ function App() {
     return () => window.removeEventListener('online', syncPendingQueue);
   }, [syncPendingQueue]);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900/70 py-4 sm:py-8">
-      <OfflineIndicator />
-      <div className="max-w-6xl mx-auto px-3 sm:px-4">
+  const tabLabel: Record<Tab, string> = {
+    inicio: 'Inicio',
+    movimientos: 'Movimientos',
+    balance: 'Balance',
+  };
 
-        {/* HEADER */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
+  const tabIcon: Record<Tab, string> = {
+    inicio: '⚡',
+    movimientos: '📋',
+    balance: '📊',
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900/70">
+      <OfflineIndicator />
+
+      {/* HEADER */}
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-2">
+        <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl sm:text-4xl font-bold text-white">Mis Finanzas</h1>
-            <span className="text-slate-300 text-sm sm:text-base">
-              Hola, <span className="font-medium text-white">{user?.username}</span>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Mis Finanzas</h1>
+            <span className="text-slate-400 text-xs">
+              Hola, <span className="font-medium text-slate-300">{user?.username}</span>
             </span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => navigate('/tools')}
-              className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-3 py-1.5 sm:px-5 sm:py-2 text-sm sm:text-base rounded-full shadow-[0_0_25px_rgba(59,130,246,0.6)] border border-blue-300/70 transition-all duration-200"
+              className="text-slate-400 hover:text-slate-200 text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 transition-colors"
             >
               Herramientas
             </button>
             <button
               onClick={() => navigate('/account')}
-              className="border border-blue-400/60 bg-slate-700/50 text-blue-300 font-medium px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg hover:bg-slate-800/60 transition-all duration-200"
+              className="text-slate-400 hover:text-slate-200 text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 transition-colors"
             >
-              Mi Cuenta
+              Cuenta
             </button>
             <button
               onClick={logout}
-              className="border border-slate-600/70 bg-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500 font-medium px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg transition-all duration-200"
+              className="text-slate-500 hover:text-slate-300 text-xs px-3 py-1.5 rounded-lg hover:bg-slate-800/40 transition-colors"
             >
-              Cerrar Sesión
+              Salir
             </button>
           </div>
         </div>
-
-        {/* WIDGET DAILY SOLVENCY */}
-        <DashboardCiclo refreshKey={refreshKey} />
-
-        {/* ACCIÓN PRINCIPAL desktop: encima de la lista */}
-        <div className="hidden sm:flex justify-end mb-4">
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-5 py-2.5 rounded-xl shadow-[0_0_25px_rgba(59,130,246,0.5)] border border-blue-300/50 transition-all duration-200 hover:-translate-y-px"
-          >
-            <span className="text-xl leading-none font-light">+</span>
-            Registrar movimiento
-          </button>
-        </div>
-
-        {/* LISTA DE MOVIMIENTOS */}
-        <MovimientoList
-          key={refreshKey}
-          onEdit={handleEdit}
-        />
       </div>
 
-      {/* FAB mobile: círculo fijo bottom-right, solo visible en mobile */}
-      <button
-        onClick={() => setShowModal(true)}
-        className="sm:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-[0_0_28px_rgba(59,130,246,0.6)] border border-blue-300/30 active:scale-95 transition-all duration-150 flex items-center justify-center"
-        aria-label="Registrar movimiento"
-      >
-        <span className="text-3xl leading-none font-light mt-[-2px]">+</span>
-      </button>
+      {/* CONTENIDO POR TAB */}
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 pb-32 pt-2">
 
-      {/* MODAL: Registrar / Editar movimiento */}
+        {tab === 'inicio' && (
+          <>
+            <DashboardCiclo refreshKey={refreshKey} />
+            <div className="mt-4 flex justify-center">
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-6 py-3 rounded-xl shadow-[0_0_25px_rgba(59,130,246,0.5)] border border-blue-300/50 transition-all duration-200 hover:-translate-y-px"
+              >
+                <span className="text-xl leading-none font-light">+</span>
+                Registrar movimiento
+              </button>
+            </div>
+          </>
+        )}
+
+        {tab === 'movimientos' && (
+          <MovimientoList key={refreshKey} onEdit={handleEdit} />
+        )}
+
+        {tab === 'balance' && (
+          <BalanceCiclo refreshKey={refreshKey} />
+        )}
+
+      </div>
+
+      {/* BOTTOM TAB BAR */}
+      <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/95 backdrop-blur-md border-t border-slate-700/60 safe-area-pb">
+        <div className="max-w-2xl mx-auto flex">
+          {(['inicio', 'movimientos', 'balance'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-3 transition-colors ${
+                tab === t ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <span className="text-lg leading-none">{tabIcon[t]}</span>
+              <span className="text-[10px] font-medium">{tabLabel[t]}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* FAB mobile (tab inicio) */}
+      {tab !== 'inicio' && (
+        <button
+          onClick={() => setShowModal(true)}
+          className="fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] border border-blue-300/30 active:scale-95 transition-all duration-150 flex items-center justify-center"
+          aria-label="Registrar movimiento"
+        >
+          <span className="text-2xl leading-none font-light mt-[-2px]">+</span>
+        </button>
+      )}
+
+      {/* MODAL */}
       <MovimientoModal
         isOpen={showModal}
         onClose={handleCloseModal}
@@ -158,7 +202,7 @@ function App() {
         onMovimientoUpdated={handleMovimientoUpdated}
       />
 
-      {/* WIZARD: Configuración de ciclo financiero */}
+      {/* WIZARD */}
       {showWizard && (
         <CicloWizard
           movimientoOrigenId={wizardMovimientoId}
