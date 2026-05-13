@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import type { Movimiento } from '../types';
-import { getMovimientos, deleteMovimiento, toggleGastoFijo, deleteGastoFijo } from '../services/api';
+import { getMovimientos, deleteMovimiento } from '../services/api';
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -142,34 +142,6 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     }
   };
 
-  const handleAutoDeletePausar = async () => {
-    if (!autoDeleteTarget?.gasto_fijo_id) return;
-    setIsDeleting(true);
-    try {
-      await toggleGastoFijo(autoDeleteTarget.gasto_fijo_id, false);
-      await deleteMovimiento(autoDeleteTarget.id);
-      await fetchMovimientos();
-      setAutoDeleteTarget(null);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleAutoDeleteEliminarTemplate = async () => {
-    if (!autoDeleteTarget?.gasto_fijo_id) return;
-    setIsDeleting(true);
-    try {
-      await deleteGastoFijo(autoDeleteTarget.gasto_fijo_id);
-      await fetchMovimientos();
-      setAutoDeleteTarget(null);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   const listaActiva = tabActivo === 'gastos' ? gastosMes : ingresosMes;
   const esIngreso = tabActivo === 'ingresos';
@@ -596,26 +568,10 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
               <button
                 onClick={handleAutoDeleteSoloEsteMes}
                 disabled={isDeleting}
-                className="w-full border border-slate-600 bg-slate-800/60 text-slate-200 font-medium py-2.5 rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-all text-sm text-left px-4"
-              >
-                <span className="font-semibold">Solo este mes</span>
-                <span className="block text-xs text-slate-400 mt-0.5">Borra el movimiento. El gasto fijo sigue activo.</span>
-              </button>
-              <button
-                onClick={handleAutoDeletePausar}
-                disabled={isDeleting}
-                className="w-full border border-amber-500/40 bg-amber-500/10 text-amber-200 font-medium py-2.5 rounded-lg hover:bg-amber-500/20 disabled:opacity-50 transition-all text-sm text-left px-4"
-              >
-                <span className="font-semibold">Pausar gasto fijo</span>
-                <span className="block text-xs text-amber-300/70 mt-0.5">Borra el movimiento y pausa la generación automática.</span>
-              </button>
-              <button
-                onClick={handleAutoDeleteEliminarTemplate}
-                disabled={isDeleting}
                 className="w-full border border-red-500/40 bg-red-500/10 text-red-200 font-medium py-2.5 rounded-lg hover:bg-red-500/20 disabled:opacity-50 transition-all text-sm text-left px-4"
               >
-                <span className="font-semibold">Eliminar gasto fijo</span>
-                <span className="block text-xs text-red-300/70 mt-0.5">Elimina el template definitivamente. Los movimientos previos quedan intactos.</span>
+                <span className="font-semibold">Eliminar movimiento</span>
+                <span className="block text-xs text-red-300/70 mt-0.5">Borra este movimiento definitivamente.</span>
               </button>
               <button
                 onClick={() => setAutoDeleteTarget(null)}
