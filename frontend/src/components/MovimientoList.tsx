@@ -9,7 +9,7 @@ const MESES = [
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
-type TabActivo = 'gastos' | 'ingresos' | 'balance';
+type TabActivo = 'gastos' | 'ingresos';
 
 interface MovimientoListProps {
   onEdit?: (movimiento: Movimiento) => void;
@@ -73,25 +73,6 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
   const totalGastos = useMemo(() => gastosMes.reduce((sum, m) => sum + m.importe, 0), [gastosMes]);
   const totalIngresos = useMemo(() => ingresosMes.reduce((sum, m) => sum + m.importe, 0), [ingresosMes]);
-  const balanceNeto = totalIngresos - totalGastos;
-
-  const gastosPorCategoria = useMemo(() => {
-    const map: Record<string, number> = {};
-    gastosMes.forEach((m) => {
-      const cat = m.categoria?.nombre ?? m.user_category?.nombre ?? 'Sin categoría';
-      map[cat] = (map[cat] ?? 0) + m.importe;
-    });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, [gastosMes]);
-
-  const ingresosPorCategoria = useMemo(() => {
-    const map: Record<string, number> = {};
-    ingresosMes.forEach((m) => {
-      const cat = m.categoria?.nombre ?? m.user_category?.nombre ?? 'Sin categoría';
-      map[cat] = (map[cat] ?? 0) + m.importe;
-    });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, [ingresosMes]);
 
   const getNombreCategoria = (mov: Movimiento) =>
     mov.categoria?.nombre ?? mov.user_category?.nombre ?? 'Sin categoría';
@@ -244,12 +225,11 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
       {/* TABS */}
       <div className="flex gap-1 mb-5 p-1 bg-slate-700/50 rounded-xl w-fit">
-        {(['gastos', 'ingresos', 'balance'] as TabActivo[]).map((tab) => {
-          const labels: Record<TabActivo, string> = { gastos: 'Gastos', ingresos: 'Ingresos', balance: 'Balance' };
+        {(['gastos', 'ingresos'] as TabActivo[]).map((tab) => {
+          const labels: Record<TabActivo, string> = { gastos: 'Gastos', ingresos: 'Ingresos' };
           const activeStyles: Record<TabActivo, string> = {
             gastos: 'bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]',
             ingresos: 'bg-green-600 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]',
-            balance: 'bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]',
           };
           return (
             <button
@@ -290,97 +270,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         </button>
       </div>
 
-      {/* TAB: BALANCE */}
-      {tabActivo === 'balance' && (
-        <div className="space-y-3">
-          <div className="bg-green-500/10 border border-green-400/40 rounded-xl p-4 flex items-center justify-between">
-            <span className="text-sm font-medium text-green-200">Ingresos {MESES[selectedMonth]}</span>
-            <span className="text-2xl font-bold text-green-300">+${totalIngresos.toFixed(2)}</span>
-          </div>
-          <div className="bg-red-500/10 border border-red-400/40 rounded-xl p-4 flex items-center justify-between">
-            <span className="text-sm font-medium text-red-200">Gastos {MESES[selectedMonth]}</span>
-            <span className="text-2xl font-bold text-red-300">-${totalGastos.toFixed(2)}</span>
-          </div>
-          <div className="border-t border-slate-600/50 pt-3 flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">
-              Balance neto {MESES[selectedMonth]}
-            </span>
-            <span className={`text-3xl font-bold ${balanceNeto >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
-              {balanceNeto >= 0 ? '+' : ''}${balanceNeto.toFixed(2)}
-            </span>
-          </div>
-          {movimientosMes.length === 0 && (
-            <p className="text-center text-slate-400 text-sm py-4">
-              Sin movimientos en {MESES[selectedMonth]} {selectedYear}
-            </p>
-          )}
-
-          {/* Breakdown por categoría */}
-          {movimientosMes.length > 0 && (
-            <div className="mt-2 space-y-4">
-              {/* Gastos por categoría */}
-              {gastosPorCategoria.length > 0 && (
-                <div className="bg-slate-700/50 border border-red-400/30 rounded-xl p-4">
-                  <h4 className="text-sm font-semibold text-red-300 mb-3">Gastos por categoría</h4>
-                  <div className="space-y-2">
-                    {gastosPorCategoria.map(([cat, total]) => {
-                      const pct = totalGastos > 0 ? (total / totalGastos) * 100 : 0;
-                      return (
-                        <div key={cat}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="text-slate-300">{cat}</span>
-                            <span className="text-red-300 font-medium">
-                              ${total.toFixed(2)} <span className="text-slate-500">({pct.toFixed(0)}%)</span>
-                            </span>
-                          </div>
-                          <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-red-400/70 rounded-full transition-all duration-500"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Ingresos por categoría */}
-              {ingresosPorCategoria.length > 0 && (
-                <div className="bg-slate-700/50 border border-green-400/30 rounded-xl p-4">
-                  <h4 className="text-sm font-semibold text-green-300 mb-3">Ingresos por categoría</h4>
-                  <div className="space-y-2">
-                    {ingresosPorCategoria.map(([cat, total]) => {
-                      const pct = totalIngresos > 0 ? (total / totalIngresos) * 100 : 0;
-                      return (
-                        <div key={cat}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="text-slate-300">{cat}</span>
-                            <span className="text-green-300 font-medium">
-                              ${total.toFixed(2)} <span className="text-slate-500">({pct.toFixed(0)}%)</span>
-                            </span>
-                          </div>
-                          <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-green-400/70 rounded-full transition-all duration-500"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TABS: GASTOS / INGRESOS */}
-      {tabActivo !== 'balance' && (
-        <>
+      <>
           {/* Resumen del tab */}
           <div className={`rounded-lg p-4 mb-4 border ${
             esIngreso
@@ -586,6 +476,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
           </div>
         </div>
       )}
+    </>
     </div>
   );
 }

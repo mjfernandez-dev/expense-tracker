@@ -44,17 +44,23 @@ export default function BalanceCiclo({ refreshKey }: Props) {
   const totalGastadoCiclo = gastosCiclo.reduce((s, m) => s + m.importe, 0);
 
   if (loading) {
-    return <div className="animate-pulse space-y-4 p-4">
-      <div className="h-8 bg-slate-700/50 rounded-xl w-1/2" />
-      <div className="h-32 bg-slate-700/50 rounded-xl" />
-      <div className="h-32 bg-slate-700/50 rounded-xl" />
-    </div>;
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="h-6 bg-slate-800/60 rounded-lg w-1/3" />
+        <div className="h-40 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
+        <div className="h-6 bg-slate-800/60 rounded-lg w-1/3" />
+        <div className="h-40 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
+      </div>
+    );
   }
 
   if (!ciclo || !ciclo.resumen) {
     return (
-      <div className="p-4 text-center text-slate-400 text-sm mt-12">
-        No hay ciclo activo. Registrá un ingreso e iniciá un ciclo para ver el balance.
+      <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-8 text-center">
+        <p className="text-slate-300 text-base font-medium">Sin ciclo activo</p>
+        <p className="text-slate-400 text-sm mt-2">
+          Registrá un ingreso e iniciá un ciclo para ver el balance.
+        </p>
       </div>
     );
   }
@@ -62,95 +68,97 @@ export default function BalanceCiclo({ refreshKey }: Props) {
   const items = ciclo.resumen.presupuesto_items.filter((i) => i.confirmado);
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-4">
 
       {/* ── Presupuesto por ítem ────────────────────────── */}
       <section>
-        <h2 className="text-xs font-mono font-semibold text-slate-400 uppercase tracking-widest mb-3 px-1">
-          Presupuesto del ciclo
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-300 mb-3">Presupuesto del ciclo</h2>
 
-        {items.length === 0 ? (
-          <p className="text-slate-500 text-sm text-center py-6">Sin ítems de presupuesto confirmados</p>
-        ) : (
-          <div className="space-y-2">
-            {items.map((item) => {
-              const pct = item.monto_estimado > 0
-                ? Math.min((item.monto_ejecutado / item.monto_estimado) * 100, 100)
-                : 0;
-              const barColor =
-                item.estado === 'efectivado' ? 'bg-emerald-500' :
-                item.estado === 'parcial' ? 'bg-blue-400' :
-                'bg-slate-500';
-              const label = item.descripcion ?? 'Sin descripción';
+        <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-4 shadow-2xl">
+          {items.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-6">Sin ítems de presupuesto confirmados</p>
+          ) : (
+            <div className="space-y-4">
+              {items.map((item) => {
+                const pct = item.monto_estimado > 0
+                  ? Math.min((item.monto_ejecutado / item.monto_estimado) * 100, 100)
+                  : 0;
+                const barColor =
+                  item.estado === 'efectivado' ? 'bg-green-500' :
+                  item.estado === 'parcial'    ? 'bg-blue-400'  :
+                  'bg-slate-600';
+                const estadoLabel =
+                  item.estado === 'efectivado' ? 'Efectivado' :
+                  item.estado === 'parcial'    ? `Pendiente ${formatARS(item.monto_pendiente)}` :
+                  'Sin ejecutar';
+                const estadoColor =
+                  item.estado === 'efectivado' ? 'text-green-400' :
+                  item.estado === 'parcial'    ? 'text-blue-300'  :
+                  'text-slate-500';
 
-              return (
-                <div
-                  key={item.id}
-                  className="bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3 space-y-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-200 text-sm font-medium truncate">{label}</span>
-                    <span className="text-slate-400 text-xs whitespace-nowrap tabular-nums flex-shrink-0">
-                      {formatARS(item.monto_ejecutado)} / {formatARS(item.monto_estimado)}
-                    </span>
+                return (
+                  <div key={item.id} className="bg-slate-800/50 border border-slate-700/50 backdrop-blur-xl rounded-xl p-4">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-slate-100 text-sm font-medium truncate">
+                        {item.descripcion ?? 'Sin descripción'}
+                      </span>
+                      <span className="text-slate-400 text-xs whitespace-nowrap tabular-nums flex-shrink-0">
+                        {formatARS(item.monto_ejecutado)} / {formatARS(item.monto_estimado)}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-700/80 rounded-full overflow-hidden mb-1.5">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className={estadoColor}>{estadoLabel}</span>
+                      <span className="text-slate-500">{Math.round(pct)}%</span>
+                    </div>
                   </div>
-                  <div className="w-full h-1.5 bg-slate-700/80 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[10px] font-mono text-slate-500">
-                    <span className={
-                      item.estado === 'efectivado' ? 'text-emerald-400' :
-                      item.estado === 'parcial' ? 'text-blue-300' : ''
-                    }>
-                      {item.estado === 'efectivado' ? 'Efectivado' :
-                       item.estado === 'parcial' ? `Pendiente ${formatARS(item.monto_pendiente)}` :
-                       'Sin ejecutar'}
-                    </span>
-                    <span>{Math.round(pct)}%</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* ── Gastos por categoría ────────────────────────── */}
       <section>
-        <div className="flex items-baseline justify-between mb-3 px-1">
-          <h2 className="text-xs font-mono font-semibold text-slate-400 uppercase tracking-widest">
-            Gastos por categoría
-          </h2>
-          <span className="text-slate-500 text-xs tabular-nums">{formatARS(totalGastadoCiclo)}</span>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-lg font-semibold text-slate-300">Gastos por categoría</h2>
+          <span className="text-slate-400 text-xs tabular-nums">{formatARS(totalGastadoCiclo)} total</span>
         </div>
 
-        {gastosPorCategoria.length === 0 ? (
-          <p className="text-slate-500 text-sm text-center py-6">Sin gastos en este ciclo</p>
-        ) : (
-          <div className="space-y-1.5">
-            {gastosPorCategoria.map(([cat, total]) => {
-              const pct = totalGastadoCiclo > 0 ? (total / totalGastadoCiclo) * 100 : 0;
-              return (
-                <div key={cat} className="bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-200 text-sm">{cat}</span>
-                    <span className="text-slate-300 text-sm tabular-nums font-medium">{formatARS(total)}</span>
+        <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-4 shadow-2xl">
+          {gastosPorCategoria.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-6">Sin gastos en este ciclo</p>
+          ) : (
+            <div className="space-y-3">
+              {gastosPorCategoria.map(([cat, total]) => {
+                const pct = totalGastadoCiclo > 0 ? (total / totalGastadoCiclo) * 100 : 0;
+                return (
+                  <div key={cat} className="bg-slate-800/50 border border-slate-700/50 backdrop-blur-xl rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-slate-200 text-sm">{cat}</span>
+                      <span className="text-slate-300 text-sm tabular-nums font-medium">{formatARS(total)}</span>
+                    </div>
+                    <div className="w-full h-1 bg-slate-700/80 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="text-right mt-1">
+                      <span className="text-[10px] font-mono text-slate-500">{pct.toFixed(0)}%</span>
+                    </div>
                   </div>
-                  <div className="w-full h-1 bg-slate-700/80 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-indigo-400/70 rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );

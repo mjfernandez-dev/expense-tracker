@@ -101,14 +101,14 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900/70">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900">
       <OfflineIndicator />
 
       {/* HEADER */}
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-2">
-        <div className="flex justify-between items-center">
+      <div className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/70 shadow-lg sticky top-0 z-20">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Mis Finanzas</h1>
+            <h1 className="text-xl font-bold text-white tracking-wide">Mis Finanzas</h1>
             <span className="text-slate-400 text-xs">
               Hola, <span className="font-medium text-slate-300">{user?.username}</span>
             </span>
@@ -116,19 +116,19 @@ function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate('/tools')}
-              className="text-slate-400 hover:text-slate-200 text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 transition-colors"
+              className="border border-blue-400/70 bg-slate-800/40 text-blue-300 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-slate-800/60 transition-all duration-200"
             >
               Herramientas
             </button>
             <button
               onClick={() => navigate('/account')}
-              className="text-slate-400 hover:text-slate-200 text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 transition-colors"
+              className="border border-slate-600/70 bg-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500 text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-200"
             >
               Cuenta
             </button>
             <button
               onClick={logout}
-              className="text-slate-500 hover:text-slate-300 text-xs px-3 py-1.5 rounded-lg hover:bg-slate-800/40 transition-colors"
+              className="text-slate-500 hover:text-slate-300 text-xs px-2 py-1.5 rounded-lg hover:bg-slate-800/40 transition-colors"
             >
               Salir
             </button>
@@ -137,17 +137,17 @@ function App() {
       </div>
 
       {/* CONTENIDO POR TAB */}
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 pb-32 pt-2">
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 pb-32 pt-4">
 
         {tab === 'inicio' && (
           <>
             <DashboardCiclo refreshKey={refreshKey} />
-            <div className="mt-4 flex justify-center">
+            <div className="mt-6 flex justify-center">
               <button
                 onClick={() => setShowModal(true)}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-6 py-3 rounded-xl shadow-[0_0_25px_rgba(59,130,246,0.5)] border border-blue-300/50 transition-all duration-200 hover:-translate-y-px"
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-8 py-3 rounded-full shadow-[0_0_25px_rgba(59,130,246,0.6)] border border-blue-300/70 tracking-wide uppercase text-sm transition-all duration-200 active:scale-95"
               >
-                <span className="text-xl leading-none font-light">+</span>
+                <span className="text-lg leading-none font-light">+</span>
                 Registrar movimiento
               </button>
             </div>
@@ -165,14 +165,16 @@ function App() {
       </div>
 
       {/* BOTTOM TAB BAR */}
-      <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/95 backdrop-blur-md border-t border-slate-700/60 safe-area-pb">
+      <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/70 shadow-lg">
         <div className="max-w-2xl mx-auto flex">
           {(['inicio', 'movimientos', 'balance'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 flex flex-col items-center gap-0.5 py-3 transition-colors ${
-                tab === t ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
+              className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${
+                tab === t
+                  ? 'text-blue-400'
+                  : 'text-slate-500 hover:text-slate-300'
               }`}
             >
               <span className="text-lg leading-none">{tabIcon[t]}</span>
