@@ -226,6 +226,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   }
 
   return (
+    <>
     <div className="bg-slate-800/70 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6">
       <h2 className="text-2xl font-bold mb-4 text-white">Movimientos</h2>
 
@@ -415,6 +416,8 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
           )}
         </>
 
+    </div>
+
       {/* Modal normal: eliminar movimiento regular */}
       {deleteTarget !== null && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -481,7 +484,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

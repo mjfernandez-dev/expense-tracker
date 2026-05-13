@@ -86,12 +86,16 @@ def _auto_detectar_presupuesto_item(
 
     item = query.first()
     if not item:
+        print(f"[AUTO-LINK] No se encontró PresupuestoItem confirmado para ciclo={ciclo_activo.id} cat_id={categoria_id} user_cat_id={user_category_id}")
         return None
 
     progreso = calcular_progreso_presupuesto(item, exclude_movimiento_id=exclude_movimiento_id)
+    print(f"[AUTO-LINK] item_id={item.id} confirmado={item.confirmado} pendiente={progreso.pendiente} importe={importe}")
     if progreso.pendiente <= 0 or importe > progreso.pendiente:
+        print(f"[AUTO-LINK] Rechazado: pendiente={progreso.pendiente} importe={importe}")
         return None
 
+    print(f"[AUTO-LINK] Vinculado OK: movimiento -> item {item.id}")
     return item.id
 
 
