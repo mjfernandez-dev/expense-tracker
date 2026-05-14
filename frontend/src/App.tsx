@@ -7,11 +7,12 @@ import MovimientoList from './components/MovimientoList';
 import DashboardCiclo from './components/DashboardCiclo';
 import BalanceCiclo from './components/BalanceCiclo';
 import CicloWizard from './components/CicloWizard';
+import CategoryManager from './components/CategoryManager';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
 
-type Tab = 'inicio' | 'movimientos' | 'balance';
+type Tab = 'inicio' | 'movimientos' | 'balance' | 'herramientas';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
 
 function App() {
@@ -92,12 +93,14 @@ function App() {
     inicio: 'Inicio',
     movimientos: 'Movimientos',
     balance: 'Balance',
+    herramientas: 'Herramientas',
   };
 
   const tabIcon: Record<Tab, string> = {
     inicio: '⚡',
     movimientos: '📋',
     balance: '📊',
+    herramientas: '⚙️',
   };
 
   return (
@@ -114,12 +117,6 @@ function App() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/tools')}
-              className="border border-blue-400/70 bg-slate-800/40 text-blue-300 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-slate-800/60 transition-all duration-200"
-            >
-              Herramientas
-            </button>
             <button
               onClick={() => navigate('/account')}
               className="border border-slate-600/70 bg-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500 text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-200"
@@ -162,12 +159,18 @@ function App() {
           <BalanceCiclo refreshKey={refreshKey} />
         )}
 
+        {tab === 'herramientas' && (
+          <div className="bg-slate-700/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-4 sm:p-6">
+            <CategoryManager />
+          </div>
+        )}
+
       </div>
 
       {/* BOTTOM TAB BAR */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/70 shadow-lg">
         <div className="max-w-6xl mx-auto flex">
-          {(['inicio', 'movimientos', 'balance'] as Tab[]).map((t) => (
+          {(['inicio', 'movimientos', 'balance', 'herramientas'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
