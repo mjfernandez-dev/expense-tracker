@@ -111,3 +111,8 @@ app.include_router(ciclos.router)
 @app.get("/")
 def root():
     return {"message": "API de Gastos funcionando correctamente"}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
