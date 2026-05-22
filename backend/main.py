@@ -110,7 +110,7 @@ app.include_router(gastos_fijos.router)
 app.include_router(ciclos.router)
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {"message": "API de Gastos funcionando correctamente"}
 
