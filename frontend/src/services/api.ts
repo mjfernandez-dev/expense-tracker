@@ -159,8 +159,8 @@ export const getCurrentUser = async (): Promise<User> => {
     const response = await api.get('/auth/me');
     try {
       await saveUser(response.data);
-    } catch (cacheError) {
-      console.warn('No se pudo guardar el usuario en cache offline', cacheError);
+    } catch {
+      // fallo silencioso — el cache offline es best-effort
     }
     return response.data;
   } catch (error) {
@@ -355,4 +355,23 @@ export const confirmarPresupuesto = async (
 // DELETE /ciclos/{id} → cierra el ciclo activo
 export const cerrarCiclo = async (id: number): Promise<void> => {
   await api.delete(`/ciclos/${id}`);
+};
+
+// GET /ciclos/ → lista todos los ciclos del usuario (sin resumen)
+export const getCiclos = async (): Promise<Ciclo[]> => {
+  const response = await api.get('/ciclos/');
+  return response.data;
+};
+
+// GET /ciclos/{id}/exportar → descarga TXT del ciclo
+export const exportarCiclo = async (cicloId: number, fecha_inicio: string): Promise<void> => {
+  const response = await api.get(`/ciclos/${cicloId}/exportar`, { responseType: 'blob' });
+  const url = URL.createObjectURL(new Blob([response.data], { type: 'text/plain' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ciclo-${fecha_inicio.split('T')[0]}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };

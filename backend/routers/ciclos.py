@@ -1,16 +1,17 @@
 """Router de ciclos financieros (Daily Solvency): /ciclos/"""
+import io
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
-from services.ciclo_commitment_service import calcular_progreso_presupuesto
+from services import ciclo_commitment_service, ciclo_export_service, ciclo_service
 from services.ciclo_service import calcular_resumen
-from services import ciclo_time_service
 
 router = APIRouter(prefix="/ciclos", tags=["ciclos"])
 
@@ -48,20 +49,33 @@ def _ciclo_to_read(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.Ci
     )
 
 
-def _sugerir_presupuesto_desde_ciclo_anterior(ciclo_anterior: models.Ciclo, db: Session) -> list[dict]:
-    """Sugiere items de presupuesto desde el ciclo anterior."""
-    items = []
-    for item in ciclo_anterior.presupuesto_items:
-        Ejecutado = sum(m.importe for m in item.movimientos if m.tipo == "gasto")
-        monto_sugerido = max(float(item.monto_estimado), Ejecutado)
-        items.append({
-            "categoria_id": item.categoria_id,
-            "user_category_id": item.user_category_id,
-            "monto_estimado": monto_sugerido,
-            "confirmado": item.confirmado,
-            "descripcion": item.descripcion,
-        })
-    return items
+
+@router.get("/", response_model=list[schemas.CicloRead])
+def listar_ciclos(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Lista todos los ciclos del usuario, sin resumen calculado."""
+    ciclos = (
+        db.query(models.Ciclo)
+        .filter(models.Ciclo.user_id == current_user.id)
+        .order_by(models.Ciclo.fecha_inicio.desc())
+        .all()
+    )
+    return [
+        schemas.CicloRead(
+            id=c.id,
+            user_id=c.user_id,
+            movimiento_origen_id=c.movimiento_origen_id,
+            fecha_inicio=c.fecha_inicio,
+            fecha_fin=c.fecha_fin,
+            ahorro_objetivo=c.ahorro_objetivo,
+            activo=c.activo,
+            created_at=c.created_at,
+            resumen=None,
+        )
+        for c in ciclos
+    ]
 
 
 @router.post("/", response_model=schemas.CicloRead, status_code=201)
@@ -70,50 +84,13 @@ def crear_ciclo(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    """
-    Crea un nuevo ciclo financiero.
-    Si ya existe uno activo, lo cierra automáticamente.
-    Sugiere presupuesto basado en el ciclo anterior.
-    """
-    if data.fecha_fin <= ciclo_time_service.ahora_buenos_aires():
-        raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a hoy")
-
-    ciclo_anterior = (
-        db.query(models.Ciclo)
-        .filter(models.Ciclo.user_id == current_user.id, models.Ciclo.activo == True)
-        .first()
-    )
-    if ciclo_anterior:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Ya existe un ciclo activo (id={ciclo_anterior.id}). Cerralo antes de crear uno nuevo.",
+    """Crea un nuevo ciclo financiero."""
+    try:
+        ciclo = ciclo_service.crear_nuevo_ciclo(
+            db, current_user.id, data.fecha_fin, data.ahorro_objetivo, data.movimiento_origen_id
         )
-
-    # fecha_inicio = fecha del movimiento de origen para incluirlo en el cálculo
-    fecha_inicio = ciclo_time_service.ahora_buenos_aires()
-    if data.movimiento_origen_id:
-        mov_origen = (
-            db.query(models.Movimiento)
-            .filter(
-                models.Movimiento.id == data.movimiento_origen_id,
-                models.Movimiento.user_id == current_user.id,
-            )
-            .first()
-        )
-        if mov_origen:
-            fecha_inicio = mov_origen.fecha
-
-    ciclo = models.Ciclo(
-        user_id=current_user.id,
-        movimiento_origen_id=data.movimiento_origen_id,
-        fecha_inicio=fecha_inicio,
-        fecha_fin=data.fecha_fin,
-        ahorro_objetivo=data.ahorro_objetivo,
-        activo=True,
-    )
-    db.add(ciclo)
-    db.commit()
-    db.refresh(ciclo)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     ciclo = _load_ciclo(ciclo.id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)
@@ -153,23 +130,12 @@ def actualizar_ciclo(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    """
-    Actualiza fecha_fin y/o ahorro_objetivo del ciclo.
-    El Daily Cap se recalcula automáticamente al consultar el ciclo.
-    """
+    """Actualiza fecha_fin y/o ahorro_objetivo del ciclo."""
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-
-    if data.fecha_fin is not None:
-        if data.fecha_fin <= ciclo_time_service.ahora_buenos_aires():
-            raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a hoy")
-        ciclo.fecha_fin = data.fecha_fin
-
-    if data.ahorro_objetivo is not None:
-        ciclo.ahorro_objetivo = data.ahorro_objetivo
-
-    db.commit()
-    db.refresh(ciclo)
-
+    try:
+        ciclo_service.actualizar_fechas_ciclo(ciclo, data.fecha_fin, data.ahorro_objetivo, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)
 
@@ -181,70 +147,13 @@ def confirmar_presupuesto(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    """
-    Confirma (o reemplaza) el presupuesto para este ciclo.
-    """
+    """Confirma (o reemplaza) el presupuesto para este ciclo."""
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-
-    existentes = list(ciclo.presupuesto_items)
-    usados_ids = set()
-
-    def _match_item(item: schemas.PresupuestoItemCreate) -> Optional[models.PresupuestoItem]:
-        for existente in existentes:
-            if existente.id in usados_ids:
-                continue
-            if item.categoria_id is not None and existente.categoria_id == item.categoria_id:
-                return existente
-            if item.user_category_id is not None and existente.user_category_id == item.user_category_id:
-                return existente
-            # Fallback: match by description even when IDs are present but don't align
-            # (handles items originally created with categoria_id when resent with user_category_id)
-            if (existente.descripcion or "").lower() == (item.descripcion or "").lower():
-                return existente
-        return None
-
-    for item in data.items:
-        existente = _match_item(item)
-        if existente:
-            progreso_actual = calcular_progreso_presupuesto(existente)
-            if item.monto_estimado < progreso_actual.ejecutado:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "El monto estimado no puede ser menor a lo ya ejecutado "
-                        f"({float(progreso_actual.ejecutado):.2f})"
-                    ),
-                )
-            existente.monto_estimado = item.monto_estimado
-            existente.confirmado = True if progreso_actual.ejecutado > 0 else item.confirmado
-            existente.descripcion = item.descripcion
-            existente.estado = calcular_progreso_presupuesto(existente).estado
-            usados_ids.add(existente.id)
-            continue
-
-        nuevo_item = models.PresupuestoItem(
-            ciclo_id=ciclo_id,
-            categoria_id=item.categoria_id,
-            user_category_id=item.user_category_id,
-            monto_estimado=item.monto_estimado,
-            confirmado=item.confirmado,
-            descripcion=item.descripcion,
-            estado="pendiente",
-        )
-        db.add(nuevo_item)
-
-    for existente in existentes:
-        if existente.id in usados_ids:
-            continue
-        progreso_actual = calcular_progreso_presupuesto(existente)
-        if progreso_actual.ejecutado > 0:
-            existente.confirmado = True
-            existente.estado = progreso_actual.estado
-            continue
-        db.delete(existente)
-
+    try:
+        ciclo_commitment_service.aplicar_presupuesto_bulk(ciclo, data.items, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
-
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)
 
@@ -258,7 +167,27 @@ def confirmar_gastos_fijos_legacy(
     current_user: models.User = Depends(get_current_active_user),
 ):
     """Legacy endpoint - usa /presupuesto/ en su lugar."""
-    return confirmar_presupuesto(ciclo_id, schemas.PresupuestoBulk(items=data.items), db, current_user)
+    return confirmar_presupuesto(ciclo_id, schemas.PresupuestoItemBulk(items=data.items), db, current_user)
+
+
+@router.get("/{ciclo_id}/exportar")
+def exportar_ciclo(
+    ciclo_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Exporta el ciclo completo como archivo TXT legible."""
+    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    resumen = calcular_resumen(ciclo, db, current_user.id)
+    movimientos = ciclo_export_service.obtener_movimientos_ciclo(ciclo, db, current_user.id)
+    content = ciclo_export_service.generar_txt(ciclo, resumen, movimientos)
+    filename = f"ciclo_{ciclo.fecha_inicio.strftime('%Y-%m-%d')}.txt"
+
+    return StreamingResponse(
+        io.StringIO(content),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.delete("/{ciclo_id}", status_code=200)
@@ -275,7 +204,5 @@ def cerrar_ciclo(
     )
     if not ciclo:
         raise HTTPException(status_code=404, detail="Ciclo no encontrado")
-
-    ciclo.activo = False
-    db.commit()
+    ciclo_service.cerrar_ciclo(ciclo, db)
     return {"message": "Ciclo cerrado correctamente"}

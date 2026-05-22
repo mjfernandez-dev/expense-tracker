@@ -1,12 +1,82 @@
 """Servicio de cálculo del ciclo financiero (Daily Solvency)."""
 from decimal import Decimal
+from typing import Optional
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 import models
 import schemas
 from services.ciclo_commitment_service import calcular_progreso_presupuesto
 from services import ciclo_time_service
+
+
+def crear_nuevo_ciclo(
+    db: Session,
+    user_id: int,
+    fecha_fin,
+    ahorro_objetivo,
+    movimiento_origen_id: Optional[int] = None,
+) -> models.Ciclo:
+    """
+    Crea un ciclo financiero activo para el usuario.
+    Raises ValueError si fecha_fin no es válida o ya existe un ciclo activo.
+    """
+    if fecha_fin <= ciclo_time_service.ahora_buenos_aires():
+        raise ValueError("La fecha de fin debe ser posterior a hoy")
+
+    existe_activo = (
+        db.query(models.Ciclo)
+        .filter(models.Ciclo.user_id == user_id, models.Ciclo.activo == True)
+        .first()
+    )
+    if existe_activo:
+        raise ValueError(f"Ya existe un ciclo activo (id={existe_activo.id}). Cerralo antes de crear uno nuevo.")
+
+    fecha_inicio = ciclo_time_service.ahora_buenos_aires()
+    if movimiento_origen_id:
+        mov = (
+            db.query(models.Movimiento)
+            .filter(models.Movimiento.id == movimiento_origen_id, models.Movimiento.user_id == user_id)
+            .first()
+        )
+        if mov:
+            fecha_inicio = mov.fecha
+
+    ciclo = models.Ciclo(
+        user_id=user_id,
+        movimiento_origen_id=movimiento_origen_id,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        ahorro_objetivo=ahorro_objetivo,
+        activo=True,
+    )
+    db.add(ciclo)
+    db.commit()
+    db.refresh(ciclo)
+    return ciclo
+
+
+def actualizar_fechas_ciclo(
+    ciclo: models.Ciclo,
+    fecha_fin,
+    ahorro_objetivo,
+    db: Session,
+) -> None:
+    """Actualiza fecha_fin y/o ahorro_objetivo del ciclo. Raises ValueError si fecha_fin no es válida."""
+    if fecha_fin is not None:
+        if fecha_fin <= ciclo_time_service.ahora_buenos_aires():
+            raise ValueError("La fecha de fin debe ser posterior a hoy")
+        ciclo.fecha_fin = fecha_fin
+    if ahorro_objetivo is not None:
+        ciclo.ahorro_objetivo = ahorro_objetivo
+    db.commit()
+    db.refresh(ciclo)
+
+
+def cerrar_ciclo(ciclo: models.Ciclo, db: Session) -> None:
+    """Cierra (desactiva) un ciclo financiero."""
+    ciclo.activo = False
+    db.commit()
 
 
 def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.CicloResumen:
