@@ -1,0 +1,118 @@
+"""Servicio de categorías personalizadas del usuario."""
+from decimal import Decimal
+from typing import List, Optional
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+import models
+import schemas
+from services.ciclo_time_service import ahora_buenos_aires
+
+
+def listar_categorias_sistema(db: Session) -> List[models.Category]:
+    return db.query(models.Category).filter(models.Category.es_predeterminada == True).all()
+
+
+def listar_categorias_usuario(user_id: int, db: Session) -> List[models.UserCategory]:
+    return (
+        db.query(models.UserCategory)
+        .filter(models.UserCategory.user_id == user_id)
+        .order_by(models.UserCategory.created_at.desc())
+        .all()
+    )
+
+
+def obtener_categoria_usuario(category_id: int, user_id: int, db: Session) -> models.UserCategory:
+    category = db.query(models.UserCategory).filter(
+        models.UserCategory.id == category_id,
+        models.UserCategory.user_id == user_id,
+    ).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+    return category
+
+
+def verificar_nombre_unico(user_id: int, nombre: str, db: Session, exclude_id: Optional[int] = None) -> None:
+    query = db.query(models.UserCategory).filter(
+        models.UserCategory.user_id == user_id,
+        models.UserCategory.nombre == nombre,
+    )
+    if exclude_id is not None:
+        query = query.filter(models.UserCategory.id != exclude_id)
+    if query.first():
+        raise HTTPException(status_code=400, detail="Ya tienes una categoría con este nombre")
+
+
+def crear_user_category(user_id: int, category: schemas.UserCategoryCreate, db: Session) -> models.UserCategory:
+    verificar_nombre_unico(user_id, category.nombre, db)
+    db_category = models.UserCategory(
+        user_id=user_id,
+        nombre=category.nombre,
+        descripcion=category.descripcion,
+        color=category.color,
+        icon=category.icon,
+    )
+    db.add(db_category)
+    db.flush()
+    return actualizar_user_category(
+        db_category,
+        schemas.UserCategoryUpdate(
+            monto_default=category.monto_default,
+            tiene_monto_fijo=category.tiene_monto_fijo,
+        ),
+        db,
+    )
+
+
+def _verificar_puede_eliminar(category_id: int, db: Session) -> int:
+    return db.query(models.Movimiento).filter(
+        models.Movimiento.user_category_id == category_id
+    ).count()
+
+
+def eliminar_user_category(category: models.UserCategory, db: Session) -> None:
+    movimientos_count = _verificar_puede_eliminar(category.id, db)
+    if movimientos_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede eliminar. Hay {movimientos_count} movimiento(s) usando esta categoría. "
+                   "Asigna esos movimientos a otra categoría primero."
+        )
+    db.delete(category)
+    db.commit()
+
+
+def actualizar_user_category(
+    category: models.UserCategory,
+    update: schemas.UserCategoryUpdate,
+    db: Session,
+) -> models.UserCategory:
+    """Aplica los cambios de UserCategoryUpdate a la categoría, con server rules para monto_default."""
+    update_data = update.model_dump(exclude_unset=True)
+
+    if update.nombre is not None and update.nombre != category.nombre:
+        category.nombre = update.nombre
+
+    if "descripcion" in update_data:
+        category.descripcion = update_data["descripcion"]
+    if "color" in update_data:
+        category.color = update_data["color"]
+    if "icon" in update_data:
+        category.icon = update_data["icon"]
+
+    if "monto_default" in update_data:
+        monto: Optional[Decimal] = update_data["monto_default"]
+        if monto is not None and monto > 0:
+            category.monto_default = monto
+            category.tiene_monto_fijo = True
+        else:
+            category.monto_default = None
+            category.tiene_monto_fijo = False
+    elif "tiene_monto_fijo" in update_data:
+        category.tiene_monto_fijo = update_data["tiene_monto_fijo"]
+
+    category.updated_at = ahora_buenos_aires()
+    db.commit()
+    db.refresh(category)
+    return category

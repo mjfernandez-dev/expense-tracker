@@ -3,7 +3,6 @@ from sqlalchemy import Column, Integer, String, Numeric, DateTime, Boolean, Fore
 from sqlalchemy.orm import relationship
 # CONEXIÓN: Importamos Base desde database.py (la clase padre de todos los modelos)
 from database import Base
-from datetime import datetime
 from encryption import EncryptedString
 from services.ciclo_time_service import ahora_buenos_aires  # ← IMPORTAMOS FUNCIÓN BA
 
@@ -20,6 +19,7 @@ class User(Base):
     created_at = Column(DateTime, default=ahora_buenos_aires)
     alias_bancario = Column(EncryptedString, nullable=True)
     cvu = Column(EncryptedString, nullable=True)
+    ahorro_objetivo_default = Column(Numeric(10, 2), nullable=True, default=None)
 
     # RELACIÓN 1-a-N: Un usuario tiene MUCHOS movimientos
     movimientos = relationship("Movimiento", back_populates="usuario")
@@ -89,6 +89,8 @@ class UserCategory(Base):
     descripcion = Column(String, nullable=True)
     color = Column(String, default="#6366f1", nullable=False)  # Color para UI (hex)
     icon = Column(String, nullable=True)  # Ícono para UI (emoji o nombre)
+    monto_default = Column(Numeric(10, 2), nullable=True, default=None)
+    tiene_monto_fijo = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=ahora_buenos_aires)
     updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
     
@@ -297,6 +299,3 @@ class Ciclo(Base):
     usuario = relationship("User")
     movimiento_origen = relationship("Movimiento", foreign_keys=[movimiento_origen_id])
     presupuesto_items = relationship("PresupuestoItem", back_populates="ciclo", cascade="all, delete-orphan")
-
-
-# MODELO: Item de presupuesto para un ciclo específico

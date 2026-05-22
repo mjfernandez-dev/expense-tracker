@@ -315,10 +315,27 @@ export const deleteCategory = async (id: number): Promise<void> => {
   await api.delete(`/user-categories/${id}`);
 };
 
-// Actualizar una categoría personalizada
+// Actualizar una categoría personalizada (campos parciales)
+// PATCH /user-categories/{id} → envía campos parciales, devuelve UserCategory
+export const updateUserCategory = async (
+  id: number,
+  patch: Partial<Pick<UserCategory, 'nombre' | 'monto_default' | 'tiene_monto_fijo' | 'color' | 'icon'>>
+): Promise<UserCategory> => {
+  const response = await api.put(`/user-categories/${id}`, patch);
+  return response.data;
+};
+
+// Alias para compatibilidad hacia atrás (solo renombra)
 // PUT /user-categories/{id} → envía {nombre}, devuelve UserCategory
 export const updateCategory = async (id: number, nombre: string): Promise<UserCategory> => {
   const response = await api.put(`/user-categories/${id}`, { nombre });
+  return response.data;
+};
+
+// Actualizar preferencias del usuario (ahorro_objetivo_default, etc.)
+// PATCH /auth/me/preferences → devuelve User actualizado
+export const updateUserPreferences = async (patch: { ahorro_objetivo_default?: number | null }): Promise<User> => {
+  const response = await api.patch('/auth/me/preferences', patch);
   return response.data;
 };
 

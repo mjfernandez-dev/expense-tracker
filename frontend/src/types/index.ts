@@ -9,6 +9,7 @@ export interface User {
   email: string;
   is_active: boolean;
   created_at: string;
+  ahorro_objetivo_default?: number | null;
 }
 
 export interface UserCreate {
@@ -45,6 +46,8 @@ export interface UserCategory {
   nombre: string;
   color: string;
   icon: string | null;
+  monto_default?: number | null;
+  tiene_monto_fijo?: boolean;
 }
 
 // ============== TIPOS DE MOVIMIENTOS ==============

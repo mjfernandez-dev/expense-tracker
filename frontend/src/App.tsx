@@ -7,12 +7,12 @@ import MovimientoList from './components/MovimientoList';
 import DashboardCiclo from './components/DashboardCiclo';
 import BalanceCiclo from './components/BalanceCiclo';
 import CicloWizard from './components/CicloWizard';
-import CategoryManager from './components/CategoryManager';
+import PresupuestoManager from './components/PresupuestoManager';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
 
-type Tab = 'inicio' | 'movimientos' | 'balance' | 'herramientas';
+type Tab = 'inicio' | 'movimientos' | 'balance' | 'presupuesto';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
 
 function App() {
@@ -20,6 +20,7 @@ function App() {
   const [movimientoToEdit, setMovimientoToEdit] = useState<Movimiento | null>(null);
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [showModal, setShowModal] = useState<boolean>(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -77,8 +78,9 @@ function App() {
           await createMovimiento(op.payload); // navigator.onLine=true, no encolará de nuevo
           await removePendingOperation(op.id!);
         }
-      } catch {
-        break; // parar en el primer error (ej: sesión expirada)
+      } catch (err) {
+        setSyncError(err instanceof Error ? err.message : 'Error al sincronizar operaciones pendientes');
+        break;
       }
     }
     setRefreshKey(prev => prev + 1);
@@ -93,14 +95,14 @@ function App() {
     inicio: 'Inicio',
     movimientos: 'Movimientos',
     balance: 'Balance',
-    herramientas: 'Herramientas',
+    presupuesto: 'Presupuesto',
   };
 
   const tabIcon: Record<Tab, string> = {
     inicio: '⚡',
     movimientos: '📋',
     balance: '📊',
-    herramientas: '⚙️',
+    presupuesto: '💰',
   };
 
   return (
@@ -133,6 +135,16 @@ function App() {
         </div>
       </div>
 
+      {/* ERROR DE SINCRONIZACIÓN OFFLINE */}
+      {syncError && (
+        <div className="max-w-6xl mx-auto px-4 pt-3">
+          <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-2 rounded-lg text-sm flex justify-between items-center">
+            <span>{syncError}</span>
+            <button onClick={() => setSyncError(null)} className="text-red-300 hover:text-red-100 ml-4">✕</button>
+          </div>
+        </div>
+      )}
+
       {/* CONTENIDO POR TAB */}
       <div className="max-w-6xl mx-auto px-3 sm:px-4 pb-32 pt-4">
 
@@ -159,9 +171,9 @@ function App() {
           <BalanceCiclo refreshKey={refreshKey} />
         )}
 
-        {tab === 'herramientas' && (
-          <div className="bg-slate-700/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-4 sm:p-6">
-            <CategoryManager />
+        {tab === 'presupuesto' && (
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 sm:p-6">
+            <PresupuestoManager />
           </div>
         )}
 
@@ -170,7 +182,7 @@ function App() {
       {/* BOTTOM TAB BAR */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/70 shadow-lg">
         <div className="max-w-6xl mx-auto flex">
-          {(['inicio', 'movimientos', 'balance', 'herramientas'] as Tab[]).map((t) => (
+          {(['inicio', 'movimientos', 'balance', 'presupuesto'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -194,7 +206,7 @@ function App() {
           className="fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] border border-blue-300/30 active:scale-95 transition-all duration-150 flex items-center justify-center"
           aria-label="Registrar movimiento"
         >
-          <span className="text-2xl leading-none font-light mt-[-2px]">+</span>
+          <span className="text-2xl leading-none font-light -mt-0.5">+</span>
         </button>
       )}
 
@@ -214,6 +226,7 @@ function App() {
           importeReferencia={wizardImporte}
           onComplete={handleWizardComplete}
           onClose={handleWizardClose}
+          ahorroDefault={user?.ahorro_objetivo_default ?? 0}
         />
       )}
     </div>

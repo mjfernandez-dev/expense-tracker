@@ -1,6 +1,5 @@
 """Router de autenticación: /auth/*"""
-from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
@@ -12,8 +11,6 @@ import config
 import models
 import schemas
 from auth import (
-    get_password_hash,
-    verify_password,
     authenticate_user,
     create_access_token,
     create_refresh_token,
@@ -25,11 +22,11 @@ from auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
     _hash_token,
-    _utcnow,
 )
 from database import get_db
 from dependencies import limiter
 from email_service import send_password_reset_email
+from services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -48,16 +45,7 @@ def register(request: Request, user: schemas.UserCreate, db: Session = Depends(g
         raise HTTPException(status_code=400, detail="El nombre de usuario ya está registrado")
     if get_user_by_email(db, user.email):
         raise HTTPException(status_code=400, detail="El email ya está registrado")
-
-    db_user = models.User(
-        username=user.username,
-        email=user.email,
-        hashed_password=get_password_hash(user.password)
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    return auth_service.registrar_usuario(user, db)
 
 
 @router.post("/login", response_model=schemas.LoginResponse)
@@ -183,17 +171,7 @@ async def forgot_password(
     if not user:
         return {"message": message}
 
-    raw_token = uuid4().hex
-    token_hash = _hash_token(raw_token)
-    expires_at = _utcnow() + timedelta(hours=1)
-
-    reset_token = models.PasswordResetToken(
-        user_id=user.id,
-        token=token_hash,
-        expires_at=expires_at,
-    )
-    db.add(reset_token)
-    db.commit()
+    raw_token = auth_service.crear_password_reset_token(user, db)
 
     try:
         await send_password_reset_email(
@@ -202,8 +180,8 @@ async def forgot_password(
             reset_token=raw_token,
             expires_in_hours=1,
         )
-    except Exception as e:
-        print(f"⚠️ Error enviando email a {user.email}: {str(e)}")
+    except Exception:
+        pass  # fallo de email no bloquea el flujo de reset
 
     return {"message": message}
 
@@ -213,28 +191,12 @@ def reset_password(
     payload: schemas.PasswordResetConfirm,
     db: Session = Depends(get_db),
 ):
-    token = (
-        db.query(models.PasswordResetToken)
-        .filter(models.PasswordResetToken.token == _hash_token(payload.token))
-        .first()
-    )
-
-    if not token or token.used or token.expires_at < _utcnow():
+    ok = auth_service.resetear_password(_hash_token(payload.token), payload.new_password, db)
+    if not ok:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El token de restablecimiento no es válido o ha expirado",
         )
-
-    user = db.query(models.User).filter(models.User.id == token.user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El token de restablecimiento no es válido o ha expirado",
-        )
-
-    user.hashed_password = get_password_hash(payload.new_password)
-    token.used = True
-    db.commit()
 
     return {"message": "Contraseña restablecida correctamente"}
 
@@ -245,17 +207,17 @@ def change_password(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    if not verify_password(payload.current_password, current_user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La contraseña actual no es correcta",
-        )
-
-    current_user.hashed_password = get_password_hash(payload.new_password)
-    db.commit()
-    db.refresh(current_user)
-
+    auth_service.cambiar_password(current_user, payload, db)
     return {"message": "Contraseña actualizada correctamente"}
+
+
+@router.patch("/me/preferences", response_model=schemas.UserRead)
+def update_user_preferences(
+    payload: schemas.UserPreferencesUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    return auth_service.actualizar_preferencias(current_user, payload, db)
 
 
 @router.put("/payment-info", response_model=schemas.UserRead)
@@ -264,8 +226,4 @@ def update_payment_info(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    current_user.alias_bancario = payload.alias_bancario
-    current_user.cvu = payload.cvu
-    db.commit()
-    db.refresh(current_user)
-    return current_user
+    return auth_service.actualizar_info_pago(current_user, payload, db)

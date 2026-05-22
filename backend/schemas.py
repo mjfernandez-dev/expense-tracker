@@ -44,6 +44,7 @@ class UserRead(UserBase):
     created_at: datetime
     alias_bancario: Optional[str] = None
     cvu: Optional[str] = None
+    ahorro_objetivo_default: Optional[MoneyDecimal] = None
 
     class Config:
         from_attributes = True
@@ -57,6 +58,17 @@ class LoginResponse(BaseModel):
 class PaymentInfoUpdate(BaseModel):
     alias_bancario: Optional[str] = None
     cvu: Optional[str] = None
+
+
+class UserPreferencesUpdate(BaseModel):
+    ahorro_objetivo_default: Optional[MoneyDecimal] = None
+
+    @field_validator("ahorro_objetivo_default")
+    @classmethod
+    def non_negative(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("El ahorro objetivo no puede ser negativo")
+        return v
 
 
 # Schema para el token JWT
@@ -123,6 +135,8 @@ class UserCategoryBase(BaseModel):
     descripcion: Optional[str] = None
     color: str = "#6366f1"  # Color hexadecimal por defecto
     icon: Optional[str] = None
+    monto_default: Optional[MoneyDecimal] = None
+    tiene_monto_fijo: bool = False
 
 # Schema para CREAR una categoría personalizada
 class UserCategoryCreate(UserCategoryBase):
@@ -134,6 +148,8 @@ class UserCategoryUpdate(BaseModel):
     descripcion: Optional[str] = None
     color: Optional[str] = None
     icon: Optional[str] = None
+    monto_default: Optional[MoneyDecimal] = None
+    tiene_monto_fijo: Optional[bool] = None
 
 # Schema para LEER una categoría personalizada
 class UserCategoryRead(UserCategoryBase):
@@ -385,26 +401,7 @@ class CicloUpdate(BaseModel):
     ahorro_objetivo: Optional[MoneyDecimal] = None
 
 
-# Alias for backwards compatibility
-CicloGastoFijoItemCreate = PresupuestoItemCreate
 CicloGastoFijoBulk = PresupuestoItemBulk
-
-
-# Legacy - keeping for backwards compatibility in API
-class CicloGastoFijoRead(BaseModel):
-    id: int
-    ciclo_id: int
-    gasto_fijo_id: Optional[int] = None
-    monto_confirmado: MoneyDecimal
-    monto_ejecutado: MoneyDecimal = Decimal('0')
-    monto_pendiente: MoneyDecimal = Decimal('0')
-    confirmado: bool
-    descripcion_override: Optional[str] = None
-    estado: str
-    gasto_fijo: Optional[GastoFijoRead] = None
-
-    class Config:
-        from_attributes = True
 
 
 class CicloResumen(BaseModel):

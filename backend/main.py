@@ -30,7 +30,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from database import engine, get_db, Base
+from database import engine, Base
 import models
 import config
 from dependencies import limiter
@@ -40,6 +40,7 @@ from services.scheduler_service import create_scheduler
 
 # Routers
 from routers import auth, categorias, movimientos, contactos, gastos_fijos
+from routers.categorias import categories_router
 from routers import split_groups, split_expenses, balances, ciclos
 
 # Crear todas las tablas en la base de datos si no existen
@@ -98,6 +99,7 @@ app.add_middleware(RequestLoggingMiddleware)
 
 # Registrar routers
 app.include_router(auth.router)
+app.include_router(categories_router)
 app.include_router(categorias.router)
 app.include_router(movimientos.router)
 app.include_router(contactos.router)

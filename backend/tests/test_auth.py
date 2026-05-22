@@ -147,3 +147,47 @@ def test_logout_revoca_refresh_token(logged_in_client):
     # Intentar usar el refresh token (ya revocado)
     r = logged_in_client.post("/auth/refresh")
     assert r.status_code == 401
+
+
+# ============== PASSWORD RESET (auth_service) ==============
+
+def test_forgot_password_email_inexistente_no_revela_informacion(client):
+    """Debe responder 200 aunque el email no exista (seguridad anti-enumeration)."""
+    r = client.post("/auth/forgot-password", json={"email": "noexiste@example.com"})
+    assert r.status_code == 200
+    assert "message" in r.json()
+
+
+def test_forgot_password_email_valido(client, registered_user):
+    r = client.post("/auth/forgot-password", json={"email": registered_user["email"]})
+    assert r.status_code == 200
+
+
+def test_reset_password_token_invalido(client):
+    r = client.post("/auth/reset-password", json={
+        "token": "token-inventado-que-no-existe",
+        "new_password": "NuevaClave123!",
+    })
+    assert r.status_code == 400
+
+
+def test_reset_password_via_service(client, registered_user, db_session):
+    """Crea un token directo via auth_service y luego lo usa para resetear."""
+    from services import auth_service
+    from auth import get_user_by_email
+
+    user = get_user_by_email(db_session, registered_user["email"])
+    raw_token = auth_service.crear_password_reset_token(user, db_session)
+
+    r = client.post("/auth/reset-password", json={
+        "token": raw_token,
+        "new_password": "NuevaClave123!",
+    })
+    assert r.status_code == 200
+
+    # El token no debe poder reutilizarse
+    r2 = client.post("/auth/reset-password", json={
+        "token": raw_token,
+        "new_password": "OtraClave456!",
+    })
+    assert r2.status_code == 400

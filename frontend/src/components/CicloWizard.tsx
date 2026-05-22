@@ -7,11 +7,12 @@ import {
   isDateAtOrAfterTodayBA,
 } from '../utils/buenosAiresDate';
 
-interface Props {
+interface CicloWizardProps {
   movimientoOrigenId: number | null;
   importeReferencia: number;
   onComplete: () => void;
   onClose: () => void;
+  ahorroDefault?: number;
 }
 
 interface CategoriaPresupuesto {
@@ -34,34 +35,41 @@ const formatFecha = (iso: string) =>
 
 const STEPS = ['Duración', 'Ahorro', 'Presupuesto'] as const;
 
-export default function CicloWizard({ movimientoOrigenId, importeReferencia, onComplete, onClose }: Props) {
-  const [step, setStep] = useState(0);
-  const [fechaFin, setFechaFin] = useState(getLastDayOfCurrentMonthBA());
-  const [ahorro, setAhorro] = useState('0');
+export default function CicloWizard({ movimientoOrigenId, importeReferencia, onComplete, onClose, ahorroDefault }: CicloWizardProps) {
+  const [step, setStep] = useState<number>(0);
+  const [fechaFin, setFechaFin] = useState<string>(getLastDayOfCurrentMonthBA());
+  const [ahorro, setAhorro] = useState<string>(ahorroDefault && ahorroDefault > 0 ? String(ahorroDefault) : '0');
   const [categorias, setCategorias] = useState<CategoriaPresupuesto[]>([]);
-  const [loadingCats, setLoadingCats] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loadingCats, setLoadingCats] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
   // undefined = verificando, null = no hay ciclo activo, objeto = hay ciclo activo a cerrar
   const [cicloActivo, setCicloActivo] = useState<CicloActivoInfo | null | undefined>(undefined);
 
   useEffect(() => {
-    getCicloActivo()
-      .then(c => setCicloActivo(c ? { id: c.id, fecha_fin: c.fecha_fin } : null))
-      .catch(() => setCicloActivo(null));
+    const verificar = async () => {
+      try {
+        const c = await getCicloActivo();
+        setCicloActivo(c ? { id: c.id, fecha_fin: c.fecha_fin } : null);
+      } catch {
+        setError('No se pudo verificar el ciclo activo.');
+        setCicloActivo(null);
+      }
+    };
+    verificar();
   }, []);
 
   useEffect(() => {
     if (step !== 2) return;
-    setLoadingCats(true);
-
-    Promise.all([getUserCategories(), getCicloActivo()])
-      .then(([cats, cicloActualData]) => {
-        const sugerencias: Record<number, number> = {};
+    const cargar = async () => {
+      setLoadingCats(true);
+      try {
+        const [cats, cicloActualData] = await Promise.all([getUserCategories(), getCicloActivo()]);
+        const sugerenciasCiclo: Record<number, number> = {};
         if (cicloActualData?.resumen?.presupuesto_items) {
           for (const item of cicloActualData.resumen.presupuesto_items) {
             if (item.user_category_id) {
-              sugerencias[item.user_category_id] = Math.max(
+              sugerenciasCiclo[item.user_category_id] = Math.max(
                 Number(item.monto_estimado),
                 Number(item.monto_ejecutado ?? 0),
               );
@@ -69,15 +77,23 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
           }
         }
         setCategorias(
-          cats.map((cat: UserCategory) => ({
-            user_category_id: cat.id,
-            nombre: cat.nombre,
-            monto: sugerencias[cat.id] ? String(sugerencias[cat.id]) : '',
-            activa: !!sugerencias[cat.id],
-          }))
+          cats.map((cat: UserCategory) => {
+            if (sugerenciasCiclo[cat.id]) {
+              return { user_category_id: cat.id, nombre: cat.nombre, monto: String(sugerenciasCiclo[cat.id]), activa: true };
+            }
+            if (cat.tiene_monto_fijo && cat.monto_default && cat.monto_default > 0) {
+              return { user_category_id: cat.id, nombre: cat.nombre, monto: String(cat.monto_default), activa: true };
+            }
+            return { user_category_id: cat.id, nombre: cat.nombre, monto: '', activa: false };
+          })
         );
-      })
-      .finally(() => setLoadingCats(false));
+      } catch {
+        setError('No se pudieron cargar las categorías. Intentá de nuevo.');
+      } finally {
+        setLoadingCats(false);
+      }
+    };
+    cargar();
   }, [step]);
 
   const ahorroNum = parseFloat(ahorro) || 0;
@@ -327,7 +343,7 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
         {step < 2 ? (
           <button
             onClick={step === 0 ? handleNextStep1 : handleNextStep2}
-            className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors"
+            className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
           >
             Siguiente
           </button>
@@ -335,7 +351,7 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
           <button
             onClick={handleFinish}
             disabled={loading}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold transition-all disabled:opacity-50"
+            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-semibold transition-all disabled:opacity-50"
           >
             {loading ? 'Creando ciclo...' : '¡Activar ciclo!'}
           </button>
