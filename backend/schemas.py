@@ -199,6 +199,23 @@ class MovimientoRead(MovimientoBase):
         from_attributes = True  # Convierte modelos SQLAlchemy a JSON
 
 
+# ============== SCHEMAS PARA CATEGORÍAS — MOVIMIENTOS AFECTADOS ==============
+
+class MovimientoAfectado(BaseModel):
+    id: int
+    descripcion: str
+    fecha: datetime
+    importe: MoneyDecimal
+    tipo: str
+
+    class Config:
+        from_attributes = True
+
+
+class ReasignarMovimientosBody(BaseModel):
+    nueva_categoria_id: int
+
+
 # ============== SCHEMAS PARA GASTO FIJO ==============
 
 class GastoFijoRead(BaseModel):

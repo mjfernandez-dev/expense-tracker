@@ -1,7 +1,7 @@
 """Routers de categorías: /categories/ y /user-categories/"""
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 import models
@@ -74,3 +74,32 @@ def delete_user_category(
     category = user_category_service.obtener_categoria_usuario(category_id, current_user.id, db)
     user_category_service.eliminar_user_category(category, db)
     return None
+
+
+@router.get("/{category_id}/movimientos-afectados", response_model=List[schemas.MovimientoAfectado])
+def get_movimientos_afectados(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Devuelve los movimientos que usan esta categoría (para previsualizar antes de eliminar)."""
+    user_category_service.obtener_categoria_usuario(category_id, current_user.id, db)
+    return user_category_service.obtener_movimientos_afectados(category_id, db)
+
+
+@router.post("/{category_id}/reasignar", response_model=dict)
+def reasignar_movimientos(
+    category_id: int,
+    body: schemas.ReasignarMovimientosBody,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Reasigna todos los movimientos de esta categoría a otra, luego elimina la original."""
+    category = user_category_service.obtener_categoria_usuario(category_id, current_user.id, db)
+    if category_id == body.nueva_categoria_id:
+        raise HTTPException(status_code=400, detail="La categoría destino debe ser diferente a la actual")
+    count = user_category_service.reasignar_movimientos_categoria(
+        category_id, body.nueva_categoria_id, current_user.id, db
+    )
+    user_category_service.eliminar_user_category(category, db)
+    return {"reasignados": count}

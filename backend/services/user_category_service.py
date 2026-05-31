@@ -71,6 +71,42 @@ def _verificar_puede_eliminar(category_id: int, db: Session) -> int:
     ).count()
 
 
+def obtener_movimientos_afectados(category_id: int, db: Session) -> List[models.Movimiento]:
+    return (
+        db.query(models.Movimiento)
+        .filter(models.Movimiento.user_category_id == category_id)
+        .order_by(models.Movimiento.fecha.desc())
+        .all()
+    )
+
+
+def reasignar_movimientos_categoria(
+    category_id: int,
+    nueva_categoria_id: int,
+    user_id: int,
+    db: Session,
+) -> int:
+    """
+    Reasigna todos los movimientos de category_id a nueva_categoria_id.
+    Valida que la nueva categoría pertenezca al usuario.
+    Retorna la cantidad de movimientos actualizados.
+    """
+    nueva = db.query(models.UserCategory).filter(
+        models.UserCategory.id == nueva_categoria_id,
+        models.UserCategory.user_id == user_id,
+    ).first()
+    if not nueva:
+        raise HTTPException(status_code=404, detail="Categoría destino no encontrada")
+
+    count = (
+        db.query(models.Movimiento)
+        .filter(models.Movimiento.user_category_id == category_id)
+        .update({"user_category_id": nueva_categoria_id}, synchronize_session=False)
+    )
+    db.commit()
+    return count
+
+
 def eliminar_user_category(category: models.UserCategory, db: Session) -> None:
     movimientos_count = _verificar_puede_eliminar(category.id, db)
     if movimientos_count > 0:

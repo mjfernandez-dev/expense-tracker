@@ -206,3 +206,25 @@ def cerrar_ciclo(
         raise HTTPException(status_code=404, detail="Ciclo no encontrado")
     ciclo_service.cerrar_ciclo(ciclo, db)
     return {"message": "Ciclo cerrado correctamente"}
+
+
+@router.patch("/{ciclo_id}/reabrir", response_model=schemas.CicloRead)
+def reabrir_ciclo(
+    ciclo_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Reactiva un ciclo cerrado. Falla si ya hay otro ciclo activo."""
+    ciclo = (
+        db.query(models.Ciclo)
+        .filter(models.Ciclo.id == ciclo_id, models.Ciclo.user_id == current_user.id)
+        .first()
+    )
+    if not ciclo:
+        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
+    try:
+        ciclo_service.reabrir_ciclo(ciclo, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    return _ciclo_to_read(ciclo, db, current_user.id)

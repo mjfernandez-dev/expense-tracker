@@ -79,6 +79,22 @@ def cerrar_ciclo(ciclo: models.Ciclo, db: Session) -> None:
     db.commit()
 
 
+def reabrir_ciclo(ciclo: models.Ciclo, db: Session) -> None:
+    """
+    Reactiva un ciclo cerrado.
+    Raises ValueError si ya existe otro ciclo activo para el mismo usuario.
+    """
+    existe_activo = (
+        db.query(models.Ciclo)
+        .filter(models.Ciclo.user_id == ciclo.user_id, models.Ciclo.activo == True)
+        .first()
+    )
+    if existe_activo:
+        raise ValueError("Ya existe un ciclo activo. Cerralo antes de reabrir otro.")
+    ciclo.activo = True
+    db.commit()
+
+
 def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.CicloResumen:
     """
     Calcula el resumen financiero del ciclo activo:

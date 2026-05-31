@@ -315,6 +315,25 @@ export const deleteCategory = async (id: number): Promise<void> => {
   await api.delete(`/user-categories/${id}`);
 };
 
+export interface MovimientoAfectado {
+  id: number;
+  descripcion: string;
+  fecha: string;
+  importe: number;
+  tipo: 'gasto' | 'ingreso';
+}
+
+// GET /user-categories/{id}/movimientos-afectados
+export const getMovimientosAfectados = async (id: number): Promise<MovimientoAfectado[]> => {
+  const response = await api.get(`/user-categories/${id}/movimientos-afectados`);
+  return response.data;
+};
+
+// POST /user-categories/{id}/reasignar → reasigna movimientos y elimina la categoría
+export const reasignarYEliminarCategoria = async (id: number, nueva_categoria_id: number): Promise<void> => {
+  await api.post(`/user-categories/${id}/reasignar`, { nueva_categoria_id });
+};
+
 // Actualizar una categoría personalizada (campos parciales)
 // PATCH /user-categories/{id} → envía campos parciales, devuelve UserCategory
 export const updateUserCategory = async (
@@ -372,6 +391,12 @@ export const confirmarPresupuesto = async (
 // DELETE /ciclos/{id} → cierra el ciclo activo
 export const cerrarCiclo = async (id: number): Promise<void> => {
   await api.delete(`/ciclos/${id}`);
+};
+
+// PATCH /ciclos/{id}/reabrir → reactiva un ciclo cerrado
+export const reabrirCiclo = async (id: number): Promise<Ciclo> => {
+  const response = await api.patch(`/ciclos/${id}/reabrir`);
+  return response.data;
 };
 
 // GET /ciclos/ → lista todos los ciclos del usuario (sin resumen)

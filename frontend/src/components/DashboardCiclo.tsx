@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Ciclo } from '../types';
-import { getCicloActivo, cerrarCiclo, getCiclos, exportarCiclo } from '../services/api';
+import { getCicloActivo, cerrarCiclo, getCiclos, exportarCiclo, reabrirCiclo } from '../services/api';
 import EditCicloModal from './EditCicloModal';
 
 interface DashboardCicloProps {
@@ -39,6 +39,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
   const [loadingCiclo, setLoadingCiclo] = useState<boolean>(true);
   const [showEdit, setShowEdit] = useState<boolean>(false);
   const [closingCiclo, setClosingCiclo] = useState<boolean>(false);
+  const [reopeningId, setReopeningId] = useState<number | null>(null);
   const [exporting, setExporting] = useState<boolean>(false);
   const [ciclosAnteriores, setCiclosAnteriores] = useState<Ciclo[]>([]);
   const [showHistory, setShowHistory] = useState<boolean>(false);
@@ -59,25 +60,26 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
     }
   }, []);
 
+  const fetchHistorial = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const todos = await getCiclos();
+      setCiclosAnteriores(todos.filter((c) => !c.activo));
+    } catch {
+      setCiclosAnteriores([]);
+      setErrorCiclo('No se pudieron cargar los ciclos anteriores.');
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCiclo();
   }, [fetchCiclo, refreshKey]);
 
   useEffect(() => {
-    const cargarHistorial = async () => {
-      setLoadingHistory(true);
-      try {
-        const todos = await getCiclos();
-        setCiclosAnteriores(todos.filter((c) => !c.activo));
-      } catch {
-        setCiclosAnteriores([]);
-        setErrorCiclo('No se pudieron cargar los ciclos anteriores.');
-      } finally {
-        setLoadingHistory(false);
-      }
-    };
-    cargarHistorial();
-  }, [refreshKey]);
+    fetchHistorial();
+  }, [fetchHistorial, refreshKey]);
 
   const handleCerrar = async () => {
     if (!ciclo || !confirm('¿Cerrar este ciclo?')) return;
@@ -85,10 +87,25 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
     try {
       await cerrarCiclo(ciclo.id);
       setCiclo(null);
+      await fetchHistorial();
     } catch {
       setErrorCiclo('No se pudo cerrar el ciclo. Intentá de nuevo.');
     } finally {
       setClosingCiclo(false);
+    }
+  };
+
+  const handleReabrir = async (id: number) => {
+    setReopeningId(id);
+    setErrorCiclo(null);
+    try {
+      await reabrirCiclo(id);
+      await Promise.all([fetchCiclo(), fetchHistorial()]);
+    } catch (err) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setErrorCiclo(e.response?.data?.detail || 'No se pudo reabrir el ciclo.');
+    } finally {
+      setReopeningId(null);
     }
   };
 
@@ -107,26 +124,81 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
     return <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6 animate-pulse h-28" />;
   }
 
-  if (!ciclo || !ciclo.resumen) {
+  const hasCicloActivo = ciclo && ciclo.resumen;
+
+  const historialSection = (loadingHistory || ciclosAnteriores.length > 0) && (
+    <div className="mt-2">
+      <button
+        onClick={() => setShowHistory((v) => !v)}
+        disabled={loadingHistory}
+        className="w-full flex items-center justify-between px-3 py-2 text-slate-500 hover:text-slate-300 text-xs font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
+      >
+        <span>{loadingHistory ? 'Cargando historial...' : `Ciclos anteriores (${ciclosAnteriores.length})`}</span>
+        <span>{showHistory ? '▲' : '▼'}</span>
+      </button>
+
+      {showHistory && (
+        <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl overflow-hidden divide-y divide-slate-700/40">
+          {ciclosAnteriores.map((c) => {
+            const fi = new Date(c.fecha_inicio).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+            const ff = new Date(c.fecha_fin).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+            return (
+              <div key={c.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                <span className="text-slate-400 text-xs tabular-nums">{fi} → {ff}</span>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {!hasCicloActivo && (
+                    <button
+                      onClick={() => handleReabrir(c.id)}
+                      disabled={reopeningId === c.id}
+                      className="text-emerald-400 hover:text-emerald-300 text-xs px-2 py-1 rounded hover:bg-slate-700/50 transition-colors disabled:opacity-50"
+                    >
+                      {reopeningId === c.id ? '...' : 'Reabrir'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setExportingId(c.id);
+                      exportarCiclo(c.id, c.fecha_inicio)
+                        .catch(() => setErrorCiclo('No se pudo exportar. Intentá de nuevo.'))
+                        .finally(() => setExportingId(null));
+                    }}
+                    disabled={exportingId === c.id}
+                    className="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded hover:bg-slate-700/50 transition-colors disabled:opacity-50"
+                  >
+                    {exportingId === c.id ? '...' : 'Exportar TXT'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  if (!hasCicloActivo) {
     return (
-      <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6">
-        {errorCiclo && <p className="text-red-400 text-xs mb-2">{errorCiclo}</p>}
-        <div className="flex items-start gap-3">
-          <span className="text-2xl mt-0.5">💡</span>
-          <div>
-            <p className="text-slate-200 font-medium text-sm">Sin seguimiento diario activo</p>
-            <p className="text-slate-400 text-xs mt-0.5">
-              Cuando cobrés tu sueldo o ingreso, registralo y activá{' '}
-              <span className="text-blue-400 font-medium">Inicio de Ciclo</span>.
-              La app calcula cuánto podés gastar por día para llegar al próximo cobro sin quedarte corto.
-            </p>
+      <>
+        <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6">
+          {errorCiclo && <p className="text-red-400 text-xs mb-2">{errorCiclo}</p>}
+          <div className="flex items-start gap-3">
+            <span className="text-2xl mt-0.5">💡</span>
+            <div>
+              <p className="text-slate-200 font-medium text-sm">Sin seguimiento diario activo</p>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Cuando cobrés tu sueldo o ingreso, registralo y activá{' '}
+                <span className="text-blue-400 font-medium">Inicio de Ciclo</span>.
+                La app calcula cuánto podés gastar por día para llegar al próximo cobro sin quedarte corto.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+        {historialSection}
+      </>
     );
   }
 
-  const r = ciclo.resumen;
+  const r = ciclo.resumen!;
   const colors = SEMAFORO_COLORS[r.semaforo];
   const pct = Math.min(r.daily_cap_porcentaje_usado, 100);
   const fechaFinLabel = new Date(ciclo.fecha_fin).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
@@ -297,44 +369,8 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
         </div>
       </div>
 
-      {(loadingHistory || ciclosAnteriores.length > 0) && (
-        <div className="mt-2">
-          <button
-            onClick={() => setShowHistory((v) => !v)}
-            disabled={loadingHistory}
-            className="w-full flex items-center justify-between px-3 py-2 text-slate-500 hover:text-slate-300 text-xs font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
-          >
-            <span>{loadingHistory ? 'Cargando historial...' : `Ciclos anteriores (${ciclosAnteriores.length})`}</span>
-            <span>{showHistory ? '▲' : '▼'}</span>
-          </button>
-
-          {showHistory && (
-            <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl overflow-hidden divide-y divide-slate-700/40">
-              {ciclosAnteriores.map((c) => {
-                const fi = new Date(c.fecha_inicio).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
-                const ff = new Date(c.fecha_fin).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
-                return (
-                  <div key={c.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
-                    <span className="text-slate-400 text-xs tabular-nums">{fi} → {ff}</span>
-                    <button
-                      onClick={() => {
-                        setExportingId(c.id);
-                        exportarCiclo(c.id, c.fecha_inicio)
-                          .catch(() => setErrorCiclo('No se pudo exportar. Intentá de nuevo.'))
-                          .finally(() => setExportingId(null));
-                      }}
-                      disabled={exportingId === c.id}
-                      className="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded hover:bg-slate-700/50 transition-colors disabled:opacity-50 flex-shrink-0"
-                    >
-                      {exportingId === c.id ? '...' : 'Exportar TXT'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {errorCiclo && <p className="text-red-400 text-xs mb-2">{errorCiclo}</p>}
+      {historialSection}
     </>
   );
 }

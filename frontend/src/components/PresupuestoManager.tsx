@@ -2,12 +2,15 @@
 // Reemplaza CategoryManager agregando monto_default, tiene_monto_fijo y ahorro_objetivo_default
 import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
 import type { UserCategory } from '../types';
+import type { MovimientoAfectado } from '../services/api';
 import {
   getUserCategories,
   createCategory,
   updateCategory,
   updateUserCategory,
   deleteCategory,
+  getMovimientosAfectados,
+  reasignarYEliminarCategoria,
   updateUserPreferences,
 } from '../services/api';
 import { useAuth } from '../context/useAuth';
@@ -46,6 +49,9 @@ function PresupuestoManager() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [movimientosAfectados, setMovimientosAfectados] = useState<MovimientoAfectado[]>([]);
+  const [loadingAfectados, setLoadingAfectados] = useState<boolean>(false);
+  const [nuevaCategoriaId, setNuevaCategoriaId] = useState<number | null>(null);
 
   // ── Fetch categorías ──────────────────────────────────────────────
   const fetchCategories = useCallback(async () => {
@@ -196,14 +202,40 @@ function PresupuestoManager() {
   };
 
   // ── Eliminación ───────────────────────────────────────────────────
+  const openDeleteModal = async (id: number) => {
+    setDeleteTarget(id);
+    setDeleteError(null);
+    setNuevaCategoriaId(null);
+    setMovimientosAfectados([]);
+    setLoadingAfectados(true);
+    try {
+      const afectados = await getMovimientosAfectados(id);
+      setMovimientosAfectados(afectados);
+    } catch {
+      // si falla, igual mostramos el modal simple
+    } finally {
+      setLoadingAfectados(false);
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     if (deleteTarget === null) return;
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      await deleteCategory(deleteTarget);
+      if (movimientosAfectados.length > 0) {
+        if (!nuevaCategoriaId) {
+          setDeleteError('Seleccioná una categoría destino para los movimientos.');
+          return;
+        }
+        await reasignarYEliminarCategoria(deleteTarget, nuevaCategoriaId);
+      } else {
+        await deleteCategory(deleteTarget);
+      }
       await fetchCategories();
       setDeleteTarget(null);
+      setMovimientosAfectados([]);
+      setNuevaCategoriaId(null);
     } catch (err) {
       const e = err as { response?: { data?: { detail?: string } } };
       setDeleteError(e.response?.data?.detail || 'Error al eliminar la categoría');
@@ -324,7 +356,7 @@ function PresupuestoManager() {
                   ✎
                 </button>
                 <button
-                  onClick={() => { setDeleteTarget(cat.id); setDeleteError(null); }}
+                  onClick={() => openDeleteModal(cat.id)}
                   className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-2 py-1 rounded text-xs font-medium transition-all flex-shrink-0"
                   title="Eliminar"
                 >
@@ -382,11 +414,49 @@ function PresupuestoManager() {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => !isDeleting && setDeleteTarget(null)}
           />
-          <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 max-w-sm w-full">
+          <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-white mb-2">Eliminar categoría</h3>
-            <p className="text-sm text-slate-300 mb-6">
-              ¿Estás seguro? Esta acción no se puede deshacer.
-            </p>
+
+            {loadingAfectados ? (
+              <p className="text-slate-400 text-sm py-4 text-center">Verificando movimientos...</p>
+            ) : movimientosAfectados.length > 0 ? (
+              <>
+                <p className="text-sm text-slate-300 mb-3">
+                  Esta categoría tiene <span className="text-amber-300 font-semibold">{movimientosAfectados.length} movimiento{movimientosAfectados.length !== 1 ? 's' : ''}</span>. Reasignalos a otra categoría para continuar.
+                </p>
+                <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl divide-y divide-slate-700/40 mb-4 max-h-40 overflow-y-auto">
+                  {movimientosAfectados.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                      <span className="text-slate-300 truncate flex-1 mr-2">{m.descripcion}</span>
+                      <span className="text-slate-500 tabular-nums flex-shrink-0">
+                        {new Date(m.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                      </span>
+                      <span className={`ml-2 tabular-nums font-medium flex-shrink-0 ${m.tipo === 'gasto' ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {m.tipo === 'gasto' ? '−' : '+'} ${Number(m.importe).toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mb-4">
+                  <label className="block text-xs text-slate-400 mb-1">Reasignar a</label>
+                  <select
+                    value={nuevaCategoriaId ?? ''}
+                    onChange={(e) => setNuevaCategoriaId(Number(e.target.value) || null)}
+                    className="w-full bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Seleccioná una categoría</option>
+                    {categories
+                      .filter((c) => c.id !== deleteTarget)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>{c.nombre}</option>
+                      ))}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-300 mb-6">¿Estás seguro? Esta acción no se puede deshacer.</p>
+            )}
+
             {deleteError && (
               <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-3 py-2 rounded-lg mb-4 text-sm">
                 {deleteError}
@@ -394,7 +464,7 @@ function PresupuestoManager() {
             )}
             <div className="flex gap-3">
               <button
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => { setDeleteTarget(null); setMovimientosAfectados([]); setNuevaCategoriaId(null); }}
                 disabled={isDeleting}
                 className="flex-1 border border-slate-600 bg-slate-800/60 text-slate-300 font-medium py-2.5 rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-all text-sm"
               >
@@ -402,10 +472,14 @@ function PresupuestoManager() {
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                disabled={isDeleting}
+                disabled={isDeleting || loadingAfectados}
                 className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 text-white font-medium py-2.5 rounded-lg transition-all text-sm"
               >
-                {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                {isDeleting
+                  ? 'Procesando...'
+                  : movimientosAfectados.length > 0
+                  ? 'Reasignar y eliminar'
+                  : 'Eliminar'}
               </button>
             </div>
           </div>
