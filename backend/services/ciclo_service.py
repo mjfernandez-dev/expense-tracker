@@ -33,14 +33,6 @@ def crear_nuevo_ciclo(
         raise ValueError(f"Ya existe un ciclo activo (id={existe_activo.id}). Cerralo antes de crear uno nuevo.")
 
     fecha_inicio = ciclo_time_service.ahora_buenos_aires()
-    if movimiento_origen_id:
-        mov = (
-            db.query(models.Movimiento)
-            .filter(models.Movimiento.id == movimiento_origen_id, models.Movimiento.user_id == user_id)
-            .first()
-        )
-        if mov:
-            fecha_inicio = mov.fecha
 
     ciclo = models.Ciclo(
         user_id=user_id,
