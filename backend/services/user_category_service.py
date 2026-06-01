@@ -115,6 +115,9 @@ def eliminar_user_category(category: models.UserCategory, db: Session) -> None:
             detail=f"No se puede eliminar. Hay {movimientos_count} movimiento(s) usando esta categoría. "
                    "Asigna esos movimientos a otra categoría primero."
         )
+    db.query(models.PresupuestoItem).filter(
+        models.PresupuestoItem.user_category_id == category.id
+    ).delete(synchronize_session=False)
     db.delete(category)
     db.commit()
 
