@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Ciclo, CicloCreate, PresupuestoItemCreate, UserCategory } from '../types';
-import { updateCiclo, confirmarPresupuesto, getUserCategories } from '../services/api';
+import { updateCiclo, confirmarPresupuesto, getUserCategories, updateUserCategory } from '../services/api';
 import { isDateAtOrAfterTodayBA } from '../utils/buenosAiresDate';
 
 interface EditCicloModalProps {
@@ -15,6 +15,7 @@ interface PresupuestoEdit {
   descripcion: string;
   monto: string;
   confirmado: boolean;
+  monto_default: number | null;
 }
 
 export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloModalProps) {
@@ -25,6 +26,7 @@ export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloMod
   const [loadingCats, setLoadingCats] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [syncDefaults, setSyncDefaults] = useState<boolean>(false);
   const [nuevoAdHoc, setNuevoAdHoc] = useState<string>('');
   const [nuevoAdHocMonto, setNuevoAdHocMonto] = useState<string>('');
 
@@ -46,6 +48,7 @@ export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloMod
             descripcion: cat.nombre,
             monto: match ? String(match.monto_estimado) : '',
             confirmado: match ? match.confirmado : false,
+            monto_default: cat.monto_default ?? null,
           };
         });
         const adHocRows: PresupuestoEdit[] = existingItems
@@ -61,6 +64,7 @@ export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloMod
             descripcion: item.descripcion ?? 'Sin descripción',
             monto: String(item.monto_estimado),
             confirmado: item.confirmado,
+            monto_default: null,
           }));
         setGastosFijos([...catRows, ...adHocRows]);
       } catch {
@@ -71,6 +75,7 @@ export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloMod
             descripcion: c.descripcion ?? 'Sin descripción',
             monto: String(c.monto_estimado),
             confirmado: c.confirmado,
+            monto_default: null,
           })),
         );
         setError('No se pudieron cargar las categorías. Mostrando datos existentes.');
@@ -85,11 +90,20 @@ export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloMod
     if (!nuevoAdHoc.trim() || !nuevoAdHocMonto) return;
     setGastosFijos((prev) => [
       ...prev,
-      { categoria_id: null, user_category_id: null, descripcion: nuevoAdHoc.trim(), monto: nuevoAdHocMonto, confirmado: true },
+      { categoria_id: null, user_category_id: null, descripcion: nuevoAdHoc.trim(), monto: nuevoAdHocMonto, confirmado: true, monto_default: null },
     ]);
     setNuevoAdHoc('');
     setNuevoAdHocMonto('');
   };
+
+  const itemsConCambio = gastosFijos.filter(
+    (gf): gf is PresupuestoEdit & { user_category_id: number; monto_default: number } =>
+      gf.user_category_id !== null &&
+      gf.confirmado &&
+      gf.monto !== '' &&
+      gf.monto_default !== null &&
+      parseFloat(gf.monto) !== gf.monto_default,
+  );
 
   const handleSave = async () => {
     setError('');
@@ -104,6 +118,13 @@ export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloMod
         .filter((gf) => gf.confirmado)
         .map((gf) => ({ categoria_id: gf.categoria_id, user_category_id: gf.user_category_id, monto_estimado: parseFloat(gf.monto) || 0, confirmado: true, descripcion: gf.descripcion }));
       if (todosLosItems.length > 0) await confirmarPresupuesto(ciclo.id, todosLosItems);
+      if (syncDefaults && itemsConCambio.length > 0) {
+        await Promise.all(
+          itemsConCambio.map((gf) =>
+            updateUserCategory(gf.user_category_id, { monto_default: parseFloat(gf.monto) }),
+          ),
+        );
+      }
       onSaved();
       onClose();
     } catch {
@@ -170,6 +191,33 @@ export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloMod
               className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors">+</button>
           </div>
         </div>
+
+        {itemsConCambio.length > 0 && (
+          <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl p-3 space-y-2">
+            <button
+              type="button"
+              onClick={() => setSyncDefaults((v) => !v)}
+              className="flex items-center gap-2 w-full text-left"
+            >
+              <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 transition-colors ${syncDefaults ? 'bg-blue-600 border-blue-600' : 'border-slate-500'}`}>
+                {syncDefaults && <span className="text-white text-xs font-bold leading-none">✓</span>}
+              </span>
+              <span className="text-slate-300 text-xs">Actualizar valores por defecto para próximos ciclos</span>
+            </button>
+            {syncDefaults && (
+              <ul className="pl-6 space-y-1">
+                {itemsConCambio.map((gf, i) => (
+                  <li key={i} className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+                    <span className="flex-1 truncate">{gf.descripcion}</span>
+                    <span className="text-slate-600">{gf.monto_default?.toLocaleString('es-AR')}</span>
+                    <span className="text-slate-600">→</span>
+                    <span className="text-blue-400">{parseFloat(gf.monto).toLocaleString('es-AR')}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose}
