@@ -18,6 +18,7 @@ interface PresupuestoEdit {
 }
 
 export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloModalProps) {
+  const [fechaInicio, setFechaInicio] = useState<string>(ciclo.fecha_inicio.split('T')[0]);
   const [fechaFin, setFechaFin] = useState<string>(ciclo.fecha_fin.split('T')[0]);
   const [ahorro, setAhorro] = useState<string>(String(ciclo.ahorro_objetivo));
   const [gastosFijos, setGastosFijos] = useState<PresupuestoEdit[]>([]);
@@ -98,7 +99,7 @@ export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloMod
     }
     setLoading(true);
     try {
-      await updateCiclo(ciclo.id, { fecha_fin: `${fechaFin}T23:59:59`, ahorro_objetivo: parseFloat(ahorro) || 0 } as Partial<CicloCreate>);
+      await updateCiclo(ciclo.id, { fecha_inicio: `${fechaInicio}T00:00:00`, fecha_fin: `${fechaFin}T23:59:59`, ahorro_objetivo: parseFloat(ahorro) || 0 } as Partial<CicloCreate>);
       const todosLosItems: PresupuestoItemCreate[] = gastosFijos
         .filter((gf) => gf.confirmado)
         .map((gf) => ({ categoria_id: gf.categoria_id, user_category_id: gf.user_category_id, monto_estimado: parseFloat(gf.monto) || 0, confirmado: true, descripcion: gf.descripcion }));
@@ -117,6 +118,12 @@ export default function EditCicloModal({ ciclo, onClose, onSaved }: EditCicloMod
       <div className="bg-slate-800/90 backdrop-blur-sm border border-slate-600/50 rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
         <h3 className="text-lg font-semibold text-white">Editar ciclo</h3>
         {error && <p className="text-red-400 text-sm">{error}</p>}
+
+        <div className="space-y-1">
+          <label className="text-slate-300 text-sm">Fecha de inicio del ciclo</label>
+          <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)}
+            className="w-full bg-slate-700 border border-slate-500 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500" />
+        </div>
 
         <div className="space-y-1">
           <label className="text-slate-300 text-sm">Fecha de fin del ciclo</label>

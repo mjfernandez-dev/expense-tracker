@@ -414,6 +414,7 @@ class CicloCreate(BaseModel):
 
 
 class CicloUpdate(BaseModel):
+    fecha_inicio: Optional[datetime] = None
     fecha_fin: Optional[datetime] = None
     ahorro_objetivo: Optional[MoneyDecimal] = None
 

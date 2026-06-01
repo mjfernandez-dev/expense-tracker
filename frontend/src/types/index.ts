@@ -144,6 +144,7 @@ export interface Ciclo {
 
 export interface CicloCreate {
   movimiento_origen_id?: number;
+  fecha_inicio?: string;
   fecha_fin: string;
   ahorro_objetivo: number;
 }

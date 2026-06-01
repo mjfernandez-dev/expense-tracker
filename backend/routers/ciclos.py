@@ -133,7 +133,7 @@ def actualizar_ciclo(
     """Actualiza fecha_fin y/o ahorro_objetivo del ciclo."""
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
     try:
-        ciclo_service.actualizar_fechas_ciclo(ciclo, data.fecha_fin, data.ahorro_objetivo, db)
+        ciclo_service.actualizar_fechas_ciclo(ciclo, data.fecha_inicio, data.fecha_fin, data.ahorro_objetivo, db)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)

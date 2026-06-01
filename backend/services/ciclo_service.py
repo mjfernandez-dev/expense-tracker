@@ -50,11 +50,16 @@ def crear_nuevo_ciclo(
 
 def actualizar_fechas_ciclo(
     ciclo: models.Ciclo,
+    fecha_inicio,
     fecha_fin,
     ahorro_objetivo,
     db: Session,
 ) -> None:
-    """Actualiza fecha_fin y/o ahorro_objetivo del ciclo. Raises ValueError si fecha_fin no es válida."""
+    """Actualiza fecha_inicio, fecha_fin y/o ahorro_objetivo del ciclo."""
+    if fecha_inicio is not None:
+        if fecha_inicio >= (fecha_fin or ciclo.fecha_fin):
+            raise ValueError("La fecha de inicio debe ser anterior a la fecha de fin")
+        ciclo.fecha_inicio = fecha_inicio
     if fecha_fin is not None:
         if fecha_fin <= ciclo_time_service.ahora_buenos_aires():
             raise ValueError("La fecha de fin debe ser posterior a hoy")
