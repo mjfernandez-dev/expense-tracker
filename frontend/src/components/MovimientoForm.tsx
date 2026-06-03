@@ -40,7 +40,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           setCategoriaId(data[0].id.toString());
         }
       } catch (err) {
-        console.error('Error al cargar categorías:', err);
+        setError('Error al cargar categorías');
       }
     };
 
@@ -84,7 +84,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setNewCatNombre('');
       setShowNewCat(false);
     } catch (err) {
-      console.error('Error al crear categoría:', err);
+      setError('Error al crear la categoría');
     } finally {
       setSavingCat(false);
     }
@@ -138,14 +138,12 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
     } catch (err) {
       setError(movimientoToEdit ? 'Error al actualizar el movimiento' : 'Error al registrar el movimiento');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
   const isIngreso = tipo === 'ingreso';
-  const accentColor = isIngreso ? 'green' : 'red';
 
   return (
     <div className={`bg-slate-800/70 rounded-2xl border border-slate-600/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-6 mb-6`}>
@@ -227,7 +225,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               onChange={(e) => setImporte(e.target.value)}
               placeholder="0"
               autoFocus
-              className={`w-full max-w-[200px] text-4xl font-bold text-center bg-transparent border-b-2 ${isIngreso ? 'border-green-500 text-green-100 placeholder:text-green-800' : 'border-red-500 text-red-100 placeholder:text-red-900'} focus:outline-none`}
+              className={`w-full max-w-xs text-4xl font-bold text-center bg-transparent border-b-2 ${isIngreso ? 'border-green-500 text-green-100 placeholder:text-green-800' : 'border-red-500 text-red-100 placeholder:text-red-900'} focus:outline-none`}
             />
           </div>
         </div>
@@ -241,7 +239,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             placeholder={isIngreso ? 'Ej: Sueldo de febrero' : 'Ej: Almuerzo con cliente'}
-            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
+            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
           />
         </div>
 
@@ -261,7 +259,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           <select
             value={categoriaId}
             onChange={(e) => setCategoriaId(e.target.value)}
-            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all`}
+            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
           >
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>
@@ -284,7 +282,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                 type="button"
                 onClick={handleCreateCategory}
                 disabled={savingCat || !newCatNombre.trim()}
-                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white text-sm font-medium transition-colors"
+                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 text-white text-sm font-medium transition-colors"
               >
                 {savingCat ? '...' : 'Crear'}
               </button>
@@ -300,7 +298,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             type="date"
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
-            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent transition-all [color-scheme:dark]`}
+            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all [color-scheme:dark] ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
           />
         </div>
 
@@ -340,15 +338,30 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             <label className="block text-sm font-medium text-slate-100 mb-1">
               Clasificación <span className="text-slate-400 font-normal">(opcional)</span>
             </label>
-            <select
-              value={clasificacion}
-              onChange={e => setClasificacion(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-            >
-              <option value="">Sin clasificar</option>
-              <option value="necesidad">Necesidad</option>
-              <option value="deseo">Deseo</option>
-            </select>
+            <div className="flex gap-1 p-1 rounded-xl bg-slate-900/60 border border-slate-600/30">
+              {[
+                { value: '', label: '— Sin clasificar' },
+                { value: 'necesidad', label: '🏠 Necesidad' },
+                { value: 'deseo', label: '✨ Deseo' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setClasificacion(opt.value)}
+                  className={`flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-all duration-150 ${
+                    clasificacion === opt.value
+                      ? opt.value === 'necesidad'
+                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-700 text-white shadow-md shadow-emerald-500/30'
+                        : opt.value === 'deseo'
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-700 text-white shadow-md shadow-amber-500/30'
+                        : 'bg-gradient-to-r from-slate-500 to-slate-700 text-white shadow-md shadow-slate-500/20'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
