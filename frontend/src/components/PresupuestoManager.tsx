@@ -258,7 +258,7 @@ function PresupuestoManager() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-1">Presupuesto</h2>
         <p className="text-slate-400 text-sm">
@@ -273,139 +273,170 @@ function PresupuestoManager() {
         </div>
       )}
 
-      {/* ── Ahorro objetivo ────────────────────────────────────── */}
-      <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-5 space-y-3">
-        <div className="flex items-center justify-between">
+      {/* ── Desktop: 2 columnas / Mobile: 1 columna ─────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+
+        {/* Columna izquierda: Categorías */}
+        <div className="space-y-3">
           <div>
-            <h3 className="text-white font-semibold text-sm">Ahorro mensual objetivo</h3>
-            <p className="text-slate-400 text-xs mt-0.5">Se reserva de inmediato al iniciar un ciclo</p>
+            <h3 className="text-white font-semibold text-sm">Categorías con monto fijo</h3>
+            <p className="text-slate-400 text-xs mt-0.5">
+              Al activar una categoría se pre-carga su monto en el Paso 3 del wizard.
+            </p>
           </div>
-          <SaveIndicator state={ahorroSaveState} />
+
+          {categories.length === 0 ? (
+            <div className="text-center py-6 text-slate-400 text-sm">No hay categorías. Creá una abajo.</div>
+          ) : (
+            <div className="space-y-2">
+              {categories.map(cat => (
+                <div
+                  key={cat.id}
+                  className={`flex items-center gap-3 bg-slate-800/60 rounded-xl px-3 py-2.5 border transition-colors ${
+                    cat.tiene_monto_fijo ? 'border-blue-500/30' : 'border-slate-700/40'
+                  }`}
+                >
+                  <button
+                    onClick={() => handleToggleMontoFijo(cat.id, !!cat.tiene_monto_fijo)}
+                    className={`w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-colors ${
+                      cat.tiene_monto_fijo ? 'bg-blue-600 border-blue-600' : 'border-slate-500'
+                    }`}
+                    title={cat.tiene_monto_fijo ? 'Desactivar monto fijo' : 'Activar monto fijo'}
+                  >
+                    {cat.tiene_monto_fijo && <span className="text-white text-xs font-bold">✓</span>}
+                  </button>
+
+                  <span className={`flex-1 text-sm truncate ${cat.tiene_monto_fijo ? 'text-slate-200' : 'text-slate-400'}`}>
+                    {cat.nombre}
+                  </span>
+
+                  <SaveIndicator state={cat.saveState} />
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={cat.monto_default != null ? cat.monto_default : ''}
+                    onChange={e => handleMontoChange(cat.id, e.target.value)}
+                    onBlur={e => handleMontoBlur(cat.id, e.target.value)}
+                    placeholder="$0"
+                    disabled={!cat.tiene_monto_fijo}
+                    className={`w-24 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-white text-sm text-right focus:outline-none focus:border-blue-500 transition-opacity ${
+                      cat.tiene_monto_fijo ? 'opacity-100' : 'opacity-30 cursor-not-allowed'
+                    }`}
+                  />
+
+                  <button
+                    onClick={() => handleEdit(cat)}
+                    className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 px-2 py-1 rounded text-xs font-medium transition-all flex-shrink-0"
+                    title="Renombrar"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    onClick={() => openDeleteModal(cat.id)}
+                    className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-2 py-1 rounded text-xs font-medium transition-all flex-shrink-0"
+                    title="Eliminar"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <input
-          type="number"
-          min="0"
-          step="100"
-          value={ahorroInput}
-          onChange={e => handleAhorroChange(e.target.value)}
-          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-          placeholder="0"
-        />
+
+        {/* Columna derecha: Ahorro + Nueva categoría */}
+        <div className="space-y-4">
+
+          {/* Ahorro objetivo */}
+          <div className="bg-slate-900/80 backdrop-blur-2xl border border-slate-700/70 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-semibold text-sm">Ahorro mensual objetivo</h3>
+                <p className="text-slate-400 text-xs mt-0.5">Se reserva de inmediato al iniciar un ciclo</p>
+              </div>
+              <SaveIndicator state={ahorroSaveState} />
+            </div>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              value={ahorroInput}
+              onChange={e => handleAhorroChange(e.target.value)}
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              placeholder="0"
+            />
+          </div>
+
+          {/* Nueva categoría */}
+          <div className="bg-slate-900/80 backdrop-blur-2xl border border-slate-700/70 rounded-2xl p-5 space-y-3">
+            <h3 className="text-white font-semibold text-sm">Nueva categoría</h3>
+            {formError && !editingId && (
+              <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-3 py-2 rounded-lg text-sm">
+                {formError}
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="flex gap-2">
+              <input
+                type="text"
+                value={nombre}
+                onChange={e => setNombre(e.target.value)}
+                placeholder="Nombre (ej: Alimentación)"
+                className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder:text-slate-400 text-sm focus:outline-none focus:border-blue-500"
+              />
+              <button
+                type="submit"
+                disabled={formLoading}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex-shrink-0"
+              >
+                {formLoading ? '...' : 'Crear'}
+              </button>
+            </form>
+          </div>
+
+        </div>
       </div>
 
-      {/* ── Categorías con monto fijo ───────────────────────────── */}
-      <div className="space-y-3">
-        <div>
-          <h3 className="text-white font-semibold text-sm">Categorías con monto fijo</h3>
-          <p className="text-slate-400 text-xs mt-0.5">
-            Al activar una categoría se pre-carga su monto en el Paso 3 del wizard.
-          </p>
-        </div>
-
-        {categories.length === 0 ? (
-          <div className="text-center py-6 text-slate-400 text-sm">No hay categorías. Creá una abajo.</div>
-        ) : (
-          <div className="space-y-2">
-            {categories.map(cat => (
-              <div
-                key={cat.id}
-                className={`flex items-center gap-3 bg-slate-800/60 rounded-xl px-3 py-2.5 border transition-colors ${
-                  cat.tiene_monto_fijo ? 'border-blue-500/30' : 'border-slate-700/40'
-                }`}
-              >
-                {/* Checkbox tiene_monto_fijo */}
+      {/* ── Modal renombrar ─────────────────────────────────────── */}
+      {editingId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCancelEdit} />
+          <div className="relative bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-white mb-4">Renombrar categoría</h3>
+            {formError && (
+              <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-3 py-2 rounded-lg mb-3 text-sm">
+                {formError}
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <input
+                type="text"
+                value={nombre}
+                onChange={e => setNombre(e.target.value)}
+                autoFocus
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              />
+              <div className="flex gap-3">
                 <button
-                  onClick={() => handleToggleMontoFijo(cat.id, !!cat.tiene_monto_fijo)}
-                  className={`w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-colors ${
-                    cat.tiene_monto_fijo ? 'bg-blue-600 border-blue-600' : 'border-slate-500'
-                  }`}
-                  title={cat.tiene_monto_fijo ? 'Desactivar monto fijo' : 'Activar monto fijo'}
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="flex-1 border border-slate-600 bg-slate-800/60 text-slate-300 font-medium py-2.5 rounded-lg hover:bg-slate-800 transition-all text-sm"
                 >
-                  {cat.tiene_monto_fijo && <span className="text-white text-xs font-bold">✓</span>}
-                </button>
-
-                {/* Nombre */}
-                <span className={`flex-1 text-sm truncate ${cat.tiene_monto_fijo ? 'text-slate-200' : 'text-slate-400'}`}>
-                  {cat.nombre}
-                </span>
-
-                {/* Indicador de guardado */}
-                <SaveIndicator state={cat.saveState} />
-
-                {/* Monto default */}
-                <input
-                  type="number"
-                  min="0"
-                  step="100"
-                  value={cat.monto_default != null ? cat.monto_default : ''}
-                  onChange={e => handleMontoChange(cat.id, e.target.value)}
-                  onBlur={e => handleMontoBlur(cat.id, e.target.value)}
-                  placeholder="$0"
-                  disabled={!cat.tiene_monto_fijo}
-                  className={`w-24 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-white text-sm text-right focus:outline-none focus:border-blue-500 transition-opacity ${
-                    cat.tiene_monto_fijo ? 'opacity-100' : 'opacity-30 cursor-not-allowed'
-                  }`}
-                />
-
-                {/* Acciones */}
-                <button
-                  onClick={() => handleEdit(cat)}
-                  className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 px-2 py-1 rounded text-xs font-medium transition-all flex-shrink-0"
-                  title="Renombrar"
-                >
-                  ✎
+                  Cancelar
                 </button>
                 <button
-                  onClick={() => openDeleteModal(cat.id)}
-                  className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-2 py-1 rounded text-xs font-medium transition-all flex-shrink-0"
-                  title="Eliminar"
+                  type="submit"
+                  disabled={formLoading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
                 >
-                  ✕
+                  {formLoading ? 'Guardando...' : 'Renombrar'}
                 </button>
               </div>
-            ))}
+            </form>
           </div>
-        )}
-      </div>
-
-      {/* ── Formulario nueva / renombrar categoría ─────────────── */}
-      <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-5 space-y-3">
-        <h3 className="text-white font-semibold text-sm">
-          {editingId ? 'Renombrar categoría' : 'Nueva categoría'}
-        </h3>
-
-        {formError && (
-          <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-3 py-2 rounded-lg text-sm">
-            {formError}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="flex gap-3">
-          <input
-            type="text"
-            value={nombre}
-            onChange={e => setNombre(e.target.value)}
-            placeholder="Nombre de categoría (ej: Alimentación)"
-            className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder:text-slate-400 text-sm focus:outline-none focus:border-blue-500"
-          />
-          <button
-            type="submit"
-            disabled={formLoading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors"
-          >
-            {formLoading ? 'Guardando...' : editingId ? 'Renombrar' : 'Crear'}
-          </button>
-          {editingId && (
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="border border-slate-600 text-slate-300 px-3 py-2 rounded-lg text-sm hover:bg-slate-700 transition-colors"
-            >
-              Cancelar
-            </button>
-          )}
-        </form>
-      </div>
+        </div>
+      )}
 
       {/* ── Modal eliminación ───────────────────────────────────── */}
       {deleteTarget !== null && (

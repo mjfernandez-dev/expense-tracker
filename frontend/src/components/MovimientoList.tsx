@@ -1,6 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import type { Movimiento } from '../types';
 import { getMovimientos, deleteMovimiento } from '../services/api';
+
+const formatARS = (n: number) =>
+  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -19,30 +22,29 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);  // modal normal
   const [autoDeleteTarget, setAutoDeleteTarget] = useState<Movimiento | null>(null);  // modal 3 opciones
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [tabActivo, setTabActivo] = useState<TabActivo>('gastos');
 
-  const fetchMovimientos = async () => {
+  const fetchMovimientos = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getMovimientos();
       setMovimientos(data);
-    } catch (err) {
+    } catch {
       setError('Error al cargar los movimientos');
-      console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMovimientos();
-  }, []);
+  }, [fetchMovimientos]);
 
   useEffect(() => {
     const isOpen = deleteTarget !== null || autoDeleteTarget !== null;
@@ -101,8 +103,8 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     try {
       await deleteMovimiento(deleteTarget);
       await fetchMovimientos();
-    } catch (err) {
-      console.error(err);
+    } catch {
+      setError('Error al eliminar el movimiento');
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
@@ -116,8 +118,8 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
       await deleteMovimiento(autoDeleteTarget.id);
       await fetchMovimientos();
       setAutoDeleteTarget(null);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      setError('Error al eliminar el movimiento');
     } finally {
       setIsDeleting(false);
     }
@@ -132,7 +134,8 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     listaActiva.forEach((mov) => {
       const key = mov.fecha.substring(0, 10);
       if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(mov);
+      const group = map.get(key);
+      if (group) group.push(mov);
     });
     return Array.from(map.entries())
       .sort(([a], [b]) => b.localeCompare(a))
@@ -155,7 +158,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-100 truncate mr-3">{mov.descripcion}</span>
             <span className={`text-sm font-bold whitespace-nowrap ${esIngreso ? 'text-green-300' : 'text-white'}`}>
-              {esIngreso ? '+' : '-'}${mov.importe.toFixed(2)}
+              {esIngreso ? '+' : '-'}{formatARS(mov.importe)}
             </span>
           </div>
           <div className="flex items-center justify-between mt-1">
@@ -235,8 +238,8 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         {(['gastos', 'ingresos'] as TabActivo[]).map((tab) => {
           const labels: Record<TabActivo, string> = { gastos: 'Gastos', ingresos: 'Ingresos' };
           const activeStyles: Record<TabActivo, string> = {
-            gastos: 'bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]',
-            ingresos: 'bg-green-600 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]',
+            gastos: 'bg-red-600 text-white',
+            ingresos: 'bg-green-600 text-white',
           };
           return (
             <button
@@ -289,7 +292,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                 Total {esIngreso ? 'ingresos' : 'gastos'} {MESES[selectedMonth]}
               </span>
               <span className={`text-2xl font-bold ${esIngreso ? 'text-green-100' : 'text-blue-100'}`}>
-                {esIngreso ? '+' : ''}${(esIngreso ? totalIngresos : totalGastos).toFixed(2)}
+                {esIngreso ? '+' : ''}{formatARS(esIngreso ? totalIngresos : totalGastos)}
               </span>
             </div>
           </div>
@@ -327,7 +330,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</span>
                           </td>
                           <td colSpan={2} className={`px-4 py-2 text-right text-xs font-semibold ${esIngreso ? 'text-green-400' : 'text-slate-400'}`}>
-                            {esIngreso ? '+' : '-'}${total.toFixed(2)}
+                            {esIngreso ? '+' : '-'}{formatARS(total)}
                           </td>
                         </tr>
                         {items.map((mov) => (
@@ -352,7 +355,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                               </span>
                             </td>
                             <td className={`px-4 py-3 text-sm text-right font-semibold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
-                              {esIngreso ? '+' : '-'}${mov.importe.toFixed(2)}
+                              {esIngreso ? '+' : '-'}{formatARS(mov.importe)}
                             </td>
                             <td className="px-4 py-3 text-sm text-slate-300">
                               {mov.nota || <span className="text-slate-500">-</span>}
@@ -382,7 +385,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                     <tr className="bg-slate-700/40 border-t-2 border-slate-500">
                       <td colSpan={2} className="px-4 py-3 text-sm font-bold text-white text-right">Total:</td>
                       <td className={`px-4 py-3 text-sm text-right font-bold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
-                        {esIngreso ? '+' : ''}${(esIngreso ? totalIngresos : totalGastos).toFixed(2)}
+                        {esIngreso ? '+' : ''}{formatARS(esIngreso ? totalIngresos : totalGastos)}
                       </td>
                       <td colSpan={2}></td>
                     </tr>
@@ -397,7 +400,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                     <div className="flex items-center justify-between px-1 mb-2">
                       <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</span>
                       <span className={`text-xs font-semibold ${esIngreso ? 'text-green-400' : 'text-slate-400'}`}>
-                        {esIngreso ? '+' : '-'}${total.toFixed(2)}
+                        {esIngreso ? '+' : '-'}{formatARS(total)}
                       </span>
                     </div>
                     <div className="space-y-2">
@@ -408,7 +411,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                 <div className="bg-slate-800/40 border border-slate-600 rounded-xl px-4 py-3 flex items-center justify-between mt-3">
                   <span className="text-sm font-bold text-white">Total:</span>
                   <span className={`text-sm font-bold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
-                    {esIngreso ? '+' : ''}${(esIngreso ? totalIngresos : totalGastos).toFixed(2)}
+                    {esIngreso ? '+' : ''}{formatARS(esIngreso ? totalIngresos : totalGastos)}
                   </span>
                 </div>
               </div>
@@ -439,7 +442,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
               <button
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
-                className="flex-1 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 disabled:from-slate-700 disabled:to-slate-700 text-white font-medium py-2.5 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.4)] border border-red-300/50 transition-all text-sm"
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 text-white font-medium py-2.5 rounded-lg transition-all text-sm"
               >
                 {isDeleting ? 'Eliminando...' : 'Eliminar'}
               </button>
