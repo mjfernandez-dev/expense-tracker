@@ -71,6 +71,7 @@ export interface Movimiento {
   is_auto_generated: boolean;
   gasto_fijo_id: number | null;
   medio_pago: string | null;
+  clasificacion: 'necesidad' | 'deseo' | null;
 }
 
 export interface MovimientoCreate {
@@ -84,6 +85,7 @@ export interface MovimientoCreate {
   presupuesto_item_id?: number | null;
   es_inicio_ciclo?: boolean;
   medio_pago?: string | null;
+  clasificacion?: 'necesidad' | 'deseo' | null;
 }
 
 // ============== TIPOS DE PRESUPUESTO POR CICLO ==============

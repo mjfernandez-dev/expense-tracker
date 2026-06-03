@@ -178,6 +178,7 @@ class MovimientoBase(BaseModel):
     is_auto_generated: bool = False  # Indica si el movimiento fue generado automáticamente
     medio_pago: Optional[str] = None  # "efectivo" | "debito" | "credito" | "transferencia" | "otro"
     presupuesto_item_id: Optional[int] = None  # Vincula un gasto real a un item del presupuesto
+    clasificacion: Optional[str] = None  # "necesidad" | "deseo" | None (solo aplica a gastos)
 
 # Schema para CREAR un movimiento (POST)
 class MovimientoCreate(MovimientoBase):

@@ -2,6 +2,69 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Ciclo, Movimiento } from '../types';
 import { getCicloActivo, getMovimientos } from '../services/api';
 
+// ── SVG Pie Chart ──────────────────────────────────────────────────────────────
+
+function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
+  const toRad = (deg: number) => (deg - 90) * (Math.PI / 180);
+  const x1 = cx + r * Math.cos(toRad(startAngle));
+  const y1 = cy + r * Math.sin(toRad(startAngle));
+  const x2 = cx + r * Math.cos(toRad(endAngle));
+  const y2 = cy + r * Math.sin(toRad(endAngle));
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+}
+
+interface PieSlice { label: string; value: number; color: string; textColor: string; }
+
+function ClasificacionPie({ necesidad, deseo, sinClasificar, total }: {
+  necesidad: number; deseo: number; sinClasificar: number; total: number;
+}) {
+  const slices: PieSlice[] = [
+    { label: 'Necesidad', value: necesidad, color: '#3b82f6', textColor: 'text-blue-300' },
+    { label: 'Deseo',     value: deseo,     color: '#a855f7', textColor: 'text-purple-300' },
+    { label: 'Sin clas.', value: sinClasificar, color: '#475569', textColor: 'text-slate-400' },
+  ].filter(s => s.value > 0);
+
+  const cx = 80, cy = 80, r = 68;
+  let currentAngle = 0;
+  const arcs = slices.map((s) => {
+    const angle = (s.value / total) * 360;
+    const path = angle >= 359.9
+      ? `M ${cx} ${cy} m -${r} 0 a ${r} ${r} 0 1 1 ${r * 2} 0 a ${r} ${r} 0 1 1 -${r * 2} 0`
+      : describeArc(cx, cy, r, currentAngle, currentAngle + angle);
+    currentAngle += angle;
+    return { ...s, path, angle };
+  });
+
+  return (
+    <div className="flex items-center gap-6">
+      <svg width="160" height="160" viewBox="0 0 160 160" className="flex-shrink-0">
+        {arcs.map((arc) => (
+          <path key={arc.label} d={arc.path} fill={arc.color} opacity={0.85} />
+        ))}
+        <circle cx={cx} cy={cy} r={38} fill="#0f172a" />
+      </svg>
+      <div className="flex flex-col gap-3 min-w-0">
+        {arcs.map((arc) => {
+          const pct = total > 0 ? (arc.value / total) * 100 : 0;
+          return (
+            <div key={arc.label} className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: arc.color }} />
+              <div className="min-w-0">
+                <span className={`text-xs font-semibold ${arc.textColor}`}>{arc.label}</span>
+                <span className="text-slate-400 text-xs ml-2 tabular-nums">{pct.toFixed(0)}%</span>
+                <p className="text-slate-300 text-xs tabular-nums font-medium">{formatARS(arc.value)}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+
 interface BalanceCicloProps {
   refreshKey: number;
 }
@@ -47,6 +110,18 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
       map[cat] = (map[cat] ?? 0) + m.importe;
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [gastosCiclo]);
+
+  const clasificacionData = useMemo(() => {
+    let necesidad = 0;
+    let deseo = 0;
+    let sinClasificar = 0;
+    gastosCiclo.forEach((m) => {
+      if (m.clasificacion === 'necesidad') necesidad += m.importe;
+      else if (m.clasificacion === 'deseo') deseo += m.importe;
+      else sinClasificar += m.importe;
+    });
+    return { necesidad, deseo, sinClasificar };
   }, [gastosCiclo]);
 
   const totalGastos = gastosCiclo.reduce((s, m) => s + m.importe, 0);
@@ -149,6 +224,27 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
                 );
               })}
             </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Necesidad vs Deseo ─────────────────────────── */}
+      <section>
+        <h2 className="text-xs font-mono font-semibold text-slate-400 uppercase tracking-widest mb-2 px-1">
+          Necesidad vs Deseo
+        </h2>
+        <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl shadow-2xl p-4">
+          {clasificacionData.necesidad === 0 && clasificacionData.deseo === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-2">
+              Clasificá tus gastos como Necesidad o Deseo al registrarlos.
+            </p>
+          ) : (
+            <ClasificacionPie
+              necesidad={clasificacionData.necesidad}
+              deseo={clasificacionData.deseo}
+              sinClasificar={clasificacionData.sinClasificar}
+              total={totalGastos}
+            />
           )}
         </div>
       </section>

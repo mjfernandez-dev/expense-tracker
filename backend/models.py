@@ -154,6 +154,8 @@ class Movimiento(Base):
     presupuesto_item_id = Column(Integer, ForeignKey("presupuesto_items.id"), nullable=True, index=True)
     # GASTO FIJO: FK opcional al gasto fijo recurrente
     gasto_fijo_id = Column(Integer, ForeignKey("gastos_fijos.id"), nullable=True, index=True)
+    # CLASIFICACIÓN: "necesidad" | "deseo" | None (solo aplica a gastos)
+    clasificacion = Column(String, nullable=True)
 
     # RELACIONES
     categoria = relationship("Category", back_populates="movimientos")  # Categoría del sistema
