@@ -100,6 +100,7 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
   const r = ciclo.resumen;
   const items = r.presupuesto_items.filter((i) => i.confirmado);
   const balanceNeto = r.total_ingresos - totalGastos;
+  const realEnCuenta = r.total_ingresos - totalGastos - ciclo.ahorro_objetivo;
 
   return (
     <div className="space-y-4 pb-4">
@@ -120,6 +121,17 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
             {balanceNeto >= 0 ? '+' : ''}{formatARS(balanceNeto)}
           </p>
         </div>
+      </div>
+
+      {/* ── Real en cuenta (descontando ahorro) ─────────── */}
+      <div className={`bg-slate-900/80 border backdrop-blur-2xl rounded-xl px-5 py-3 flex items-center justify-between ${realEnCuenta >= 0 ? 'border-emerald-500/30' : 'border-red-500/30'}`}>
+        <div>
+          <p className="text-xs font-mono text-slate-400 uppercase tracking-widest">Real en cuenta</p>
+          <p className="text-xs text-slate-500 mt-0.5">Ingresos − gastos ejecutados − ahorro objetivo</p>
+        </div>
+        <p className={`text-lg font-bold tabular-nums ${realEnCuenta >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+          {realEnCuenta >= 0 ? '+' : ''}{formatARS(realEnCuenta)}
+        </p>
       </div>
 
       {/* ── Desktop: 2 columnas / Mobile: 1 columna ──────── */}
@@ -169,8 +181,7 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
                       </div>
                       <div className="w-full h-1 bg-slate-700/80 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                          style={{ width: `${pct}%` }}
+                          className={`[--bar-w:${pct}%] dyn-bar h-full rounded-full transition-all duration-500 ${barColor}`}
                         />
                       </div>
                       {item.monto_pendiente > 0 ? (
@@ -205,8 +216,7 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
                       </div>
                       <div className="w-full h-1 bg-slate-700/80 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-slate-500 rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%` }}
+                          className={`[--bar-w:${pct}%] dyn-bar h-full bg-slate-500 rounded-full transition-all duration-500`}
                         />
                       </div>
                     </div>
