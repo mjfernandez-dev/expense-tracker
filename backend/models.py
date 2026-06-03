@@ -1,4 +1,5 @@
 # Importamos tipos de columnas y herramientas de SQLAlchemy
+from decimal import Decimal
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 # CONEXIÓN: Importamos Base desde database.py (la clase padre de todos los modelos)
@@ -20,6 +21,7 @@ class User(Base):
     alias_bancario = Column(EncryptedString, nullable=True)
     cvu = Column(EncryptedString, nullable=True)
     ahorro_objetivo_default = Column(Numeric(10, 2), nullable=True, default=None)
+    porcentaje_ahorro_default = Column(Numeric(5, 2), nullable=False, default=Decimal('10.0'))
 
     # RELACIÓN 1-a-N: Un usuario tiene MUCHOS movimientos
     movimientos = relationship("Movimiento", back_populates="usuario")

@@ -24,9 +24,9 @@ interface CategoryRow extends UserCategory {
 function PresupuestoManager() {
   const { user, setUser } = useAuth();
 
-  // ── Ahorro objetivo ──────────────────────────────────────────────
-  const [ahorroInput, setAhorroInput] = useState<string>(
-    user?.ahorro_objetivo_default != null ? String(user.ahorro_objetivo_default) : '0'
+  // ── Porcentaje de ahorro objetivo ─────────────────────────────────
+  const [porcentajeInput, setPorcentajeInput] = useState<string>(
+    user?.porcentaje_ahorro_default != null ? String(user.porcentaje_ahorro_default) : '10'
   );
   const [ahorroSaveState, setAhorroSaveState] = useState<SaveState>('idle');
   const ahorroDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,27 +71,27 @@ function PresupuestoManager() {
   }, [fetchCategories]);
 
   // ── Ahorro: auto-save con debounce 600ms ──────────────────────────
-  const handleAhorroChange = (value: string) => {
-    setAhorroInput(value);
+  const handlePorcentajeChange = (value: string) => {
+    setPorcentajeInput(value);
     setAhorroSaveState('idle');
     if (ahorroDebounceRef.current) clearTimeout(ahorroDebounceRef.current);
     ahorroDebounceRef.current = setTimeout(() => {
-      saveAhorro(value);
+      savePorcentaje(value);
     }, 600);
   };
 
-  const saveAhorro = async (value: string) => {
+  const savePorcentaje = async (value: string) => {
     const parsed = parseFloat(value);
-    const monto = isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    const pct = isNaN(parsed) || parsed < 0 ? 0 : parsed > 100 ? 100 : parsed;
     setAhorroSaveState('saving');
     try {
-      const updatedUser = await updateUserPreferences({ ahorro_objetivo_default: monto });
+      const updatedUser = await updateUserPreferences({ porcentaje_ahorro_default: pct });
       setUser(updatedUser);
       setAhorroSaveState('saved');
       setTimeout(() => setAhorroSaveState('idle'), 1500);
     } catch (err) {
       const e = err as { response?: { data?: { detail?: string } } };
-      setAutoSaveError(e.response?.data?.detail ?? 'Error al guardar el ahorro');
+      setAutoSaveError(e.response?.data?.detail ?? 'Error al guardar el porcentaje de ahorro');
       setAhorroSaveState('error');
     } finally {
       setAhorroSaveState(s => s === 'saving' ? 'idle' : s);
@@ -349,24 +349,34 @@ function PresupuestoManager() {
         {/* Columna derecha: Ahorro + Nueva categoría */}
         <div className="space-y-4">
 
-          {/* Ahorro objetivo */}
+          {/* Porcentaje de ahorro objetivo */}
           <div className="bg-slate-900/80 backdrop-blur-2xl border border-slate-700/70 rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-white font-semibold text-sm">Ahorro mensual objetivo</h3>
-                <p className="text-slate-400 text-xs mt-0.5">Se reserva de inmediato al iniciar un ciclo</p>
+                <h3 className="text-white font-semibold text-sm">Porcentaje de ahorro objetivo</h3>
+                <p className="text-slate-400 text-xs mt-0.5">Se calcula sobre cada ingreso al iniciar un ciclo</p>
               </div>
               <SaveIndicator state={ahorroSaveState} />
             </div>
-            <input
-              type="number"
-              min="0"
-              step="100"
-              value={ahorroInput}
-              onChange={e => handleAhorroChange(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-              placeholder="0"
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={porcentajeInput}
+                onChange={e => handlePorcentajeChange(e.target.value)}
+                className="w-24 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 text-right"
+                placeholder="10"
+              />
+              <span className="text-slate-300 text-sm font-medium">%</span>
+              {(parseFloat(porcentajeInput) || 0) < 10 && (
+                <span className="text-amber-400 text-xs">Recomendado: mínimo 10%</span>
+              )}
+            </div>
+            <p className="text-slate-500 text-xs">
+              Este porcentaje se pre-carga en el Paso 2 del wizard al iniciar un nuevo ciclo.
+            </p>
           </div>
 
           {/* Nueva categoría */}

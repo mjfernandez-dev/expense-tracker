@@ -193,7 +193,7 @@ function App() {
               }`}
             >
               <span className="text-lg leading-none">{tabIcon[t]}</span>
-              <span className="text-[10px] font-medium">{tabLabel[t]}</span>
+              <span className="text-xs font-medium">{tabLabel[t]}</span>
             </button>
           ))}
         </div>
@@ -226,7 +226,7 @@ function App() {
           importeReferencia={wizardImporte}
           onComplete={handleWizardComplete}
           onClose={handleWizardClose}
-          ahorroDefault={user?.ahorro_objetivo_default ?? 0}
+          porcentajeAhorro={user?.porcentaje_ahorro_default ?? 10}
         />
       )}
     </div>

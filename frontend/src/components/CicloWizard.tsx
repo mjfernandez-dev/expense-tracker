@@ -12,7 +12,7 @@ interface CicloWizardProps {
   importeReferencia: number;
   onComplete: () => void;
   onClose: () => void;
-  ahorroDefault?: number;
+  porcentajeAhorro?: number;
 }
 
 interface CategoriaPresupuesto {
@@ -35,10 +35,11 @@ const formatFecha = (iso: string) =>
 
 const STEPS = ['Duración', 'Ahorro', 'Presupuesto'] as const;
 
-export default function CicloWizard({ movimientoOrigenId, importeReferencia, onComplete, onClose, ahorroDefault }: CicloWizardProps) {
+export default function CicloWizard({ movimientoOrigenId, importeReferencia, onComplete, onClose, porcentajeAhorro = 10 }: CicloWizardProps) {
   const [step, setStep] = useState<number>(0);
   const [fechaFin, setFechaFin] = useState<string>(getLastDayOfCurrentMonthBA());
-  const [ahorro, setAhorro] = useState<string>(ahorroDefault && ahorroDefault > 0 ? String(ahorroDefault) : '0');
+  const ahorroCalculado = Math.round(importeReferencia * porcentajeAhorro / 100);
+  const [ahorro, setAhorro] = useState<string>(String(ahorroCalculado));
   const [categorias, setCategorias] = useState<CategoriaPresupuesto[]>([]);
   const [loadingCats, setLoadingCats] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -221,7 +222,12 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
               <p className="text-slate-400 text-sm">Este monto se reserva de inmediato y no cuenta como disponible.</p>
             </div>
             <div className="space-y-1">
-              <label className="text-slate-300 text-sm">Objetivo de ahorro ($)</label>
+              <label className="text-slate-300 text-sm">
+                Objetivo de ahorro ($)
+                <span className="text-slate-500 ml-2 text-xs">
+                  {porcentajeAhorro}% de tu ingreso = {formatARS(ahorroCalculado)}
+                </span>
+              </label>
               <input
                 type="number"
                 min="0"
@@ -232,6 +238,11 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
                 placeholder="0"
               />
             </div>
+            {ahorroNum < ahorroCalculado && ahorroCalculado > 0 && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-sm text-amber-300">
+                Estás ahorrando menos del {porcentajeAhorro}% recomendado ({formatARS(ahorroCalculado)}). Podés continuar, pero tené en cuenta que lo recomendado es ahorrar al menos el {porcentajeAhorro}% de tus ingresos.
+              </div>
+            )}
             <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1 text-sm">
               <div className="flex justify-between text-slate-300">
                 <span>Sueldo</span>

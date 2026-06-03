@@ -38,6 +38,8 @@ def actualizar_preferencias(current_user: models.User, payload: schemas.UserPref
     data = payload.model_dump(exclude_unset=True)
     if "ahorro_objetivo_default" in data:
         current_user.ahorro_objetivo_default = data["ahorro_objetivo_default"]
+    if "porcentaje_ahorro_default" in data:
+        current_user.porcentaje_ahorro_default = data["porcentaje_ahorro_default"]
     db.commit()
     db.refresh(current_user)
     return current_user

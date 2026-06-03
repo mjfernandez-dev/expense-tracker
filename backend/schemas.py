@@ -45,6 +45,7 @@ class UserRead(UserBase):
     alias_bancario: Optional[str] = None
     cvu: Optional[str] = None
     ahorro_objetivo_default: Optional[MoneyDecimal] = None
+    porcentaje_ahorro_default: float = 10.0
 
     class Config:
         from_attributes = True
@@ -62,12 +63,20 @@ class PaymentInfoUpdate(BaseModel):
 
 class UserPreferencesUpdate(BaseModel):
     ahorro_objetivo_default: Optional[MoneyDecimal] = None
+    porcentaje_ahorro_default: Optional[float] = None
 
     @field_validator("ahorro_objetivo_default")
     @classmethod
     def non_negative(cls, v):
         if v is not None and v < 0:
             raise ValueError("El ahorro objetivo no puede ser negativo")
+        return v
+
+    @field_validator("porcentaje_ahorro_default")
+    @classmethod
+    def porcentaje_valido(cls, v):
+        if v is not None and not (0 <= v <= 100):
+            raise ValueError("El porcentaje de ahorro debe estar entre 0 y 100")
         return v
 
 

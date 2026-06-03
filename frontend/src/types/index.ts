@@ -10,6 +10,7 @@ export interface User {
   is_active: boolean;
   created_at: string;
   ahorro_objetivo_default?: number | null;
+  porcentaje_ahorro_default?: number | null;
 }
 
 export interface UserCreate {

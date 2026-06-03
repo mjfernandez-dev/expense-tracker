@@ -353,7 +353,7 @@ export const updateCategory = async (id: number, nombre: string): Promise<UserCa
 
 // Actualizar preferencias del usuario (ahorro_objetivo_default, etc.)
 // PATCH /auth/me/preferences → devuelve User actualizado
-export const updateUserPreferences = async (patch: { ahorro_objetivo_default?: number | null }): Promise<User> => {
+export const updateUserPreferences = async (patch: { ahorro_objetivo_default?: number | null; porcentaje_ahorro_default?: number | null }): Promise<User> => {
   const response = await api.patch('/auth/me/preferences', patch);
   return response.data;
 };
