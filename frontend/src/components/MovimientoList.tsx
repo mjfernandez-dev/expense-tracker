@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import type { Movimiento } from '../types';
 import { getMovimientos, deleteMovimiento } from '../services/api';
+import ClasificacionBadge from './ClasificacionBadge';
 
 const formatARS = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
@@ -11,6 +12,11 @@ const MESES = [
 ];
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+const sortMovimientos = (a: Movimiento, b: Movimiento) => {
+  const byFecha = new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+  return byFecha !== 0 ? byFecha : b.id - a.id;
+};
 
 type TabActivo = 'gastos' | 'ingresos';
 
@@ -60,16 +66,12 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   }, [movimientos, selectedYear, selectedMonth]);
 
   const gastosMes = useMemo(() =>
-    movimientosMes
-      .filter((m) => m.tipo === 'gasto')
-      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
+    movimientosMes.filter((m) => m.tipo === 'gasto').sort(sortMovimientos),
     [movimientosMes]
   );
 
   const ingresosMes = useMemo(() =>
-    movimientosMes
-      .filter((m) => m.tipo === 'ingreso')
-      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
+    movimientosMes.filter((m) => m.tipo === 'ingreso').sort(sortMovimientos),
     [movimientosMes]
   );
 
@@ -176,6 +178,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                   Auto
                 </span>
               )}
+              <ClasificacionBadge value={mov.clasificacion} />
             </div>
             <svg className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -346,13 +349,16 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                               </div>
                             </td>
                             <td className="px-4 py-3 text-sm">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                esIngreso
-                                  ? 'bg-green-500/20 text-green-300 border-green-400/30'
-                                  : 'bg-blue-500/20 text-blue-300 border-blue-400/30'
-                              }`}>
-                                {getNombreCategoria(mov)}
-                              </span>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                  esIngreso
+                                    ? 'bg-green-500/20 text-green-300 border-green-400/30'
+                                    : 'bg-blue-500/20 text-blue-300 border-blue-400/30'
+                                }`}>
+                                  {getNombreCategoria(mov)}
+                                </span>
+                                <ClasificacionBadge value={mov.clasificacion} />
+                              </div>
                             </td>
                             <td className={`px-4 py-3 text-sm text-right font-semibold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
                               {esIngreso ? '+' : '-'}{formatARS(mov.importe)}

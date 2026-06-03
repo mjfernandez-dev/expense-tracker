@@ -170,7 +170,7 @@ def list_movimientos(
     ).filter(models.Movimiento.user_id == current_user.id)
     if tipo:
         query = query.filter(models.Movimiento.tipo == tipo)
-    return query.all()
+    return query.order_by(models.Movimiento.fecha.desc(), models.Movimiento.id.desc()).all()
 
 
 @router.get("/{movimiento_id}", response_model=schemas.MovimientoRead)
