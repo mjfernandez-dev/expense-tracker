@@ -102,8 +102,11 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
       await reabrirCiclo(id);
       await Promise.all([fetchCiclo(), fetchHistorial()]);
     } catch (err) {
-      const e = err as { response?: { data?: { detail?: string } } };
-      setErrorCiclo(e.response?.data?.detail || 'No se pudo reabrir el ciclo.');
+      const detail =
+        typeof err === 'object' && err !== null && 'response' in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      setErrorCiclo(detail || 'No se pudo reabrir el ciclo.');
     } finally {
       setReopeningId(null);
     }
@@ -285,7 +288,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                   <span className="text-slate-200 font-medium">{formatARS(r.gasto_hoy)}</span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-700/80 rounded-full overflow-hidden">
-                  <div className={`[--bar-w:${Math.min(pct, 100)}%] dyn-bar h-full rounded-full transition-all duration-700 ${colors.bar}`} />
+                  <div className={`h-full rounded-full transition-all duration-700 ${colors.bar}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                 </div>
                 <div className="flex justify-between text-xs font-mono text-slate-500">
                   <span>$0</span>
@@ -336,7 +339,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                           <span className="text-blue-300 tabular-nums">{formatARS(r.gastos_fijos_efectivizados)}</span>
                         </div>
                         <div className="w-full h-1 bg-slate-700/60 rounded-full overflow-hidden">
-                          <div className={`[--bar-w:${pctFijos}%] dyn-bar h-full bg-blue-400/70 rounded-full`} />
+                          <div className="h-full bg-blue-400/70 rounded-full" style={{ width: `${pctFijos}%` }} />
                         </div>
                       </div>
                     )}
@@ -349,7 +352,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                         <span className="text-red-400 tabular-nums">{formatARS(r.gastos_no_planificados)}</span>
                       </div>
                       <div className="w-full h-1 bg-slate-700/60 rounded-full overflow-hidden">
-                        <div className={`[--bar-w:${pctVariables}%] dyn-bar h-full bg-red-400/70 rounded-full`} />
+                        <div className="h-full bg-red-400/70 rounded-full" style={{ width: `${pctVariables}%` }} />
                       </div>
                     </div>
 

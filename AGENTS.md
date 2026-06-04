@@ -65,7 +65,7 @@
 - Destructive actions use `bg-red-600 hover:bg-red-700`
 - Cards use `bg-slate-900/80 backdrop-blur-2xl border border-slate-700/70 rounded-2xl`
 - No arbitrary Tailwind values (e.g. `w-[347px]`) unless there is no alternative
-- Exception: progress bars use `[--bar-w:${pct}%] dyn-bar` (CSS custom property via JIT) because runtime percentage widths have no static Tailwind equivalent. The `.dyn-bar` class is defined in `index.css` as `width: var(--bar-w, 0%)`
+- Exception: progress bars must use `style={{ width: \`${pct}%\` }}` for runtime percentage widths — Tailwind JIT cannot generate arbitrary values with runtime data. Do NOT use `[--bar-w:${pct}%] dyn-bar`.
 
 ### TypeScript
 - No `any` type — use proper types or `unknown` with a type guard

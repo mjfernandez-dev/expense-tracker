@@ -23,7 +23,7 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
       try {
         const [c, movs] = await Promise.all([getCicloActivo(), getMovimientos()]);
         setCiclo(c);
-        setMovimientos(movs as Movimiento[]);
+        setMovimientos(movs);
       } catch {
         setError('No se pudo cargar el balance.');
         setCiclo(null);
@@ -181,7 +181,8 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
                       </div>
                       <div className="w-full h-1 bg-slate-700/80 rounded-full overflow-hidden">
                         <div
-                          className={`[--bar-w:${pct}%] dyn-bar h-full rounded-full transition-all duration-500 ${barColor}`}
+                          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                          style={{ width: `${pct}%` }}
                         />
                       </div>
                       {item.monto_pendiente > 0 ? (
@@ -216,7 +217,8 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
                       </div>
                       <div className="w-full h-1 bg-slate-700/80 rounded-full overflow-hidden">
                         <div
-                          className={`[--bar-w:${pct}%] dyn-bar h-full bg-slate-500 rounded-full transition-all duration-500`}
+                          className="h-full bg-slate-500 rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
                         />
                       </div>
                     </div>
