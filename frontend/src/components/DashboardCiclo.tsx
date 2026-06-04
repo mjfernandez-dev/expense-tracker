@@ -176,7 +176,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
     </div>
   );
 
-  if (!hasCicloActivo) {
+  if (!hasCicloActivo || !ciclo?.resumen) {
     return (
       <>
         <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6">
@@ -198,7 +198,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
     );
   }
 
-  const r = ciclo.resumen!;
+  const r = ciclo.resumen;
   const colors = SEMAFORO_COLORS[r.semaforo];
   const pct = Math.min(r.daily_cap_porcentaje_usado, 100);
   const fechaFinLabel = new Date(ciclo.fecha_fin).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
@@ -239,7 +239,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
             <button
               onClick={handleCerrar}
               disabled={closingCiclo}
-              className="text-slate-500 hover:text-red-400 text-xs px-2 py-1 rounded-lg hover:bg-slate-700/50 transition-colors"
+              className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
             >
               Cerrar
             </button>
