@@ -49,19 +49,12 @@ function PresupuestoManager() {
   const [gastosFijos, setGastosFijos] = useState<GastoFijo[]>([]);
   const [gastoFijoSaveErrors, setGastoFijoSaveErrors] = useState<Record<number, string>>({});
 
-  const [gastosFijosLoading, setGastosFijosLoading] = useState<boolean>(false);
-  const [gastosFijosError, setGastosFijosError] = useState<string | null>(null);
-
   const fetchGastosFijos = useCallback(async () => {
-    setGastosFijosLoading(true);
-    setGastosFijosError(null);
     try {
       const data = await getGastosFijos();
       setGastosFijos(data);
     } catch {
-      setGastosFijosError('No se pudieron cargar los gastos fijos.');
-    } finally {
-      setGastosFijosLoading(false);
+      // Error loading gastos fijos — continue without failing
     }
   }, []);
 
