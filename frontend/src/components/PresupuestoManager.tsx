@@ -48,13 +48,19 @@ function PresupuestoManager() {
   // ── Gastos Fijos ──────────────────────────────────────────────────
   const [gastosFijos, setGastosFijos] = useState<GastoFijo[]>([]);
   const [gastoFijoSaveErrors, setGastoFijoSaveErrors] = useState<Record<number, string>>({});
+  const [gastosFijosLoading, setGastosFijosLoading] = useState<boolean>(false);
+  const [gastosFijosError, setGastosFijosError] = useState<string | null>(null);
 
   const fetchGastosFijos = useCallback(async () => {
+    setGastosFijosLoading(true);
+    setGastosFijosError(null);
     try {
       const data = await getGastosFijos();
       setGastosFijos(data);
     } catch {
-      // Error loading gastos fijos — continue without failing
+      setGastosFijosError('No se pudieron cargar los gastos fijos.');
+    } finally {
+      setGastosFijosLoading(false);
     }
   }, []);
 
@@ -494,6 +500,12 @@ function PresupuestoManager() {
       </div>
 
       {/* ── Gastos Fijos: vencimientos ──────────────────────────── */}
+      {gastosFijosError && (
+        <p className="text-red-400 text-xs px-1">{gastosFijosError}</p>
+      )}
+      {gastosFijosLoading && (
+        <p className="text-slate-500 text-xs px-1">Cargando gastos fijos...</p>
+      )}
       {gastosFijos.length > 0 && (
         <div className="bg-slate-900/80 backdrop-blur-2xl border border-slate-700/70 rounded-2xl p-5 space-y-3">
           <div>
@@ -523,7 +535,7 @@ function PresupuestoManager() {
 
                 <div className="flex flex-wrap gap-3">
                   {/* Día de vencimiento */}
-                  <div className="flex flex-col gap-1 min-w-[130px]">
+                  <div className="flex flex-col gap-1 min-w-32">
                     <label className="text-slate-400 text-xs">Día de vencimiento</label>
                     <input
                       type="number"
@@ -544,7 +556,7 @@ function PresupuestoManager() {
 
                   {/* Días de anticipación — solo visible cuando dia_vencimiento tiene valor */}
                   {gf.dia_vencimiento != null && (
-                    <div className="flex flex-col gap-1 min-w-[150px]">
+                    <div className="flex flex-col gap-1 min-w-36">
                       <label className="text-slate-400 text-xs">Días de anticipación</label>
                       <input
                         type="number"
