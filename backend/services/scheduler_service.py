@@ -1,75 +1,81 @@
 """Servicio de scheduler y helpers para gastos fijos."""
 import json
 import logging
-from datetime import datetime
+from datetime import date
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import models
-from database import get_db
+from database import get_db, SessionLocal
 from services.ciclo_time_service import ahora_buenos_aires
+from services.vencimiento_service import should_notify, effective_day
+from services.push_service import send_push_notification
 
 logger = logging.getLogger("finanzaapp")
 
 
-def obtener_importe_referencia_gasto_fijo(gasto_fijo_id: int, db: Session):
-    """Retorna el mejor importe de referencia conocido para un gasto fijo."""
-    ultimo_importe = (
-        db.query(models.Movimiento.importe)
-        .filter(models.Movimiento.gasto_fijo_id == gasto_fijo_id)
-        .order_by(models.Movimiento.fecha.desc())
-        .scalar()
-    )
-    if ultimo_importe is not None:
-        return ultimo_importe
+def _job_check_vencimientos():
+    """Envía push notifications para GastoFijo con fechas de vencimiento próximas."""
+    db = SessionLocal()
+    try:
+        hoy = date.today()
 
-    return db.query(func.max(models.Movimiento.importe)).filter(
-        models.Movimiento.gasto_fijo_id == gasto_fijo_id
-    ).scalar()
-
-
-def sincronizar_gastos_fijos_en_ciclo(ciclo: models.Ciclo, db: Session) -> int:
-    """
-    Copia los gastos fijos activos del usuario como compromisos del ciclo.
-    Es idempotente por gasto_fijo_id dentro del ciclo.
-    """
-    gastos_fijos = (
-        db.query(models.GastoFijo)
-        .filter(
-            models.GastoFijo.user_id == ciclo.user_id,
-            models.GastoFijo.activo == True,
-            models.GastoFijo.tipo == "gasto",
+        gastos = (
+            db.query(models.GastoFijo)
+            .filter(
+                models.GastoFijo.dia_vencimiento.isnot(None),
+                models.GastoFijo.activo == True,
+            )
+            .all()
         )
-        .all()
-    )
 
-    existentes_ids = {
-        cgf.gasto_fijo_id
-        for cgf in ciclo.gastos_fijos_ciclo
-        if cgf.gasto_fijo_id is not None
-    }
+        for gf in gastos:
+            antic = gf.dias_anticipacion if gf.dias_anticipacion is not None else 2
+            if not should_notify(gf.dia_vencimiento, antic, hoy):
+                continue
 
-    creados = 0
-    for gf in gastos_fijos:
-        if gf.id in existentes_ids:
-            continue
+            subs = (
+                db.query(models.PushSubscription)
+                .filter(models.PushSubscription.user_id == gf.user_id)
+                .all()
+            )
 
-        importe = obtener_importe_referencia_gasto_fijo(gf.id, db)
-        if importe is None:
-            continue
+            if not subs:
+                continue
 
-        db.add(models.CicloGastoFijo(
-            ciclo_id=ciclo.id,
-            gasto_fijo_id=gf.id,
-            monto_confirmado=importe,
-            confirmado=True,
-            estado="comprometido",
-        ))
-        creados += 1
+            eff_day = effective_day(gf.dia_vencimiento, hoy.year, hoy.month)
+            # NOTE: gf.descripcion is EncryptedString — decrypts transparently here.
+            # IMPORTANT: do NOT include gf.descripcion in log statements (only log IDs).
+            payload = {
+                "title": "Vence pronto",
+                "body": f"{gf.descripcion} vence el {eff_day}/{hoy.month}",
+                "url": "/presupuesto",
+            }
 
-    return creados
+            for sub in subs:
+                try:
+                    result = send_push_notification(sub, payload)
+                    if not result:
+                        db.delete(sub)
+                        logger.info(
+                            "Deleted expired push subscription id=%s", sub.id
+                        )
+                except Exception as e:
+                    logger.error(
+                        "Push send error sub_id=%s gasto_fijo_id=%s: %s",
+                        sub.id,
+                        gf.id,
+                        str(e),
+                    )
+
+        db.commit()
+    except Exception as e:
+        logger.error("check_vencimientos job error: %s", str(e))
+        db.rollback()
+    finally:
+        db.close()
 
 
 def _job_cleanup_tokens():
@@ -98,4 +104,12 @@ def create_scheduler() -> AsyncIOScheduler:
     """Crea y configura el scheduler (sin iniciarlo)."""
     scheduler = AsyncIOScheduler()
     scheduler.add_job(_job_cleanup_tokens, 'interval', hours=24)
+    scheduler.add_job(
+        _job_check_vencimientos,
+        'cron',
+        hour=8,
+        minute=0,
+        timezone='America/Argentina/Buenos_Aires',
+        id='check_vencimientos',
+    )
     return scheduler

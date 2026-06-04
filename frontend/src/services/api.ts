@@ -20,6 +20,8 @@ import type {
   Ciclo,
   CicloCreate,
   PresupuestoItemCreate,
+  GastoFijo,
+  GastoFijoUpdate,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -417,3 +419,19 @@ export const exportarCiclo = async (cicloId: number, fecha_inicio: string): Prom
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
+
+// ============== GASTOS FIJOS ==============
+
+// GET /gastos-fijos/ → lista gastos fijos del usuario autenticado
+export const getGastosFijos = async (): Promise<GastoFijo[]> => {
+  const response = await api.get('/gastos-fijos/');
+  return response.data;
+};
+
+// PUT /gastos-fijos/{id} → actualiza activo, dia_vencimiento y/o dias_anticipacion
+export const updateGastoFijo = async (id: number, patch: GastoFijoUpdate): Promise<GastoFijo> => {
+  const response = await api.put(`/gastos-fijos/${id}`, patch);
+  return response.data;
+};
+
+export default api;

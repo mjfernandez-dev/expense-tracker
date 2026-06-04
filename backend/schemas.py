@@ -1,5 +1,5 @@
 # Pydantic valida que los datos recibidos/enviados por la API sean correctos
-from pydantic import BaseModel, EmailStr, field_validator, PlainSerializer
+from pydantic import BaseModel, EmailStr, field_validator, PlainSerializer, Field
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Optional, List
@@ -241,6 +241,8 @@ class GastoFijoRead(BaseModel):
     max_importe: Optional[MoneyDecimal] = None    # Máximo histórico (calculado en endpoint)
     ultimo_importe: Optional[MoneyDecimal] = None  # Importe del último mes (calculado en endpoint)
     total_meses: int = 0                   # Cantidad de meses registrados
+    dia_vencimiento: Optional[int] = None
+    dias_anticipacion: Optional[int] = 2
 
     class Config:
         from_attributes = True
@@ -248,6 +250,8 @@ class GastoFijoRead(BaseModel):
 
 class GastoFijoUpdate(BaseModel):
     activo: bool
+    dia_vencimiento: Optional[int] = Field(None, ge=1, le=31)
+    dias_anticipacion: Optional[int] = Field(None, ge=0, le=28)
 
 
 # ============== SCHEMAS PARA CONTACT ==============
@@ -466,4 +470,17 @@ class CicloRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============== SCHEMAS PARA PUSH NOTIFICATIONS ==============
+
+class PushSubscribeRequest(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+
+
+class PushSubscribeResponse(BaseModel):
+    id: int
+    message: str
 

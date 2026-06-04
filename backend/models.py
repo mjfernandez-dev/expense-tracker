@@ -191,6 +191,8 @@ class GastoFijo(Base):
     user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
     activo = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=ahora_buenos_aires)
+    dia_vencimiento = Column(Integer, nullable=True)
+    dias_anticipacion = Column(Integer, nullable=True, default=2)
 
     # RELACIONES
     usuario = relationship("User", back_populates="gastos_fijos")
@@ -303,3 +305,18 @@ class Ciclo(Base):
     usuario = relationship("User")
     movimiento_origen = relationship("Movimiento", foreign_keys=[movimiento_origen_id])
     presupuesto_items = relationship("PresupuestoItem", back_populates="ciclo", cascade="all, delete-orphan")
+
+
+# ============== PUSH NOTIFICATIONS ==============
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    endpoint = Column(String, nullable=False, unique=True)
+    p256dh = Column(String, nullable=False)
+    auth = Column(String, nullable=False)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+
+    usuario = relationship("User")
