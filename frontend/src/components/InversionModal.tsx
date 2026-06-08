@@ -85,7 +85,23 @@ export default function InversionModal({ inversion, onClose, onSaved }: Inversio
             </div>
 
             <div>
-              <label className="block text-slate-400 text-xs font-medium mb-1">Ticker (opcional)</label>
+              <label className="block text-slate-400 text-xs font-medium mb-1 flex items-center gap-1.5">
+                Ticker (opcional)
+                <span className="group relative">
+                  <svg className="w-3.5 h-3.5 text-slate-500 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <circle cx="12" cy="12" r="10" />
+                    <path strokeLinecap="round" d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                    <circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
+                  </svg>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 px-3 py-2 bg-slate-700 text-xs text-slate-200 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                    Es el código que identifica al fondo de inversión. Lo encontrás en el resumen que te da tu banco o app de inversiones.
+                    <br /><br />
+                    Ejemplos: <span className="font-mono">SBSRPEA</span> (Renta Plus), <span className="font-mono">SBSRF</span> (Renta Fija)
+                    <br /><br />
+                    Si no sabés cuál es, dejamelo vacío y lo completás después.
+                  </span>
+                </span>
+              </label>
               <input
                 type="text"
                 value={ticker}
@@ -93,7 +109,11 @@ export default function InversionModal({ inversion, onClose, onSaved }: Inversio
                 className="w-full bg-slate-700/50 border border-slate-600/70 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 font-mono uppercase"
                 placeholder="SBSRPEA"
               />
-              <p className="text-slate-600 text-xs mt-1">Para actualización automática de precio vía scraping.</p>
+              <p className="text-slate-500 text-xs mt-1">
+                {ticker
+                  ? '💡 Marcá "Actualizar precio" para traer el valor de la cuota automáticamente.'
+                  : '💡 Sin ticker no podrás actualizar el precio automáticamente. Podés editarlo después.'}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

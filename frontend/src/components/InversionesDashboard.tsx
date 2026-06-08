@@ -67,6 +67,11 @@ export default function InversionesDashboard({ refreshKey }: InversionesDashboar
         inversionId={selectedInversionId}
         onBack={() => setSelectedInversionId(null)}
         onUpdated={cargar}
+        onEdit={() => {
+          const inv = inversiones.find(i => i.id === selectedInversionId);
+          if (inv) setEditInversion(inv);
+          setSelectedInversionId(null);
+        }}
       />
     );
   }

@@ -7,12 +7,13 @@ interface InversionDetailProps {
   inversionId: number;
   onBack: () => void;
   onUpdated: () => void;
+  onEdit: () => void;
 }
 
 const formatARS = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(n);
 
-export default function InversionDetail({ inversionId, onBack, onUpdated }: InversionDetailProps) {
+export default function InversionDetail({ inversionId, onBack, onUpdated, onEdit }: InversionDetailProps) {
   const [detail, setDetail] = useState<InversionDetailType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +45,10 @@ export default function InversionDetail({ inversionId, onBack, onUpdated }: Inve
   };
 
   const handleActualizar = async () => {
+    if (!detail?.ticker) {
+      setUpdateMsg('⚠️ Esta inversión no tiene ticker configurado. Editala para agregar un ticker (ej: SBSRPEA).');
+      return;
+    }
     setUpdating(true);
     setUpdateMsg(null);
     try {
@@ -97,16 +102,23 @@ export default function InversionDetail({ inversionId, onBack, onUpdated }: Inve
           </div>
           <button
             onClick={handleActualizar}
-            disabled={updating || !detail.ticker}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+            disabled={updating}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
           >
             {updating ? 'Actualizando...' : 'Actualizar precio'}
           </button>
         </div>
 
         {updateMsg && (
-          <div className="bg-blue-500/10 border border-blue-400/30 text-blue-100 px-3 py-2 rounded-lg text-sm mb-3">
+          <div className="bg-blue-500/10 border border-blue-400/30 text-blue-200 px-3 py-2 rounded-lg text-sm mb-3">
             {updateMsg}
+          </div>
+        )}
+
+        {!updateMsg && !detail.ticker && (
+          <div className="bg-amber-500/10 border border-amber-400/30 text-amber-200 px-3 py-2 rounded-lg text-sm mb-3">
+            ⚠️ Esta inversión no tiene <span className="font-mono text-xs">ticker</span>. Sin ese código no se puede actualizar el precio automáticamente. 
+            {' '}<button onClick={onEdit} className="underline text-amber-100 hover:text-amber-50 cursor-pointer">Editala</button> para agregarlo.
           </div>
         )}
 
