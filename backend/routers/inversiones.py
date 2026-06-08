@@ -216,6 +216,40 @@ def add_historial(
     return historial
 
 
+@router.delete("/{inversion_id}/historial/{historial_id}", status_code=204)
+def delete_historial(
+    inversion_id: int,
+    historial_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Delete a price history entry from an investment."""
+    inv = (
+        db.query(models.Inversion)
+        .filter(
+            models.Inversion.id == inversion_id,
+            models.Inversion.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not inv:
+        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+
+    historial = (
+        db.query(models.HistorialInversion)
+        .filter(
+            models.HistorialInversion.id == historial_id,
+            models.HistorialInversion.inversion_id == inv.id,
+        )
+        .first()
+    )
+    if not historial:
+        raise HTTPException(status_code=404, detail="Historial no encontrado")
+
+    db.delete(historial)
+    db.commit()
+
+
 @router.post("/{inversion_id}/actualizar")
 def actualizar_precio(
     inversion_id: int,
