@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { InversionDetail as InversionDetailType, HistorialPrecio } from '../types';
-import { getInversion, addHistorialPrecio, actualizarPrecio } from '../services/api';
+import type { InversionDetail as InversionDetailType } from '../types';
+import { getInversion, actualizarPrecio } from '../services/api';
 import HistorialForm from './HistorialForm';
 
 interface InversionDetailProps {
@@ -154,7 +154,7 @@ export default function InversionDetail({ inversionId, onBack, onUpdated }: Inve
         <div className="bg-slate-900/80 backdrop-blur-2xl border border-slate-700/70 rounded-2xl p-5 mb-4">
           <h3 className="text-white font-semibold text-sm mb-3">Evolución valor cuota</h3>
           <div className="h-48 flex items-end gap-1">
-            {sortedHistorial.map((h, i) => {
+            {sortedHistorial.map((h) => {
               const maxVal = Math.max(...sortedHistorial.map(x => x.valor_cuota));
               const minVal = Math.min(...sortedHistorial.map(x => x.valor_cuota));
               const range = maxVal - minVal || 1;
