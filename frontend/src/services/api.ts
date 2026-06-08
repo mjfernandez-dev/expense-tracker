@@ -29,6 +29,7 @@ import type {
   HistorialPrecio,
   HistorialPrecioCreate,
   ActualizarPrecioResponse,
+  FondoSearchResult,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
