@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import type { Inversion, InversionCreate, InversionUpdate } from '../types';
-import { createInversion, updateInversion } from '../services/api';
+import { useState, useRef, useEffect } from 'react';
+import type { Inversion, InversionCreate, InversionUpdate, FondoSearchResult } from '../types';
+import { createInversion, updateInversion, buscarFondos } from '../services/api';
 
 interface InversionModalProps {
   inversion?: Inversion; // if provided, we're editing
@@ -20,6 +20,58 @@ export default function InversionModal({ inversion, onClose, onSaved }: Inversio
   const [notas, setNotas] = useState<string>(inversion?.notas ?? '');
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<FondoSearchResult[]>([]);
+  const [searching, setSearching] = useState<boolean>(false);
+  const [showResults, setShowResults] = useState<boolean>(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Click outside → cerrar resultados + cleanup timer
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowResults(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, []);
+
+  // Buscar fondos al escribir el nombre
+  const handleNombreChange = (value: string) => {
+    setNombre(value);
+    if (isEdit) return; // no buscar en edición
+
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+
+    if (value.trim().length < 2) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    searchTimer.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const results = await buscarFondos(value.trim());
+        setSearchResults(results);
+        setShowResults(results.length > 0);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+  };
+
+  const selectFondo = (f: FondoSearchResult) => {
+    setNombre(f.nombre);
+    setTicker(f.ticker);
+    setShowResults(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,16 +124,34 @@ export default function InversionModal({ inversion, onClose, onSaved }: Inversio
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            <div ref={searchRef} className="relative">
               <label className="block text-slate-400 text-xs font-medium mb-1">Nombre *</label>
               <input
                 type="text"
                 value={nombre}
-                onChange={e => setNombre(e.target.value)}
+                onChange={e => handleNombreChange(e.target.value)}
                 className="w-full bg-slate-700/50 border border-slate-600/70 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-                placeholder="SBS Renta Pesos"
+                placeholder="Buscá tu fondo..."
                 required
               />
+              {searching && (
+                <span className="absolute right-3 top-8 text-slate-500 text-xs">Buscando...</span>
+              )}
+              {showResults && searchResults.length > 0 && (
+                <div className="absolute z-20 mt-1 w-full bg-slate-800 border border-slate-600/70 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                  {searchResults.map((f, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => selectFondo(f)}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-b border-slate-700/50 last:border-0"
+                    >
+                      <span className="text-white font-medium">{f.nombre}</span>
+                      {f.ticker && <span className="text-slate-500 ml-2 font-mono text-xs">{f.ticker}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>

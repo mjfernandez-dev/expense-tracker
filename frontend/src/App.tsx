@@ -92,6 +92,15 @@ function App() {
     return () => window.removeEventListener('online', syncPendingQueue);
   }, [syncPendingQueue]);
 
+  // Recargar cuando el service worker se actualice (nuevo deploy)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const handler = () => window.location.reload();
+      navigator.serviceWorker.addEventListener('controllerchange', handler);
+      return () => navigator.serviceWorker.removeEventListener('controllerchange', handler);
+    }
+  }, []);
+
   const tabLabel: Record<Tab, string> = {
     inicio: 'Inicio',
     movimientos: 'Movimientos',

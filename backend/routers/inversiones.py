@@ -1,6 +1,7 @@
 """Router de inversiones: /inversiones/"""
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -14,6 +15,59 @@ from services.fci_scraper import scrape_valor_cuota
 from services.inversion_service import calc_inversion_summary, get_latest_price
 
 router = APIRouter(prefix="/inversiones", tags=["inversiones"])
+
+
+def _guess_ticker(fund_name: str) -> str:
+    """Generate a plausible ticker from a fund name (best-effort)."""
+    # Remove class/ley suffixes
+    name = re.sub(r'\s*[-–—]\s*(CLASE|LEY)\s+.*$', '', fund_name, flags=re.IGNORECASE).strip()
+    # Extract words: title-cased or uppercase words
+    words = re.findall(r"[A-ZÁÉÍÓÚÑa-záéíóúñ]+", name)
+    if not words:
+        return ""
+    # First word (manager) full + first letter of remaining significant words
+    ticker = words[0][:3].upper()
+    for w in words[1:]:
+        if len(w) > 2:  # skip short words
+            ticker += w[0].upper()
+    return ticker
+
+
+@router.get("/buscar-fondos")
+def buscar_fondos(
+    q: str,
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Search FCI funds by name (proxies argentinadatos API)."""
+    from services.fci_scraper import _fetch_category, CATEGORIES
+    import httpx
+
+    if not q or len(q.strip()) < 2:
+        return []
+
+    q = q.strip().lower()
+
+    try:
+        with httpx.Client() as client:
+            results = []
+            seen = set()
+            for cat in CATEGORIES:
+                funds = _fetch_category(cat, client)
+                for f in funds:
+                    name = f.get("fondo", "")
+                    if name.lower() in seen:
+                        continue
+                    if q in name.lower():
+                        seen.add(name.lower())
+                        guessed = _guess_ticker(name)
+                        results.append({
+                            "nombre": name,
+                            "ticker": guessed,
+                            "categoria": cat,
+                        })
+            return sorted(results, key=lambda x: x["nombre"])[:20]
+    except Exception:
+        return []
 
 
 def _inversion_to_dict(inv: models.Inversion, db: Session) -> dict:

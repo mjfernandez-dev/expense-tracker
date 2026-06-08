@@ -484,4 +484,10 @@ export const actualizarPrecio = async (inversionId: number): Promise<ActualizarP
   return response.data;
 };
 
+// GET /inversiones/buscar-fondos?q= → buscar FCI por nombre
+export const buscarFondos = async (q: string): Promise<FondoSearchResult[]> => {
+  const response = await api.get('/inversiones/buscar-fondos', { params: { q } });
+  return response.data;
+};
+
 export default api;

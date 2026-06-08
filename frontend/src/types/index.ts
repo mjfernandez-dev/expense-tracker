@@ -240,3 +240,9 @@ export interface ActualizarPrecioResponse {
   valor_cuota?: number;
   inversion_id: number;
 }
+
+export interface FondoSearchResult {
+  nombre: string;
+  ticker: string;
+  categoria: string;
+}
