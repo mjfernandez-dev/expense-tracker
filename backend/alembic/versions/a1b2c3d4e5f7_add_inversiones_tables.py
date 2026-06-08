@@ -36,7 +36,7 @@ def upgrade() -> None:
             sa.Column("monto_invertido", sa.Numeric(10, 2), nullable=True),
             sa.Column("fecha_inversion", sa.DateTime(), nullable=True),
             sa.Column("notas", sa.String(), nullable=True),  # EncryptedString stores as String
-            sa.Column("activo", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+            sa.Column("activo", sa.Boolean(), nullable=False, server_default=sa.true()),
             sa.Column("created_at", sa.DateTime(), nullable=True),
             sa.Column("updated_at", sa.DateTime(), nullable=True),
             sa.PrimaryKeyConstraint("id"),
