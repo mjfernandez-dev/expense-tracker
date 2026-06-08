@@ -118,14 +118,26 @@ export default function InversionModal({ inversion, onClose, onSaved }: Inversio
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-400 text-xs font-medium mb-1">Cuotapartes</label>
+                <label className="block text-slate-400 text-xs font-medium mb-1 flex items-center gap-1.5">
+                  Cuotapartes
+                  <span className="group relative">
+                    <svg className="w-3.5 h-3.5 text-slate-500 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <circle cx="12" cy="12" r="10" />
+                      <path strokeLinecap="round" d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                      <circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
+                    </svg>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 px-3 py-2 bg-slate-700 text-xs text-slate-200 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                      Si no sabés cuántas tenés, dejamelo vacío. Cuando apretés "Actualizar precio" lo calculamos solos dividiendo tu monto invertido por el valor de la cuota.
+                    </span>
+                  </span>
+                </label>
                 <input
                   type="number"
                   step="0.0001"
                   value={cuotapartes}
                   onChange={e => setCuotapartes(e.target.value)}
                   className="w-full bg-slate-700/50 border border-slate-600/70 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
-                  placeholder="100"
+                  placeholder="Auto"
                 />
               </div>
               <div>

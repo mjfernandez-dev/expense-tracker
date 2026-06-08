@@ -1,4 +1,5 @@
 """Router de inversiones: /inversiones/"""
+from decimal import Decimal
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -199,11 +200,21 @@ def actualizar_precio(
         fuente="scraping",
     )
     db.add(historial)
+
+    # Auto-calcular cuotapartes si no se cargaron
+    if inv.cuotapartes is None and inv.monto_invertido is not None and valor > 0:
+        inv.cuotapartes = (inv.monto_invertido / valor).quantize(Decimal("0.0001"))
+
     db.commit()
+
+    msg = f"Valor cuota actualizado: ${float(valor):,.2f}"
+    if inv.cuotapartes is not None:
+        valor_actual = float(inv.cuotapartes * valor)
+        msg += f" | Inversión actual: ${valor_actual:,.2f}"
 
     return {
         "success": True,
-        "message": f"Valor cuota actualizado: ${float(valor):,.2f}",
+        "message": msg,
         "valor_cuota": float(valor),
         "inversion_id": inversion_id,
     }

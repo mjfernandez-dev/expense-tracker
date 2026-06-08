@@ -208,3 +208,32 @@ def test_inversion_sin_cuotapartes(logged_in_client):
     data = r.json()
     assert data["cuotapartes"] is None
     assert data["valor_actual"] is None
+
+
+# ── Auto-cálculo de cuotapartes ──────────────────────────────────────────
+
+
+def test_actualizar_precio_auto_calcula_cuotapartes(logged_in_client):
+    """Si no hay cuotapartes pero sí monto_invertido, al actualizar precio se calculan auto."""
+    created = logged_in_client.post("/inversiones/", json={
+        "nombre": "SBS Renta Pesos",
+        "ticker": "SBSRPE",
+        "monto_invertido": 1527069.78,
+        "cuotapartes": None,
+    }).json()
+    inv_id = created["id"]
+    assert created["cuotapartes"] is None
+
+    r = logged_in_client.post(f"/inversiones/{inv_id}/actualizar")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["success"] is True
+    assert data["valor_cuota"] is not None
+
+    # Verificar que cuotapartes se haya calculado
+    detalle = logged_in_client.get(f"/inversiones/{inv_id}").json()
+    assert detalle["cuotapartes"] is not None
+    assert detalle["cuotapartes"] > 0
+    assert detalle["valor_actual"] is not None
+    # Valor actual debe ser aprox monto_invertido
+    assert abs(detalle["valor_actual"] - 1527069.78) < 1000
