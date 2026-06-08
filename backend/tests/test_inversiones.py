@@ -237,3 +237,12 @@ def test_actualizar_precio_auto_calcula_cuotapartes(logged_in_client):
     assert detalle["valor_actual"] is not None
     # Valor actual debe ser aprox monto_invertido
     assert abs(detalle["valor_actual"] - 1527069.78) < 1000
+
+    # Segunda actualización: debe recalcular cuotapartes aunque ya tenga
+    r2 = logged_in_client.post(f"/inversiones/{inv_id}/actualizar")
+    assert r2.status_code == 200, r2.text
+    detalle2 = logged_in_client.get(f"/inversiones/{inv_id}").json()
+    assert detalle2["cuotapartes"] is not None
+    assert detalle2["cuotapartes"] > 0
+    # Sigue siendo aprox monto_invertido
+    assert abs(detalle2["valor_actual"] - 1527069.78) < 1000

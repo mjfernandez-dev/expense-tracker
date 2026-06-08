@@ -255,8 +255,8 @@ def actualizar_precio(
     )
     db.add(historial)
 
-    # Auto-calcular cuotapartes si no se cargaron
-    if inv.cuotapartes is None and inv.monto_invertido is not None and valor > 0:
+    # Recalcular cuotapartes siempre que haya monto_invertido
+    if inv.monto_invertido is not None and valor > 0:
         inv.cuotapartes = (inv.monto_invertido / valor).quantize(Decimal("0.0001"))
 
     db.commit()
