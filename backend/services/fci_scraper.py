@@ -99,7 +99,8 @@ def scrape_valor_cuota(ticker: str) -> Optional[Decimal]:
                     vcp = match.get("vcp")
                     if vcp is not None:
                         try:
-                            return Decimal(str(vcp))
+                            # API reports VCP in thousandths of a peso (/1000)
+                            return Decimal(str(vcp)) / Decimal("1000")
                         except InvalidOperation:
                             logger.warning("Invalid vcp value for %s: %s", ticker, vcp)
                             return None
