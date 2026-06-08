@@ -484,3 +484,68 @@ class PushSubscribeResponse(BaseModel):
     id: int
     message: str
 
+
+# ============== SCHEMAS PARA INVERSIONES ==============
+
+class InversionCreate(BaseModel):
+    nombre: str
+    ticker: Optional[str] = None
+    cuotapartes: Optional[MoneyDecimal] = None
+    monto_invertido: Optional[MoneyDecimal] = None
+    fecha_inversion: Optional[datetime] = None
+    notas: Optional[str] = None
+
+
+class InversionUpdate(BaseModel):
+    nombre: Optional[str] = None
+    ticker: Optional[str] = None
+    cuotapartes: Optional[MoneyDecimal] = None
+    monto_invertido: Optional[MoneyDecimal] = None
+    fecha_inversion: Optional[datetime] = None
+    notas: Optional[str] = None
+    activo: Optional[bool] = None
+
+
+class InversionRead(BaseModel):
+    id: int
+    user_id: int
+    nombre: str
+    ticker: Optional[str] = None
+    cuotapartes: Optional[MoneyDecimal] = None
+    monto_invertido: Optional[MoneyDecimal] = None
+    fecha_inversion: Optional[datetime] = None
+    notas: Optional[str] = None
+    activo: bool
+    created_at: datetime
+    updated_at: datetime
+    valor_actual: Optional[MoneyDecimal] = None
+    rendimiento_pct: Optional[float] = None
+    ganancia_perdida: Optional[MoneyDecimal] = None
+    ultimo_valor_cuota: Optional[MoneyDecimal] = None
+    ultima_actualizacion: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class HistorialCreate(BaseModel):
+    fecha: datetime
+    valor_cuota: MoneyDecimal
+    fuente: str = "manual"
+
+
+class HistorialRead(BaseModel):
+    id: int
+    inversion_id: int
+    fecha: datetime
+    valor_cuota: MoneyDecimal
+    fuente: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class InversionDetailRead(InversionRead):
+    historial: List[HistorialRead] = []
+

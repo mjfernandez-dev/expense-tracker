@@ -320,3 +320,48 @@ class PushSubscription(Base):
     created_at = Column(DateTime, default=ahora_buenos_aires)
 
     usuario = relationship("User")
+
+# ============== INVERSIONES (FCI TRACKING) ==============
+
+class Inversion(Base):
+    """
+    FCI investment tracking configuration.
+    Each record represents a user's investment in a specific FCI.
+    """
+    __tablename__ = "inversiones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    nombre = Column(String, nullable=False)
+    ticker = Column(String, nullable=True)
+    cuotapartes = Column(Numeric(14, 4), nullable=True)
+    monto_invertido = Column(Numeric(10, 2), nullable=True)
+    fecha_inversion = Column(DateTime, nullable=True)
+    notas = Column(EncryptedString, nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+    updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
+
+    usuario = relationship("User", backref="inversiones")
+    historial = relationship("HistorialInversion", back_populates="inversion", cascade="all, delete-orphan")
+
+
+class HistorialInversion(Base):
+    """
+    Historical price snapshots for an FCI investment.
+    One record per day per investment.
+    """
+    __tablename__ = "inversiones_historial"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inversion_id = Column(Integer, ForeignKey("inversiones.id", ondelete="CASCADE"), nullable=False, index=True)
+    fecha = Column(DateTime, nullable=False)
+    valor_cuota = Column(Numeric(14, 6), nullable=False)
+    fuente = Column(String, default="manual", nullable=False)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+
+    __table_args__ = (
+        UniqueConstraint("inversion_id", "fecha", name="uq_inversion_fecha"),
+    )
+
+    inversion = relationship("Inversion", back_populates="historial")
