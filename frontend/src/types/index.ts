@@ -176,3 +176,67 @@ export interface CicloCreate {
   fecha_fin: string;
   ahorro_objetivo: number;
 }
+
+// ============== TIPOS DE INVERSIONES ==============
+
+export interface Inversion {
+  id: number;
+  nombre: string;
+  ticker: string | null;
+  cuotapartes: number | null;
+  monto_invertido: number | null;
+  fecha_inversion: string | null;
+  notas: string | null;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+  valor_actual: number | null;
+  rendimiento_pct: number | null;
+  ganancia_perdida: number | null;
+  ultimo_valor_cuota: number | null;
+  ultima_actualizacion: string | null;
+}
+
+export interface InversionCreate {
+  nombre: string;
+  ticker?: string | null;
+  cuotapartes?: number | null;
+  monto_invertido?: number | null;
+  fecha_inversion?: string | null;
+  notas?: string | null;
+}
+
+export interface InversionUpdate {
+  nombre?: string;
+  ticker?: string | null;
+  cuotapartes?: number | null;
+  monto_invertido?: number | null;
+  fecha_inversion?: string | null;
+  notas?: string | null;
+  activo?: boolean;
+}
+
+export interface HistorialPrecio {
+  id: number;
+  inversion_id: number;
+  fecha: string;
+  valor_cuota: number;
+  fuente: string;
+  created_at: string;
+}
+
+export interface HistorialPrecioCreate {
+  fecha: string;
+  valor_cuota: number;
+}
+
+export interface InversionDetail extends Inversion {
+  historial: HistorialPrecio[];
+}
+
+export interface ActualizarPrecioResponse {
+  success: boolean;
+  message: string;
+  valor_cuota?: number;
+  inversion_id: number;
+}

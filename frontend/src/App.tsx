@@ -8,11 +8,12 @@ import DashboardCiclo from './components/DashboardCiclo';
 import BalanceCiclo from './components/BalanceCiclo';
 import CicloWizard from './components/CicloWizard';
 import PresupuestoManager from './components/PresupuestoManager';
+import InversionesDashboard from './components/InversionesDashboard';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
 
-type Tab = 'inicio' | 'movimientos' | 'balance' | 'presupuesto';
+type Tab = 'inicio' | 'movimientos' | 'balance' | 'presupuesto' | 'inversiones';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
 
 function App() {
@@ -96,6 +97,7 @@ function App() {
     movimientos: 'Movimientos',
     balance: 'Balance',
     presupuesto: 'Presupuesto',
+    inversiones: 'Inversiones',
   };
 
   const tabIcon: Record<Tab, string> = {
@@ -103,6 +105,7 @@ function App() {
     movimientos: '📋',
     balance: '📊',
     presupuesto: '💰',
+    inversiones: '📈',
   };
 
   return (
@@ -177,12 +180,16 @@ function App() {
           </div>
         )}
 
+        {tab === 'inversiones' && (
+          <InversionesDashboard refreshKey={refreshKey} />
+        )}
+
       </div>
 
       {/* BOTTOM TAB BAR */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/70 shadow-lg">
         <div className="max-w-6xl mx-auto flex">
-          {(['inicio', 'movimientos', 'balance', 'presupuesto'] as Tab[]).map((t) => (
+          {(['inicio', 'movimientos', 'balance', 'presupuesto', 'inversiones'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}

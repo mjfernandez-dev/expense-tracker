@@ -22,6 +22,13 @@ import type {
   PresupuestoItemCreate,
   GastoFijo,
   GastoFijoUpdate,
+  Inversion,
+  InversionCreate,
+  InversionUpdate,
+  InversionDetail,
+  HistorialPrecio,
+  HistorialPrecioCreate,
+  ActualizarPrecioResponse,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -431,6 +438,49 @@ export const getGastosFijos = async (): Promise<GastoFijo[]> => {
 // PUT /gastos-fijos/{id} → actualiza activo, dia_vencimiento y/o dias_anticipacion
 export const updateGastoFijo = async (id: number, patch: GastoFijoUpdate): Promise<GastoFijo> => {
   const response = await api.put(`/gastos-fijos/${id}`, patch);
+  return response.data;
+};
+
+// ============== INVERSIONES ==============
+
+// GET /inversiones/ → lista inversiones activas
+export const getInversiones = async (): Promise<Inversion[]> => {
+  const response = await api.get('/inversiones/');
+  return response.data;
+};
+
+// POST /inversiones/ → crear inversión
+export const createInversion = async (data: InversionCreate): Promise<Inversion> => {
+  const response = await api.post('/inversiones/', data);
+  return response.data;
+};
+
+// GET /inversiones/{id} → detalle con historial
+export const getInversion = async (id: number): Promise<InversionDetail> => {
+  const response = await api.get(`/inversiones/${id}`);
+  return response.data;
+};
+
+// PUT /inversiones/{id} → actualizar inversión
+export const updateInversion = async (id: number, data: InversionUpdate): Promise<Inversion> => {
+  const response = await api.put(`/inversiones/${id}`, data);
+  return response.data;
+};
+
+// DELETE /inversiones/{id} → eliminar inversión
+export const deleteInversion = async (id: number): Promise<void> => {
+  await api.delete(`/inversiones/${id}`);
+};
+
+// POST /inversiones/{id}/historial → agregar precio manual
+export const addHistorialPrecio = async (inversionId: number, data: HistorialPrecioCreate): Promise<HistorialPrecio> => {
+  const response = await api.post(`/inversiones/${inversionId}/historial`, data);
+  return response.data;
+};
+
+// POST /inversiones/{id}/actualizar → actualizar precio vía scraper
+export const actualizarPrecio = async (inversionId: number): Promise<ActualizarPrecioResponse> => {
+  const response = await api.post(`/inversiones/${inversionId}/actualizar`);
   return response.data;
 };
 
