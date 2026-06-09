@@ -18,7 +18,7 @@ def _registrar_y_logear(client, username: str, email: str) -> None:
         "email": email,
         "password": "TestPass123!",
     })
-    client.post("/auth/login", data={"username": username, "password": "TestPass123!"})
+    client.post("/auth/login", json={"username": username, "password": "TestPass123!"})
 
 
 def _movimiento(user_category_id: int) -> dict:
@@ -71,7 +71,7 @@ def test_listar_categorias_muestra_solo_las_del_usuario(client):
     client.post("/auth/register", json={
         "username": "usuarioB", "email": "b@test.com", "password": "TestPass123!"
     })
-    client.post("/auth/login", data={"username": "usuarioB", "password": "TestPass123!"})
+    client.post("/auth/login", json={"username": "usuarioB", "password": "TestPass123!"})
     client.post("/user-categories/", json=_nueva_categoria("CatDeB"))
 
     r = client.get("/user-categories/")
@@ -111,7 +111,7 @@ def test_actualizar_categoria_de_otro_usuario(client):
     client.post("/auth/register", json={
         "username": "intruso", "email": "int@test.com", "password": "TestPass123!"
     })
-    client.post("/auth/login", data={"username": "intruso", "password": "TestPass123!"})
+    client.post("/auth/login", json={"username": "intruso", "password": "TestPass123!"})
 
     r = client.put(f"/user-categories/{cat_id}", json={"nombre": "Hackeada"})
     assert r.status_code == 404
@@ -143,7 +143,7 @@ def test_eliminar_categoria_de_otro_usuario(client):
     client.post("/auth/register", json={
         "username": "atacante", "email": "atk@test.com", "password": "TestPass123!"
     })
-    client.post("/auth/login", data={"username": "atacante", "password": "TestPass123!"})
+    client.post("/auth/login", json={"username": "atacante", "password": "TestPass123!"})
 
     r = client.delete(f"/user-categories/{cat_id}")
     assert r.status_code == 404
