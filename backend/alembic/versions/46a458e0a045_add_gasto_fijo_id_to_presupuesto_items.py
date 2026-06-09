@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -20,17 +21,34 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Agregar columna gasto_fijo_id + FK a presupuesto_items
-    # SQLite requiere batch mode para ALTER TABLE con FK
-    with op.batch_alter_table('presupuesto_items') as batch_op:
-        batch_op.add_column(sa.Column('gasto_fijo_id', sa.Integer(), nullable=True))
-        batch_op.create_index('ix_presupuesto_items_gasto_fijo_id', ['gasto_fijo_id'])
-        batch_op.create_foreign_key(
-            'fk_presupuesto_items_gasto_fijo',
-            'gastos_fijos',
-            ['gasto_fijo_id'],
-            ['id'],
-        )
+    bind = op.get_bind()
+    inspector = inspect(bind)
+
+    # --- gasto_fijo_id column ---
+    existing_cols = {col['name'] for col in inspector.get_columns('presupuesto_items')}
+    col_exists = 'gasto_fijo_id' in existing_cols
+
+    if not col_exists:
+        with op.batch_alter_table('presupuesto_items') as batch_op:
+            batch_op.add_column(sa.Column('gasto_fijo_id', sa.Integer(), nullable=True))
+
+    # --- index ---
+    existing_idxs = {idx['name'] for idx in inspector.get_indexes('presupuesto_items')}
+    if 'ix_presupuesto_items_gasto_fijo_id' not in existing_idxs:
+        with op.batch_alter_table('presupuesto_items') as batch_op:
+            batch_op.create_index('ix_presupuesto_items_gasto_fijo_id', ['gasto_fijo_id'])
+
+    # --- FK ---
+    existing_fks = inspector.get_foreign_keys('presupuesto_items')
+    has_fk = any(fk.get('constrained_columns') == ['gasto_fijo_id'] for fk in existing_fks)
+    if not has_fk:
+        with op.batch_alter_table('presupuesto_items') as batch_op:
+            batch_op.create_foreign_key(
+                'fk_presupuesto_items_gasto_fijo',
+                'gastos_fijos',
+                ['gasto_fijo_id'],
+                ['id'],
+            )
 
 
 def downgrade() -> None:
