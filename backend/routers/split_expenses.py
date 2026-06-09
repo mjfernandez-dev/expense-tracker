@@ -1,6 +1,6 @@
 """Router de gastos divididos: /split-groups/{group_id}/expenses"""
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,8 +10,20 @@ import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
-from services.split_service import calcular_shares
 from services.ciclo_time_service import ahora_buenos_aires
+
+
+def calcular_shares(importe: Decimal, n: int) -> list[Decimal]:
+    """Divide un importe entre n participantes con precisión Decimal."""
+    importe = importe if isinstance(importe, Decimal) else Decimal(str(importe))
+    share_base = (importe / n).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+    remainder = importe - share_base * n
+    shares = []
+    for i in range(n):
+        amount = share_base + (remainder if i == 0 else Decimal('0'))
+        shares.append(amount)
+    return shares
+
 
 router = APIRouter(tags=["split-expenses"])
 

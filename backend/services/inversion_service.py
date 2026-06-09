@@ -1,6 +1,5 @@
 """Service layer for investment calculations."""
 from decimal import Decimal
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -37,13 +36,3 @@ def calc_inversion_summary(inversion: models.Inversion, db: Session) -> dict:
             result["rendimiento_pct"] = float(rendimiento)
 
     return result
-
-
-def get_latest_price(inversion_id: int, db: Session) -> Optional[models.HistorialInversion]:
-    """Get the most recent price snapshot for an investment."""
-    return (
-        db.query(models.HistorialInversion)
-        .filter(models.HistorialInversion.inversion_id == inversion_id)
-        .order_by(models.HistorialInversion.fecha.desc())
-        .first()
-    )

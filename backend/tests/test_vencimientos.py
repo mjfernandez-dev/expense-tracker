@@ -9,7 +9,7 @@ from datetime import date
 # Asegurar que el backend esté en el path de Python
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from services.vencimiento_service import effective_day, should_notify
+from services.scheduler_service import effective_day, should_notify
 
 
 # ============================================================

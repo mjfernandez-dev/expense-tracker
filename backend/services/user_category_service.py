@@ -65,12 +65,6 @@ def crear_user_category(user_id: int, category: schemas.UserCategoryCreate, db: 
     )
 
 
-def _verificar_puede_eliminar(category_id: int, db: Session) -> int:
-    return db.query(models.Movimiento).filter(
-        models.Movimiento.user_category_id == category_id
-    ).count()
-
-
 def obtener_movimientos_afectados(category_id: int, db: Session) -> List[models.Movimiento]:
     return (
         db.query(models.Movimiento)
@@ -108,7 +102,9 @@ def reasignar_movimientos_categoria(
 
 
 def eliminar_user_category(category: models.UserCategory, db: Session) -> None:
-    movimientos_count = _verificar_puede_eliminar(category.id, db)
+    movimientos_count = db.query(models.Movimiento).filter(
+        models.Movimiento.user_category_id == category.id
+    ).count()
     if movimientos_count > 0:
         raise HTTPException(
             status_code=400,

@@ -12,7 +12,7 @@ from auth import get_current_active_user
 from database import get_db
 from services.ciclo_time_service import ahora_buenos_aires
 from services.fci_scraper import scrape_valor_cuota
-from services.inversion_service import calc_inversion_summary, get_latest_price
+from services.inversion_service import calc_inversion_summary
 
 router = APIRouter(prefix="/inversiones", tags=["inversiones"])
 

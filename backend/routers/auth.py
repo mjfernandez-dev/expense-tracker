@@ -48,7 +48,7 @@ def register(request: Request, user: schemas.UserCreate, db: Session = Depends(g
     return auth_service.registrar_usuario(user, db)
 
 
-@router.post("/login", response_model=schemas.LoginResponse)
+@router.post("/login")
 @limiter.limit("5/minute")
 def login(
     request: Request,
@@ -71,7 +71,7 @@ def login(
     cookie_secure, cookie_samesite = _cookie_security_options()
     response = JSONResponse(content=jsonable_encoder({
         "message": "Login exitoso",
-        "user": schemas.UserRead.from_orm(user).dict(),
+        "user": schemas.UserRead.model_validate(user).model_dump(),
     }))
     response.set_cookie(
         key="access_token",
@@ -130,7 +130,7 @@ def refresh_token(request: Request, db: Session = Depends(get_db)):
     cookie_secure, cookie_samesite = _cookie_security_options()
     response = JSONResponse(content=jsonable_encoder({
         "message": "Token renovado",
-        "user": schemas.UserRead.from_orm(user).dict(),
+        "user": schemas.UserRead.model_validate(user).model_dump(),
     }))
     response.set_cookie(
         key="access_token",

@@ -51,11 +51,6 @@ class UserRead(UserBase):
         from_attributes = True
 
 
-class LoginResponse(BaseModel):
-    message: str
-    user: UserRead
-
-
 class PaymentInfoUpdate(BaseModel):
     alias_bancario: Optional[str] = None
     cvu: Optional[str] = None
@@ -431,9 +426,6 @@ class CicloUpdate(BaseModel):
     fecha_inicio: Optional[datetime] = None
     fecha_fin: Optional[datetime] = None
     ahorro_objetivo: Optional[MoneyDecimal] = None
-
-
-CicloGastoFijoBulk = PresupuestoItemBulk
 
 
 class CicloResumen(BaseModel):

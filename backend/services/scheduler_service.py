@@ -1,7 +1,9 @@
 """Servicio de scheduler y helpers para gastos fijos."""
+import calendar
 import json
 import logging
-from datetime import date
+from datetime import date, timedelta
+from typing import Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -10,10 +12,33 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import models
 from database import get_db, SessionLocal
 from services.ciclo_time_service import ahora_buenos_aires
-from services.vencimiento_service import should_notify, effective_day
 from services.push_service import send_push_notification
 
 logger = logging.getLogger("finanzaapp")
+
+
+def effective_day(dia_vencimiento: int, year: int, month: int) -> int:
+    """Devuelve el día efectivo de vencimiento ajustado a días del mes."""
+    last_day = calendar.monthrange(year, month)[1]
+    return min(dia_vencimiento, last_day)
+
+
+def should_notify(
+    dia_vencimiento: Optional[int],
+    dias_anticipacion: int,
+    today: date,
+) -> bool:
+    """True si hoy debe notificarse el vencimiento."""
+    if dia_vencimiento is None:
+        return False
+    due_day = effective_day(dia_vencimiento, today.year, today.month)
+    due = date(today.year, today.month, due_day)
+    if due < today:
+        first_of_next = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+        due_day = effective_day(dia_vencimiento, first_of_next.year, first_of_next.month)
+        due = date(first_of_next.year, first_of_next.month, due_day)
+    notify_on = due - timedelta(days=dias_anticipacion)
+    return notify_on == today
 
 
 def _job_check_vencimientos():

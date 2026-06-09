@@ -158,18 +158,6 @@ def confirmar_presupuesto(
     return _ciclo_to_read(ciclo, db, current_user.id)
 
 
-# Legacy endpoint for backwards compatibility
-@router.post("/{ciclo_id}/gastos-fijos/", response_model=schemas.CicloRead, deprecated=True)
-def confirmar_gastos_fijos_legacy(
-    ciclo_id: int,
-    data: schemas.CicloGastoFijoBulk,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
-):
-    """Legacy endpoint - usa /presupuesto/ en su lugar."""
-    return confirmar_presupuesto(ciclo_id, schemas.PresupuestoItemBulk(items=data.items), db, current_user)
-
-
 @router.get("/{ciclo_id}/exportar")
 def exportar_ciclo(
     ciclo_id: int,
