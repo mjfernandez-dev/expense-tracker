@@ -137,6 +137,11 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         for item in ciclo.presupuesto_items
     }
 
+    # Add excess from linked items that exceed their budget as unplanned
+    for p in progresos.values():
+        if p.ejecutado > p.reservado:
+            gastos_no_planificados += p.ejecutado - p.reservado
+
     # Presupuesto confirmado para este ciclo
     presupuesto_confirmado = sum(
         progresos[item.id].reservado
@@ -168,13 +173,27 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
     else:
         daily_cap = Decimal('0')
 
-    # Gasto acumulado hoy
+    # Gasto acumulado hoy (excedentes de items vinculados cuentan como no planificados)
     inicio_hoy = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_linked_per_item: dict[int, Decimal] = {}
+    for m in movimientos:
+        if m.tipo == "gasto" and m.fecha >= inicio_hoy and m.presupuesto_item_id is not None:
+            prev = today_linked_per_item.get(m.presupuesto_item_id, Decimal("0"))
+            today_linked_per_item[m.presupuesto_item_id] = prev + m.importe
+    today_linked_excess = Decimal("0")
+    for item_id, hoy_total in today_linked_per_item.items():
+        p = progresos.get(item_id)
+        if p is None:
+            today_linked_excess += hoy_total
+            continue
+        ejecutado_prev = p.ejecutado - hoy_total
+        pendiente_prev = max(Decimal("0"), p.reservado - ejecutado_prev)
+        today_linked_excess += max(Decimal("0"), hoy_total - pendiente_prev)
     gasto_hoy = sum(
         m.importe
         for m in movimientos
         if m.tipo == "gasto" and m.fecha >= inicio_hoy and m.presupuesto_item_id is None
-)
+    ) + today_linked_excess
 
     # Semáforo
     if daily_cap > 0:

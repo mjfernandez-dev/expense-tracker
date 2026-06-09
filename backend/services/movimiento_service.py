@@ -74,10 +74,6 @@ def auto_detectar_presupuesto_item(
     if not item:
         return None
 
-    progreso = calcular_progreso_presupuesto(item, exclude_movimiento_id=exclude_movimiento_id)
-    if progreso.pendiente <= 0 or importe > progreso.pendiente:
-        return None
-
     return item.id
 
 
@@ -110,25 +106,11 @@ def apply_presupuesto_item_link(
     if not item.confirmado:
         raise HTTPException(status_code=400, detail="El item de presupuesto no está confirmado")
 
-    importe_movimiento = Decimal(str(db_movimiento.importe))
-    progreso_base = calcular_progreso_presupuesto(
-        item,
-        exclude_movimiento_id=db_movimiento.id,
-    )
-    if importe_movimiento > progreso_base.pendiente:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "El gasto supera el monto pendiente del item. "
-                f"Pendiente disponible: {progreso_base.pendiente:.2f}"
-            ),
-        )
-
     db_movimiento.presupuesto_item_id = item.id
     item.estado = calcular_progreso_presupuesto(
         item,
         exclude_movimiento_id=db_movimiento.id,
-        extra_importe=importe_movimiento,
+        extra_importe=Decimal(str(db_movimiento.importe)),
     ).estado
 
     if previous_item is not None:
