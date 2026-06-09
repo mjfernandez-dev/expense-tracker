@@ -106,6 +106,18 @@ def apply_presupuesto_item_link(
     if not item.confirmado:
         raise HTTPException(status_code=400, detail="El item de presupuesto no está confirmado")
 
+    # Validar que no se supere el monto comprometido
+    progreso_previo = calcular_progreso_presupuesto(
+        item,
+        exclude_movimiento_id=db_movimiento.id,
+    )
+    nuevo_total = progreso_previo.ejecutado + Decimal(str(db_movimiento.importe))
+    if nuevo_total > item.monto_estimado:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El gasto excede el monto pendiente del compromiso ({progreso_previo.pendiente:.2f})",
+        )
+
     db_movimiento.presupuesto_item_id = item.id
     item.estado = calcular_progreso_presupuesto(
         item,

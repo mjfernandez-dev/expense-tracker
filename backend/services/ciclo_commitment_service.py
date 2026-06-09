@@ -54,7 +54,7 @@ def calcular_progreso_presupuesto(
     elif ejecutado < reservado:
         estado = "parcial"
     else:
-        estado = "efectivado"
+        estado = "efectivizado"
 
     return PresupuestoProgreso(
         reservado=reservado,

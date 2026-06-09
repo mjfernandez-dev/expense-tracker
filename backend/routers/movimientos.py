@@ -58,10 +58,25 @@ def create_movimiento(
         db,
     )
 
-    datos = movimiento.model_dump(exclude={"presupuesto_item_id"})
+    datos = movimiento.model_dump(exclude={"presupuesto_item_id", "es_fijo"})
     datos["clasificacion"] = resolve_clasificacion(movimiento.tipo, movimiento.clasificacion)
     db_movimiento = models.Movimiento(**datos, user_id=current_user.id)
     db.add(db_movimiento)
+
+    # Si es un gasto con es_fijo=True, crear template de GastoFijo y vincular
+    gasto_fijo_id = None
+    if getattr(movimiento, "es_fijo", False) and movimiento.tipo == "gasto":
+        gf = models.GastoFijo(
+            user_id=current_user.id,
+            descripcion=movimiento.descripcion,
+            user_category_id=movimiento.user_category_id,
+            categoria_id=movimiento.categoria_id,
+            activo=True,
+        )
+        db.add(gf)
+        db.flush()
+        db_movimiento.gasto_fijo_id = gf.id
+        gasto_fijo_id = gf.id
 
     item_id = movimiento.presupuesto_item_id
     if item_id is None and movimiento.tipo == "gasto":

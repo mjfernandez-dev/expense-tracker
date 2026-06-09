@@ -219,3 +219,55 @@ def reabrir_ciclo(
         raise HTTPException(status_code=400, detail=str(exc))
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)
+
+
+@router.post("/{ciclo_id}/gastos-fijos/", response_model=schemas.CicloRead)
+def confirmar_gastos_fijos(
+    ciclo_id: int,
+    data: schemas.GastoFijoConfirmBulk,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Confirma (o reemplaza) la lista de gastos fijos comprometidos en un ciclo."""
+    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+
+    # Mapear items existentes por gasto_fijo_id
+    existentes_por_gf = {
+        item.gasto_fijo_id: item
+        for item in ciclo.presupuesto_items
+        if item.gasto_fijo_id is not None
+    }
+
+    usados_ids: set[int] = set()
+
+    for gf_item in data.items:
+        existente = existentes_por_gf.get(gf_item.gasto_fijo_id) if gf_item.gasto_fijo_id else None
+
+        if existente:
+            existente.monto_estimado = gf_item.monto_confirmado
+            existente.confirmado = gf_item.confirmado
+            if gf_item.descripcion_override:
+                existente.descripcion = gf_item.descripcion_override
+            existente.estado = "pendiente"
+            usados_ids.add(existente.id)
+        else:
+            new_item = models.PresupuestoItem(
+                ciclo_id=ciclo.id,
+                gasto_fijo_id=gf_item.gasto_fijo_id,
+                monto_estimado=gf_item.monto_confirmado,
+                confirmado=gf_item.confirmado,
+                descripcion=gf_item.descripcion_override or "Gasto fijo",
+                estado="pendiente",
+            )
+            db.add(new_item)
+            db.flush()
+            usados_ids.add(new_item.id)
+
+    # Eliminar items del ciclo que tienen gasto_fijo_id y NO fueron incluídos
+    for item in list(ciclo.presupuesto_items):
+        if item.gasto_fijo_id is not None and item.id not in usados_ids:
+            db.delete(item)
+
+    db.commit()
+    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    return _ciclo_to_read(ciclo, db, current_user.id)

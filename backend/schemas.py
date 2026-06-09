@@ -191,7 +191,7 @@ class MovimientoBase(BaseModel):
 
 # Schema para CREAR un movimiento (POST)
 class MovimientoCreate(MovimientoBase):
-    pass
+    es_fijo: bool = False  # Si True, crea automáticamente un template de GastoFijo
 
 # Schema para LEER un movimiento (GET)
 # Incluye el ID y la categoría completa relacionada
@@ -201,6 +201,7 @@ class MovimientoRead(MovimientoBase):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     presupuesto_item_id: Optional[int] = None  # FK a item de presupuesto
+    gasto_fijo_id: Optional[int] = None  # FK a template de gasto fijo (si aplica)
     # RELACIÓN: Incluye la categoría completa, no solo el ID
     categoria: Optional[CategoryRead] = None  # Categoría del sistema (si está definida)
     user_category: Optional[UserCategoryRead] = None  # Categoría personalizada (si está definida)
@@ -421,6 +422,30 @@ class PresupuestoItemRead(BaseModel):
         from_attributes = True
 
 
+class GastoFijoCompromiso(BaseModel):
+    """Un gasto fijo comprometido dentro del resumen del ciclo."""
+    id: int
+    gasto_fijo_id: Optional[int] = None
+    descripcion: str
+    monto_confirmado: MoneyDecimal
+    monto_ejecutado: MoneyDecimal = Decimal("0")
+    monto_pendiente: MoneyDecimal = Decimal("0")
+    estado: str = "comprometido"
+
+
+class GastoFijoConfirmItem(BaseModel):
+    """Item individual para confirmar un gasto fijo en un ciclo."""
+    gasto_fijo_id: Optional[int] = None
+    monto_confirmado: MoneyDecimal
+    confirmado: bool = True
+    descripcion_override: Optional[str] = None
+
+
+class GastoFijoConfirmBulk(BaseModel):
+    """Lista de gastos fijos a confirmar en un ciclo."""
+    items: List[GastoFijoConfirmItem]
+
+
 class CicloCreate(BaseModel):
     movimiento_origen_id: Optional[int] = None
     fecha_fin: datetime
@@ -452,6 +477,7 @@ class CicloResumen(BaseModel):
     daily_cap_porcentaje_usado: float
     semaforo: str
     presupuesto_items: List[PresupuestoItemRead] = []
+    gastos_fijos: List[GastoFijoCompromiso] = []
 
 
 class CicloRead(BaseModel):

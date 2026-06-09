@@ -122,10 +122,12 @@ class PresupuestoItem(Base):
     confirmado = Column(Boolean, default=True, nullable=False)
     descripcion = Column(EncryptedString, nullable=True)
     estado = Column(String, default="pendiente", nullable=False)
+    gasto_fijo_id = Column(Integer, ForeignKey("gastos_fijos.id"), nullable=True, index=True)
 
     # RELACIONES
     ciclo = relationship("Ciclo", back_populates="presupuesto_items")
     movimientos = relationship("Movimiento", back_populates="presupuesto_item")
+    gasto_fijo = relationship("GastoFijo", back_populates="presupuesto_items")
 
 
 # MODELO 2: Tabla de movimientos (gastos e ingresos)
@@ -199,6 +201,7 @@ class GastoFijo(Base):
     categoria = relationship("Category", back_populates="gastos_fijos")
     user_category = relationship("UserCategory", back_populates="gastos_fijos")
     movimientos = relationship("Movimiento", back_populates="gasto_fijo")
+    presupuesto_items = relationship("PresupuestoItem", back_populates="gasto_fijo")
 
 
 # ============== MODELOS PARA DIVIDIR GASTOS ==============

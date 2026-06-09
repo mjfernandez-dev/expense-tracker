@@ -2,6 +2,7 @@
 from decimal import Decimal
 from typing import Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 import models
@@ -43,6 +44,32 @@ def crear_nuevo_ciclo(
         activo=True,
     )
     db.add(ciclo)
+    db.flush()
+
+    # Auto-importar gastos fijos activos como presupuesto_items
+    gastos_fijos_activos = (
+        db.query(models.GastoFijo)
+        .filter(models.GastoFijo.user_id == user_id, models.GastoFijo.activo == True)
+        .all()
+    )
+    for gf in gastos_fijos_activos:
+        ultimo = (
+            db.query(func.max(models.Movimiento.importe))
+            .filter(models.Movimiento.gasto_fijo_id == gf.id)
+            .scalar()
+        )
+        monto = ultimo or Decimal("0")
+        db.add(models.PresupuestoItem(
+            ciclo_id=ciclo.id,
+            user_category_id=gf.user_category_id,
+            categoria_id=gf.categoria_id,
+            monto_estimado=monto,
+            confirmado=True,
+            descripcion=gf.descripcion,
+            estado="pendiente",
+            gasto_fijo_id=gf.id,
+        ))
+
     db.commit()
     db.refresh(ciclo)
     return ciclo
@@ -103,6 +130,7 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
     fecha_limite = min(ahora, ciclo.fecha_fin)
 
     # Todos los movimientos dentro del período del ciclo
+    # + el movimiento que originó el ciclo (puede ser anterior a fecha_inicio)
     movimientos = (
         db.query(models.Movimiento)
         .filter(
@@ -112,6 +140,14 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         )
         .all()
     )
+
+    # Incluir movimiento origen aunque esté fuera del rango de fechas
+    if ciclo.movimiento_origen_id:
+        mov_origen = db.query(models.Movimiento).filter(
+            models.Movimiento.id == ciclo.movimiento_origen_id,
+        ).first()
+        if mov_origen and mov_origen not in movimientos:
+            movimientos.append(mov_origen)
 
     total_ingresos = sum(
         m.importe for m in movimientos if m.tipo == "ingreso"
@@ -225,6 +261,28 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         for item in ciclo.presupuesto_items
     ]
 
+    # Armar lista de gastos_fijos del ciclo
+    # "pendiente" se mapea a "comprometido" si el item está confirmado
+    def _gf_estado(item, progreso):
+        if progreso.ejecutado > 0:
+            return progreso.estado  # parcial o efectivizado
+        if item.confirmado:
+            return "comprometido"
+        return progreso.estado  # pendiente
+
+    gastos_fijos_read = [
+        schemas.GastoFijoCompromiso(
+            id=item.id,
+            gasto_fijo_id=item.gasto_fijo_id,
+            descripcion=item.descripcion or "",
+            monto_confirmado=item.monto_estimado,
+            monto_ejecutado=progresos[item.id].ejecutado,
+            monto_pendiente=progresos[item.id].pendiente,
+            estado=_gf_estado(item, progresos[item.id]),
+        )
+        for item in ciclo.presupuesto_items
+    ]
+
     return schemas.CicloResumen(
         ciclo_id=ciclo.id,
         fecha_inicio=ciclo.fecha_inicio,
@@ -244,4 +302,5 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         daily_cap_porcentaje_usado=round(min(porcentaje, 999.9), 1),
         semaforo=semaforo,
         presupuesto_items=presupuesto_items_read,
+        gastos_fijos=gastos_fijos_read,
     )
