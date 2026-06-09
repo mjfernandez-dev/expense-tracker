@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal, ROUND_DOWN
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 import models
@@ -96,6 +96,8 @@ def create_split_expense(
 @router.get("/split-groups/{group_id}/expenses", response_model=List[schemas.SplitExpenseRead])
 def list_split_expenses(
     group_id: int,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
@@ -112,7 +114,7 @@ def list_split_expenses(
         joinedload(models.SplitExpense.participants).joinedload(models.SplitExpenseParticipant.member),
     ).filter(
         models.SplitExpense.group_id == group_id,
-    ).order_by(models.SplitExpense.fecha.desc()).all()
+    ).order_by(models.SplitExpense.fecha.desc()).limit(limit).offset(offset).all()
 
     seen = set()
     unique = []

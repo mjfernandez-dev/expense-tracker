@@ -1,7 +1,7 @@
 """Router de grupos divididos: /split-groups/ (grupos + miembros)"""
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 import models
@@ -64,6 +64,8 @@ def create_split_group(
 
 @router.get("/", response_model=List[schemas.SplitGroupRead])
 def list_split_groups(
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
@@ -71,7 +73,7 @@ def list_split_groups(
         joinedload(models.SplitGroup.members).joinedload(models.SplitGroupMember.contact),
     ).filter(
         models.SplitGroup.creator_id == current_user.id,
-    ).order_by(models.SplitGroup.is_active.desc(), models.SplitGroup.created_at.desc()).all()
+    ).order_by(models.SplitGroup.is_active.desc(), models.SplitGroup.created_at.desc()).limit(limit).offset(offset).all()
 
     seen = set()
     unique_groups = []

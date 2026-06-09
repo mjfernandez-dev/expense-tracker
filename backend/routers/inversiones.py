@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import List, Optional
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 import models
@@ -79,6 +79,8 @@ def _inversion_to_dict(inv: models.Inversion, db: Session) -> dict:
 
 @router.get("/", response_model=List[schemas.InversionRead])
 def list_inversiones(
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
@@ -89,6 +91,7 @@ def list_inversiones(
             models.Inversion.user_id == current_user.id,
             models.Inversion.activo == True,
         )
+        .limit(limit).offset(offset)
         .all()
     )
     return [_inversion_to_dict(inv, db) for inv in inversiones]

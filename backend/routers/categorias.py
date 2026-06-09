@@ -1,7 +1,7 @@
 """Routers de categorías: /categories/ y /user-categories/"""
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 import models
@@ -35,10 +35,12 @@ def create_user_category(
 
 @router.get("/", response_model=List[schemas.UserCategoryRead])
 def list_user_categories(
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    return user_category_service.listar_categorias_usuario(current_user.id, db)
+    return user_category_service.listar_categorias_usuario(current_user.id, db, limit, offset)
 
 
 @router.get("/{category_id}", response_model=schemas.UserCategoryRead)

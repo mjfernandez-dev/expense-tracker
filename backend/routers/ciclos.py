@@ -2,7 +2,7 @@
 import io
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -52,6 +52,8 @@ def _ciclo_to_read(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.Ci
 
 @router.get("/", response_model=list[schemas.CicloRead])
 def listar_ciclos(
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
@@ -60,6 +62,7 @@ def listar_ciclos(
         db.query(models.Ciclo)
         .filter(models.Ciclo.user_id == current_user.id)
         .order_by(models.Ciclo.fecha_inicio.desc())
+        .limit(limit).offset(offset)
         .all()
     )
     return [

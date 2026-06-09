@@ -74,7 +74,7 @@ def registered_user(client) -> dict:
 @pytest.fixture
 def logged_in_client(client, registered_user):
     """TestClient ya autenticado (cookie httponly seteada)."""
-    r = client.post("/auth/login", data={
+    r = client.post("/auth/login", json={
         "username": registered_user["username"],
         "password": registered_user["password"],
     })

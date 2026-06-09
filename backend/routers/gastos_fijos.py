@@ -1,7 +1,7 @@
 """Router de gastos fijos recurrentes: /gastos-fijos/"""
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 import models
@@ -15,6 +15,8 @@ router = APIRouter(prefix="/gastos-fijos", tags=["gastos-fijos"])
 
 @router.get("/", response_model=List[schemas.GastoFijoRead])
 def list_gastos_fijos(
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
@@ -22,6 +24,7 @@ def list_gastos_fijos(
         db.query(models.GastoFijo)
         .filter(models.GastoFijo.user_id == current_user.id)
         .options(joinedload(models.GastoFijo.categoria), joinedload(models.GastoFijo.user_category))
+        .limit(limit).offset(offset)
         .all()
     )
     return [gasto_fijo_to_dict(gf, db) for gf in gastos_fijos]

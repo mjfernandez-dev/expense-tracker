@@ -27,7 +27,7 @@ def _register_and_login(client) -> dict:
     }
     r = client.post("/auth/register", json=payload)
     assert r.status_code == 200, r.text
-    r = client.post("/auth/login", data={
+    r = client.post("/auth/login", json={
         "username": payload["username"],
         "password": payload["password"],
     })

@@ -39,7 +39,7 @@ def test_register_duplicate_email(client, registered_user):
 
 
 def test_login_ok(client, registered_user):
-    r = client.post("/auth/login", data={
+    r = client.post("/auth/login", json={
         "username": registered_user["username"],
         "password": registered_user["password"],
     })
@@ -50,7 +50,7 @@ def test_login_ok(client, registered_user):
 
 
 def test_login_wrong_password(client, registered_user):
-    r = client.post("/auth/login", data={
+    r = client.post("/auth/login", json={
         "username": registered_user["username"],
         "password": "clave-incorrecta",
     })
@@ -58,7 +58,7 @@ def test_login_wrong_password(client, registered_user):
 
 
 def test_login_unknown_user(client):
-    r = client.post("/auth/login", data={
+    r = client.post("/auth/login", json={
         "username": "noexiste", "password": "cualquiera"
     })
     assert r.status_code == 401
@@ -86,7 +86,7 @@ def test_logout(logged_in_client):
 # ============== REFRESH TOKEN ==============
 
 def test_login_emite_refresh_token(client, registered_user):
-    r = client.post("/auth/login", data={
+    r = client.post("/auth/login", json={
         "username": registered_user["username"],
         "password": registered_user["password"],
     })

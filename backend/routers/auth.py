@@ -1,10 +1,10 @@
 """Router de autenticación: /auth/*"""
 from datetime import timedelta
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 import config
@@ -28,6 +28,7 @@ from dependencies import limiter
 from email_service import send_password_reset_email
 from services import auth_service
 
+logger = logging.getLogger("finanzaapp")
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -52,10 +53,10 @@ def register(request: Request, user: schemas.UserCreate, db: Session = Depends(g
 @limiter.limit("5/minute")
 def login(
     request: Request,
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    payload: schemas.LoginRequest,
     db: Session = Depends(get_db)
 ):
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = authenticate_user(db, payload.username, payload.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -108,6 +109,7 @@ def logout(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh")
+@limiter.limit("10/minute")
 def refresh_token(request: Request, db: Session = Depends(get_db)):
     """Renueva el access_token usando el refresh_token de la cookie.
 
@@ -180,14 +182,17 @@ async def forgot_password(
             reset_token=raw_token,
             expires_in_hours=1,
         )
-    except Exception:
-        pass  # fallo de email no bloquea el flujo de reset
+    except Exception as exc:
+        logger.error("Failed to send password reset email to %s: %s", user.email, exc)
+        # No relanzar — no revelar si el email existe o no
 
     return {"message": message}
 
 
 @router.post("/reset-password")
+@limiter.limit("5/minute")
 def reset_password(
+    request: Request,
     payload: schemas.PasswordResetConfirm,
     db: Session = Depends(get_db),
 ):
@@ -202,7 +207,9 @@ def reset_password(
 
 
 @router.post("/change-password")
+@limiter.limit("3/minute")
 def change_password(
+    request: Request,
     payload: schemas.PasswordChange,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),

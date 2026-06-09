@@ -1,7 +1,7 @@
 """Router de contactos: /contacts/"""
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 import models
@@ -33,12 +33,14 @@ def create_contact(
 
 @router.get("/", response_model=List[schemas.ContactRead])
 def list_contacts(
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
     return db.query(models.Contact).filter(
         models.Contact.owner_id == current_user.id
-    ).order_by(models.Contact.nombre).all()
+    ).order_by(models.Contact.nombre).limit(limit).offset(offset).all()
 
 
 @router.put("/{contact_id}", response_model=schemas.ContactRead)

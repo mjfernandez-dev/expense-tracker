@@ -92,6 +92,11 @@ class PasswordResetRequest(BaseModel):
     email: EmailStr
 
 
+class LoginRequest(BaseModel):
+    username: str = Field(..., max_length=100)
+    password: str = Field(..., max_length=128)
+
+
 class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str

@@ -14,11 +14,12 @@ def listar_categorias_sistema(db: Session) -> List[models.Category]:
     return db.query(models.Category).filter(models.Category.es_predeterminada == True).all()
 
 
-def listar_categorias_usuario(user_id: int, db: Session) -> List[models.UserCategory]:
+def listar_categorias_usuario(user_id: int, db: Session, limit: int = 100, offset: int = 0) -> List[models.UserCategory]:
     return (
         db.query(models.UserCategory)
         .filter(models.UserCategory.user_id == user_id)
         .order_by(models.UserCategory.created_at.desc())
+        .limit(limit).offset(offset)
         .all()
     )
 
