@@ -156,11 +156,11 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
                   const pct = item.monto_estimado > 0
                     ? Math.min((item.monto_ejecutado / item.monto_estimado) * 100, 100) : 0;
                   const barColor =
-                    item.estado === 'efectivado' ? 'bg-green-500' :
-                    item.estado === 'parcial'    ? 'bg-blue-400'  : 'bg-slate-600';
+                    item.estado === 'efectivizado' ? 'bg-green-500' :
+                    item.estado === 'parcial'      ? 'bg-blue-400'  : 'bg-slate-600';
                   const pctColor =
-                    item.estado === 'efectivado' ? 'text-green-400' :
-                    item.estado === 'parcial'    ? 'text-blue-300'  : 'text-slate-500';
+                    item.estado === 'efectivizado' ? 'text-green-400' :
+                    item.estado === 'parcial'      ? 'text-blue-300'  : 'text-slate-500';
                   return (
                     <div key={item.id} className="px-4 py-2.5">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
