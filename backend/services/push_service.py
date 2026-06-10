@@ -10,7 +10,7 @@ import models
 logger = logging.getLogger("finanzaapp")
 
 VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")
-VAPID_CLAIMS = {"sub": os.getenv("VAPID_MAILTO", "mailto:admin@finanzaapp")}
+VAPID_CLAIMS = {"sub": os.getenv("VAPID_MAILTO", "mailto:admin@finanzaapp.local")}
 
 
 def send_push_notification(subscription, payload: dict) -> bool:

@@ -27,7 +27,7 @@ target_metadata = Base.metadata
 # Por defecto, usar SQLite para desarrollo
 database_url = os.getenv(
     "DATABASE_URL",
-    "sqlite:///./gastos.db"
+    "sqlite:///./finanzaapp.db"
 )
 
 

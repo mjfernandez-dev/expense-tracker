@@ -42,7 +42,7 @@ export default function Login() {
             {SHOW_IMAGE_LOGO ? (
               <img
                 src={authLogo}
-                alt="Logo FinanzAPP"
+                alt="Logo FinanzaApp"
                 className="w-16 h-16 object-cover"
                 width="64"
                 height="64"
@@ -52,7 +52,7 @@ export default function Login() {
               <span className="text-3xl text-blue-400">📊</span>
             )}
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-wide">FinanzAPP</h1>
+          <h1 className="text-3xl font-bold text-white tracking-wide">FinanzaApp</h1>
           <p className="text-slate-400 mt-1 text-sm">Gestiona tus finanzas personales</p>
         </div>
 

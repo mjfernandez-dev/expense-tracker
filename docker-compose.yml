@@ -4,17 +4,17 @@ services:
   # Base de datos PostgreSQL (PRODUCCIÓN)
   postgres:
     image: postgres:16.7-alpine
-    container_name: expense-postgres
+    container_name: finanzaapp-postgres
     environment:
-      POSTGRES_USER: ${DB_USER:-gastos_user}
+      POSTGRES_USER: ${DB_USER:-finanzaapp_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD}  # REQUERIDA - no tiene fallback por seguridad
-      POSTGRES_DB: ${DB_NAME:-gastos_db}
+      POSTGRES_DB: ${DB_NAME:-finanzaapp_db}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     # Puerto NO expuesto al host por seguridad — accesible solo entre containers
     # Para debug local, descomentar: ports: ["${DB_PORT:-5432}:5432"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gastos_user}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-finanzaapp_user}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,7 +30,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: expense-backend
+    container_name: finanzaapp-backend
     ports:
       - "8000:8000"
     volumes:
@@ -45,7 +45,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}  # REQUERIDA - sin fallback
       
       # Base de datos
-      - DATABASE_URL=postgresql://${DB_USER:-gastos_user}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-gastos_db}
+      - DATABASE_URL=postgresql://${DB_USER:-finanzaapp_user}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-finanzaapp_db}
       
       # Email (requerido para reset de contraseña)
       - SMTP_HOST=${SMTP_HOST}
@@ -81,7 +81,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: expense-frontend
+    container_name: finanzaapp-frontend
     ports:
       - "80:80"
       - "443:443"

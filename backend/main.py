@@ -39,10 +39,8 @@ from slowapi.errors import RateLimitExceeded
 from services.scheduler_service import create_scheduler
 
 # Routers
-from routers import auth, categorias, movimientos, contactos, gastos_fijos
+from routers import auth, categorias, movimientos, gastos_fijos, ciclos, push, inversiones
 from routers.categorias import categories_router
-from routers import split_groups, split_expenses, balances, ciclos, push
-from routers import inversiones
 
 # Crear todas las tablas en la base de datos si no existen
 # ⚠️ Las migraciones de esquema se manejan con Alembic (ver carpeta alembic/).
@@ -62,9 +60,9 @@ async def lifespan(app: FastAPI):
 
 # Crear la aplicaci?n FastAPI
 if config.IS_PRODUCTION:
-    app = FastAPI(title="Expense Tracker API", docs_url=None, redoc_url=None, lifespan=lifespan)
+    app = FastAPI(title="FinanzaApp API", docs_url=None, redoc_url=None, lifespan=lifespan)
 else:
-    app = FastAPI(title="Expense Tracker API", lifespan=lifespan)
+    app = FastAPI(title="FinanzaApp API", lifespan=lifespan)
 
 # Rate limiting
 app.state.limiter = limiter
@@ -103,10 +101,6 @@ app.include_router(auth.router)
 app.include_router(categories_router)
 app.include_router(categorias.router)
 app.include_router(movimientos.router)
-app.include_router(contactos.router)
-app.include_router(split_groups.router)
-app.include_router(split_expenses.router)
-app.include_router(balances.router)
 app.include_router(gastos_fijos.router)
 app.include_router(ciclos.router)
 app.include_router(push.router)
@@ -115,7 +109,7 @@ app.include_router(inversiones.router)
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def root():
-    return {"message": "API de Gastos funcionando correctamente"}
+    return {"message": "API de FinanzaApp funcionando correctamente"}
 
 
 @app.api_route("/health", methods=["GET", "HEAD"])

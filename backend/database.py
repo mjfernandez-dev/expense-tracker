@@ -17,7 +17,7 @@ if ENVIRONMENT == "production" and not DATABASE_URL:
 
 # Usar SQLite en desarrollo si no se proporciona DATABASE_URL
 if not DATABASE_URL:
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./gastos.db"
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./finanzaapp.db"
 else:
     SQLALCHEMY_DATABASE_URL = DATABASE_URL
 

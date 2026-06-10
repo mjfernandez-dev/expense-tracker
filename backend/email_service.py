@@ -16,7 +16,7 @@ SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-SENDER_EMAIL = os.getenv("SENDER_EMAIL", "noreply@gastos.local")
+SENDER_EMAIL = os.getenv("SENDER_EMAIL", "noreply@finanzaapp.local")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
@@ -74,7 +74,7 @@ Este enlace expirará en {expires_in_hours} hora(s).
 Si no solicitaste un reset de contraseña, ignora este email.
 
 ---
-Expense Tracker
+FinanzaApp
         """
         
         if ENVIRONMENT == "development":
@@ -98,7 +98,7 @@ Expense Tracker
         
         # Crear mensaje
         message = MIMEMultipart("alternative")
-        message["Subject"] = "Restablece tu contraseña - Expense Tracker"
+        message["Subject"] = "Restablece tu contraseña - FinanzaApp"
         message["From"] = SENDER_EMAIL
         message["To"] = email
         
@@ -162,7 +162,7 @@ Este código expirará en {expires_in_minutes} minutos.
 Si no solicitaste este código, ignora este email.
 
 ---
-Expense Tracker
+FinanzaApp
         """
         
         if ENVIRONMENT == "development":
@@ -179,7 +179,7 @@ Expense Tracker
             return False
         
         message = MIMEMultipart("alternative")
-        message["Subject"] = "Tu código de verificación - Expense Tracker"
+        message["Subject"] = "Tu código de verificación - FinanzaApp"
         message["From"] = SENDER_EMAIL
         message["To"] = email
         
@@ -230,12 +230,12 @@ async def send_welcome_email(
         text_content = f"""
 ¡Bienvenido {username}!
 
-Tu cuenta en Expense Tracker ha sido creada exitosamente.
+Tu cuenta en FinanzaApp ha sido creada exitosamente.
 
 Accede a la aplicación aquí: {app_url}
 
 ---
-Expense Tracker
+FinanzaApp
         """
         
         if ENVIRONMENT == "development":
@@ -251,7 +251,7 @@ Expense Tracker
             return False
         
         message = MIMEMultipart("alternative")
-        message["Subject"] = "¡Bienvenido a Expense Tracker!"
+        message["Subject"] = "¡Bienvenido a FinanzaApp!"
         message["From"] = SENDER_EMAIL
         message["To"] = email
         

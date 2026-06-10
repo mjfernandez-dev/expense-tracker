@@ -12,10 +12,7 @@ def migrate():
 
     tables_fields = [
         ("users", ["alias_bancario", "cvu"]),
-        ("contacts", ["nombre", "alias_bancario", "cvu"]),
         ("expenses", ["descripcion", "nota"]),
-        ("split_expenses", ["descripcion"]),
-        ("split_group_members", ["display_name"]),
     ]
 
     with engine.connect() as conn:
