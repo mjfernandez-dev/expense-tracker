@@ -137,7 +137,9 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setClasificacion('');
 
     } catch (err) {
-      setError(movimientoToEdit ? 'Error al actualizar el movimiento' : 'Error al registrar el movimiento');
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      const detail = (err as any)?.response?.data?.detail;
+      setError(detail || msg);
     } finally {
       setLoading(false);
     }
