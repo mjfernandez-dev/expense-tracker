@@ -311,6 +311,18 @@ export const updateMovimiento = async (id: number, movimiento: MovimientoCreate)
   return response.data;
 };
 
+// Buscar descripciones de movimientos existentes (autocomplete)
+// GET /movimientos/descripciones/search?q=...&limit=...
+export interface DescripcionSuggestion {
+  descripcion: string;
+  frecuencia: number;
+}
+
+export const searchDescripciones = async (q: string, limit: number = 10): Promise<DescripcionSuggestion[]> => {
+  const response = await api.get('/movimientos/descripciones/search', { params: { q, limit } });
+  return response.data;
+};
+
 // Eliminar una categoría personalizada
 // DELETE /user-categories/{id}
 export const deleteCategory = async (id: number): Promise<void> => {

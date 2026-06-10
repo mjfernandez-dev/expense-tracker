@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 import models
@@ -96,6 +97,28 @@ def create_movimiento(
         joinedload(models.Movimiento.user_category),
     ).filter(models.Movimiento.id == db_movimiento.id).first()
     return db_movimiento
+
+
+@router.get("/descripciones/search")
+def search_descripciones(
+    q: str = Query(..., min_length=1, description="Texto de búsqueda"),
+    limit: int = Query(default=10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Busca descripciones de movimientos existentes que contengan el texto dado."""
+    results = (
+        db.query(models.Movimiento.descripcion, func.count(models.Movimiento.id).label("cnt"))
+        .filter(
+            models.Movimiento.user_id == current_user.id,
+            models.Movimiento.descripcion.ilike(f"%{q}%"),
+        )
+        .group_by(models.Movimiento.descripcion)
+        .order_by(func.count(models.Movimiento.id).desc())
+        .limit(limit)
+        .all()
+    )
+    return [{"descripcion": r[0], "frecuencia": r[1]} for r in results]
 
 
 @router.delete("/{movimiento_id}")

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import type { UserCategory, MovimientoCreate, Movimiento } from '../types';
-import { getUserCategories, createMovimiento, updateMovimiento, createCategory } from '../services/api';
+import { getUserCategories, createMovimiento, updateMovimiento, createCategory, searchDescripciones } from '../services/api';
+import type { DescripcionSuggestion } from '../services/api';
 import { getCurrentBADateInputValue } from '../utils/buenosAiresDate';
 
 interface MovimientoFormProps {
@@ -31,6 +32,14 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [newCatNombre, setNewCatNombre] = useState<string>('');
   const [savingCat, setSavingCat] = useState<boolean>(false);
 
+  // Autocomplete de descripciones
+  const [suggestions, setSuggestions] = useState<DescripcionSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<number>(-1);
+  const suggestionTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const descRef = useRef<HTMLInputElement>(null);
+  const suggestionListRef = useRef<HTMLUListElement>(null);
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -46,6 +55,37 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
     fetchCategories();
   }, [movimientoToEdit, categoriesVersion]);
+
+  // Buscar sugerencias de descripciones con debounce
+  useEffect(() => {
+    if (suggestionTimeoutRef.current) {
+      clearTimeout(suggestionTimeoutRef.current);
+    }
+
+    const trimmed = descripcion.trim();
+    if (trimmed.length < 1 || movimientoToEdit) {
+      setShowSuggestions(false);
+      setSuggestions([]);
+      return;
+    }
+
+    suggestionTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await searchDescripciones(trimmed);
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+        setSelectedSuggestionIndex(-1);
+      } catch {
+        // fallo silencioso — no romper el form por sugerencias
+      }
+    }, 300);
+
+    return () => {
+      if (suggestionTimeoutRef.current) {
+        clearTimeout(suggestionTimeoutRef.current);
+      }
+    };
+  }, [descripcion, movimientoToEdit]);
 
   useEffect(() => {
     if (movimientoToEdit) {
@@ -89,6 +129,39 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setSavingCat(false);
     }
   };
+
+  const handleDescKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) =>
+        prev < suggestions.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) =>
+        prev > 0 ? prev - 1 : suggestions.length - 1
+      );
+    } else if (e.key === 'Enter' && selectedSuggestionIndex >= 0) {
+      e.preventDefault();
+      const selected = suggestions[selectedSuggestionIndex];
+      if (selected) {
+        setDescripcion(selected.descripcion);
+        setShowSuggestions(false);
+        setSuggestions([]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setSuggestions([]);
+    }
+  };
+
+  const selectSuggestion = useCallback((desc: string) => {
+    setDescripcion(desc);
+    setShowSuggestions(false);
+    setSuggestions([]);
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -237,12 +310,46 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             Descripción *
           </label>
           <input
+            ref={descRef}
             type="text"
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
+            onKeyDown={handleDescKeyDown}
+            onBlur={() => {
+              // Esperar a que el mousedown de la sugerencia se procese
+              setTimeout(() => setShowSuggestions(false), 200);
+            }}
             placeholder={isIngreso ? 'Ej: Sueldo de febrero' : 'Ej: Almuerzo con cliente'}
+            autoComplete="off"
             className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
           />
+          {showSuggestions && (
+            <ul
+              ref={suggestionListRef}
+              role="listbox"
+              aria-label="Sugerencias de descripciones"
+              className="mt-1 bg-slate-800 border border-slate-600 rounded-lg overflow-hidden shadow-xl z-10"
+            >
+              {suggestions.map((s, i) => (
+                <li
+                  key={s.descripcion}
+                  role="option"
+                  aria-selected={i === selectedSuggestionIndex}
+                  onMouseDown={() => selectSuggestion(s.descripcion)}
+                  className={`px-4 py-2.5 cursor-pointer text-sm flex items-center justify-between transition-colors ${
+                    i === selectedSuggestionIndex
+                      ? 'bg-blue-600/40 text-white'
+                      : 'text-slate-200 hover:bg-slate-700'
+                  }`}
+                >
+                  <span>{s.descripcion}</span>
+                  <span className="text-xs text-slate-400 ml-2 shrink-0">
+                    ×{s.frecuencia}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div>

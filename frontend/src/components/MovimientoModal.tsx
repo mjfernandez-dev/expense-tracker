@@ -34,12 +34,12 @@ function MovimientoModal({
     }
   }, [isOpen]);
 
-  // Mover foco al primer elemento del modal al abrir
+  // Mover foco al campo de importe al abrir el modal
   useEffect(() => {
     if (!isOpen) return;
     const frame = requestAnimationFrame(() => {
-      const first = modalRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE)[0];
-      first?.focus();
+      const amountInput = modalRef.current?.querySelector<HTMLElement>('input[type="number"]');
+      amountInput?.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [isOpen]);
