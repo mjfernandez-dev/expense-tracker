@@ -24,22 +24,24 @@
     <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
     <div id="root"></div>
     <script>
-      // PWA cache-busting: detecta si hay versión nueva y recarga automáticamente
+      // PWA cache-busting: recarga automática si cambian los hashes de los bundles
       (function() {
-        if ('caches' in window) {
-          fetch('/index.html', { cache: 'no-store' })
-            .then(function(r) { return r.text(); })
-            .then(function(html) {
-              var match = html.match(/src="([^"]*main[^"]*)"/);
-              if (match && !document.querySelector('script[src="' + match[1] + '"]')) {
-                caches.keys().then(function(names) {
-                  names.forEach(function(name) { caches.delete(name); });
-                });
-                window.location.reload();
-              }
-            })
-            .catch(function() {});
-        }
+        if (!('caches' in window)) return;
+        var cur = [];
+        document.querySelectorAll('link[rel="stylesheet"],script[type="module"]').forEach(function(el) {
+          var u = el.getAttribute('href') || el.getAttribute('src');
+          if (u) cur.push(u);
+        });
+        if (cur.length === 0) return;
+        fetch('/index.html', { cache: 'no-store' }).then(function(r) { return r.text(); }).then(function(html) {
+          var nu = [], re = /(?:href|src)="(\/[^"]+\.(?:css|js))"/g, m;
+          while ((m = re.exec(html)) !== null) nu.push(m[1]);
+          if (cur.length !== nu.length) return clearAll();
+          for (var i = 0; i < cur.length; i++) { if (cur[i] !== nu[i]) return clearAll(); }
+          function clearAll() {
+            caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }).then(function() { location.reload(); });
+          }
+        }).catch(function() {});
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
