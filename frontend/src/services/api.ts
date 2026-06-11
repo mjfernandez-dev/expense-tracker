@@ -102,18 +102,10 @@ export const registerUser = async (userData: UserCreate): Promise<User> => {
   return response.data;
 };
 
-// Login - la cookie httpOnly se setea automáticamente por el backend
-// POST /auth/login (usa form-data, no JSON)
+// Login — la cookie httpOnly se setea automáticamente por el backend
+// POST /auth/login (envía JSON, el backend espera LoginRequest)
 export const loginUser = async (username: string, password: string): Promise<AuthResponse> => {
-  const formData = new URLSearchParams();
-  formData.append('username', username);
-  formData.append('password', password);
-
-  const response = await api.post<AuthResponse>('/auth/login', formData, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  });
+  const response = await api.post<AuthResponse>('/auth/login', { username, password });
   return response.data;
 };
 
