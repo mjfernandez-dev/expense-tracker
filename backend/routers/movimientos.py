@@ -106,19 +106,26 @@ def search_descripciones(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    """Busca descripciones de movimientos existentes que contengan el texto dado."""
-    results = (
-        db.query(models.Movimiento.descripcion, func.count(models.Movimiento.id).label("cnt"))
-        .filter(
-            models.Movimiento.user_id == current_user.id,
-            models.Movimiento.descripcion.ilike(f"%{q}%"),
-        )
-        .group_by(models.Movimiento.descripcion)
-        .order_by(func.count(models.Movimiento.id).desc())
-        .limit(limit)
+    """Busca descripciones de movimientos existentes que contengan el texto dado.
+
+    Nota: descripcion usa EncryptedString, por lo que NO se puede filtrar con
+    ILIKE/LIKE a nivel DB (el LIKE opera contra el blob cifrado). Se traen todas
+    las descripciones, se desencriptan automaticamente en Python, y se filtran
+    en memoria.
+    """
+    rows = (
+        db.query(models.Movimiento.descripcion)
+        .filter(models.Movimiento.user_id == current_user.id)
         .all()
     )
-    return [{"descripcion": r[0], "frecuencia": r[1]} for r in results]
+    q_lower = q.lower()
+    desc_counts: dict[str, int] = {}
+    for (desc,) in rows:
+        if desc and q_lower in desc.lower():
+            desc_counts[desc] = desc_counts.get(desc, 0) + 1
+
+    sorted_descs = sorted(desc_counts.items(), key=lambda x: -x[1])[:limit]
+    return [{"descripcion": d, "frecuencia": c} for d, c in sorted_descs]
 
 
 @router.delete("/{movimiento_id}")
