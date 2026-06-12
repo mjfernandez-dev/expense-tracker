@@ -23,26 +23,14 @@
   <body style="background-color: #0f172a; margin: 0;">
     <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
     <div id="root"></div>
+    <!-- Recarga una vez cuando un nuevo service worker toma el control -->
     <script>
-      // PWA cache-busting: recarga automática si cambian los hashes de los bundles
-      (function() {
-        if (!('caches' in window)) return;
-        var cur = [];
-        document.querySelectorAll('link[rel="stylesheet"],script[type="module"]').forEach(function(el) {
-          var u = el.getAttribute('href') || el.getAttribute('src');
-          if (u) cur.push(u);
+      if ('serviceWorker' in navigator) {
+        var _r = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          if (_r) return; _r = true; location.reload();
         });
-        if (cur.length === 0) return;
-        fetch('/index.html', { cache: 'no-store' }).then(function(r) { return r.text(); }).then(function(html) {
-          var nu = [], re = /(?:href|src)="(\/[^"]+\.(?:css|js))"/g, m;
-          while ((m = re.exec(html)) !== null) nu.push(m[1]);
-          if (cur.length !== nu.length) return clearAll();
-          for (var i = 0; i < cur.length; i++) { if (cur[i] !== nu[i]) return clearAll(); }
-          function clearAll() {
-            caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }).then(function() { location.reload(); });
-          }
-        }).catch(function() {});
-      })();
+      }
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
