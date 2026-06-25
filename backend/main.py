@@ -7,6 +7,8 @@ import json
 import time
 import os
 
+from fastapi.staticfiles import StaticFiles
+
 # Logging estructurado (JSON) para producción, legible para desarrollo
 class _JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -26,7 +28,7 @@ logging.basicConfig(level=logging.INFO, handlers=[_handler])
 logger = logging.getLogger("finanzaapp")
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -96,22 +98,25 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(RequestLoggingMiddleware)
 
-# Registrar routers
-app.include_router(auth.router)
-app.include_router(categories_router)
-app.include_router(categorias.router)
-app.include_router(movimientos.router)
-app.include_router(gastos_fijos.router)
-app.include_router(ciclos.router)
-app.include_router(push.router)
-app.include_router(inversiones.router)
+# API Router: agrupa todas las rutas bajo /api para Cloud Run
+api_router = APIRouter(prefix="/api")
+api_router.include_router(auth.router)
+api_router.include_router(categories_router)
+api_router.include_router(categorias.router)
+api_router.include_router(movimientos.router)
+api_router.include_router(gastos_fijos.router)
+api_router.include_router(ciclos.router)
+api_router.include_router(push.router)
+api_router.include_router(inversiones.router)
 
+app.include_router(api_router)
 
-@app.api_route("/", methods=["GET", "HEAD"])
-def root():
-    return {"message": "API de FinanzaApp funcionando correctamente"}
-
-
-@app.api_route("/health", methods=["GET", "HEAD"])
+# Health check para Cloud Run
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health():
     return {"status": "ok"}
+
+# Servir frontend estático (SPA) — debe ir ÚLTIMO para no robar rutas de la API
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(STATIC_DIR):
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="frontend")
