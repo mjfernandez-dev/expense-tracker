@@ -1,0 +1,23 @@
+steps:
+  # Buildear la imagen multi-etapa
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+      - --destination=gcr.io/$PROJECT_ID/finanzaapp:$COMMIT_SHA
+      - --destination=gcr.io/$PROJECT_ID/finanzaapp:latest
+      - --cache=true
+      - --dockerfile=backend/Dockerfile
+      - --context=.
+
+  # Desplegar a Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - finanzaapp
+      - --image=gcr.io/$PROJECT_ID/finanzaapp:$COMMIT_SHA
+      - --region=us-east1
+      - --platform=managed
+      - --allow-unauthenticated
+
+timeout: 1200s
