@@ -67,14 +67,14 @@ def client(db_session):
 def registered_user(client) -> dict:
     """Crea y devuelve credenciales de un usuario registrado."""
     payload = {"username": "testuser", "email": "test@example.com", "password": "TestPass123!"}
-    r = client.post("/auth/register", json=payload)
+    r = client.post("/api/auth/register", json=payload)
     assert r.status_code == 200, r.text
     return payload
 
 @pytest.fixture
 def logged_in_client(client, registered_user):
     """TestClient ya autenticado (cookie httponly seteada)."""
-    r = client.post("/auth/login", json={
+    r = client.post("/api/auth/login", json={
         "username": registered_user["username"],
         "password": registered_user["password"],
     })

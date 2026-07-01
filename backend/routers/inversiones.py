@@ -1,7 +1,5 @@
-"""Router de inversiones: /inversiones/"""
-from decimal import Decimal
-from typing import List, Optional
-import re
+"""Router de inversiones manuales: /inversiones/"""
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -10,74 +8,35 @@ import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
+from services.inversion_service import calc_investment_summary
 from services.ciclo_time_service import ahora_buenos_aires
-from services.fci_scraper import scrape_valor_cuota
-from services.inversion_service import calc_inversion_summary
 
 router = APIRouter(prefix="/inversiones", tags=["inversiones"])
 
 
-def _guess_ticker(fund_name: str) -> str:
-    """Generate a plausible ticker from a fund name (best-effort)."""
-    # Remove class/ley suffixes
-    name = re.sub(r'\s*[-–—]\s*(CLASE|LEY)\s+.*$', '', fund_name, flags=re.IGNORECASE).strip()
-    # Extract words: title-cased or uppercase words
-    words = re.findall(r"[A-ZÁÉÍÓÚÑa-záéíóúñ]+", name)
-    if not words:
-        return ""
-    # First word (manager) full + first letter of remaining significant words
-    ticker = words[0][:3].upper()
-    for w in words[1:]:
-        if len(w) > 2:  # skip short words
-            ticker += w[0].upper()
-    return ticker
-
-
-@router.get("/buscar-fondos")
-def buscar_fondos(
-    q: str,
-    current_user: models.User = Depends(get_current_active_user),
-):
-    """Search FCI funds by name (proxies argentinadatos API)."""
-    from services.fci_scraper import _fetch_category, CATEGORIES
-    import httpx
-
-    if not q or len(q.strip()) < 2:
-        return []
-
-    q = q.strip().lower()
-
-    try:
-        with httpx.Client() as client:
-            results = []
-            seen = set()
-            for cat in CATEGORIES:
-                funds = _fetch_category(cat, client)
-                for f in funds:
-                    name = f.get("fondo", "")
-                    if name.lower() in seen:
-                        continue
-                    if q in name.lower():
-                        seen.add(name.lower())
-                        guessed = _guess_ticker(name)
-                        results.append({
-                            "nombre": name,
-                            "ticker": guessed,
-                            "categoria": cat,
-                        })
-            return sorted(results, key=lambda x: x["nombre"])[:20]
-    except Exception:
-        return []
-
-
-def _inversion_to_dict(inv: models.Inversion, db: Session) -> dict:
-    """Convert an Inversion model to a dict with calculated fields."""
+def _investment_to_dict(inv: models.Investment, db: Session) -> dict:
+    """Convert an Investment model to a dict with calculated fields."""
     inv_dict = {c.name: getattr(inv, c.name) for c in inv.__table__.columns}
-    inv_dict.update(calc_inversion_summary(inv, db))
+    inv_dict.update(calc_investment_summary(inv, db))
     return inv_dict
 
 
-@router.get("/", response_model=List[schemas.InversionRead])
+def _get_investment_or_404(
+    inversion_id: int,
+    current_user: models.User,
+    db: Session,
+) -> models.Investment:
+    """Get investment by id, checking ownership. Raises 404 if not found/owned."""
+    inv = db.query(models.Investment).filter(
+        models.Investment.id == inversion_id,
+        models.Investment.user_id == current_user.id,
+    ).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+    return inv
+
+
+@router.get("/", response_model=List[schemas.InvestmentRead])
 def list_inversiones(
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
@@ -86,86 +45,69 @@ def list_inversiones(
 ):
     """List all active investments for the current user."""
     inversiones = (
-        db.query(models.Inversion)
+        db.query(models.Investment)
         .filter(
-            models.Inversion.user_id == current_user.id,
-            models.Inversion.activo == True,
+            models.Investment.user_id == current_user.id,
+            models.Investment.activo == True,
         )
-        .limit(limit).offset(offset)
+        .limit(limit)
+        .offset(offset)
         .all()
     )
-    return [_inversion_to_dict(inv, db) for inv in inversiones]
+    return [_investment_to_dict(inv, db) for inv in inversiones]
 
 
-@router.post("/", response_model=schemas.InversionRead, status_code=201)
+@router.post("/", response_model=schemas.InvestmentRead, status_code=201)
 def create_inversion(
-    data: schemas.InversionCreate,
+    data: schemas.InvestmentCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
     """Create a new investment tracking entry."""
-    inv = models.Inversion(**data.model_dump(), user_id=current_user.id)
+    inv = models.Investment(**data.model_dump(), user_id=current_user.id)
     db.add(inv)
     db.commit()
     db.refresh(inv)
-    return _inversion_to_dict(inv, db)
+    return _investment_to_dict(inv, db)
 
 
-@router.get("/{inversion_id}", response_model=schemas.InversionDetailRead)
+@router.get("/{inversion_id}", response_model=schemas.InvestmentDetailRead)
 def get_inversion(
     inversion_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    """Get investment detail with full price history."""
-    inv = (
-        db.query(models.Inversion)
-        .filter(
-            models.Inversion.id == inversion_id,
-            models.Inversion.user_id == current_user.id,
-        )
-        .first()
-    )
-    if not inv:
-        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+    """Get investment detail with all contributions and calculated fields."""
+    inv = _get_investment_or_404(inversion_id, current_user, db)
 
-    historial = (
-        db.query(models.HistorialInversion)
-        .filter(models.HistorialInversion.inversion_id == inv.id)
-        .order_by(models.HistorialInversion.fecha.desc())
+    aportes = (
+        db.query(models.AporteInversion)
+        .filter(models.AporteInversion.inversion_id == inv.id)
+        .order_by(models.AporteInversion.fecha.desc())
         .all()
     )
 
-    inv_dict = _inversion_to_dict(inv, db)
-    inv_dict["historial"] = historial
+    inv_dict = _investment_to_dict(inv, db)
+    inv_dict["aportes"] = aportes
     return inv_dict
 
 
-@router.put("/{inversion_id}", response_model=schemas.InversionRead)
+@router.put("/{inversion_id}", response_model=schemas.InvestmentRead)
 def update_inversion(
     inversion_id: int,
-    data: schemas.InversionUpdate,
+    data: schemas.InvestmentUpdate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    """Update an investment's configuration."""
-    inv = (
-        db.query(models.Inversion)
-        .filter(
-            models.Inversion.id == inversion_id,
-            models.Inversion.user_id == current_user.id,
-        )
-        .first()
-    )
-    if not inv:
-        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+    """Update an investment's fields."""
+    inv = _get_investment_or_404(inversion_id, current_user, db)
 
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(inv, key, value)
 
     db.commit()
     db.refresh(inv)
-    return _inversion_to_dict(inv, db)
+    return _investment_to_dict(inv, db)
 
 
 @router.delete("/{inversion_id}", status_code=204)
@@ -174,138 +116,77 @@ def delete_inversion(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    """Delete an investment and all its price history."""
-    inv = (
-        db.query(models.Inversion)
-        .filter(
-            models.Inversion.id == inversion_id,
-            models.Inversion.user_id == current_user.id,
-        )
-        .first()
-    )
-    if not inv:
-        raise HTTPException(status_code=404, detail="Inversión no encontrada")
-
+    """Delete an investment and all its contributions (cascade)."""
+    inv = _get_investment_or_404(inversion_id, current_user, db)
     db.delete(inv)
     db.commit()
 
 
-@router.post("/{inversion_id}/historial", response_model=schemas.HistorialRead, status_code=201)
-def add_historial(
+@router.get("/{inversion_id}/aportes", response_model=List[schemas.ContributionRead])
+def list_aportes(
     inversion_id: int,
-    data: schemas.HistorialCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    """Manually add a price history entry for an investment."""
-    inv = (
-        db.query(models.Inversion)
-        .filter(
-            models.Inversion.id == inversion_id,
-            models.Inversion.user_id == current_user.id,
-        )
-        .first()
-    )
-    if not inv:
-        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+    """List all contributions for an investment, ordered by fecha DESC."""
+    inv = _get_investment_or_404(inversion_id, current_user, db)
 
-    historial = models.HistorialInversion(
+    aportes = (
+        db.query(models.AporteInversion)
+        .filter(models.AporteInversion.inversion_id == inv.id)
+        .order_by(models.AporteInversion.fecha.desc())
+        .all()
+    )
+    return aportes
+
+
+@router.post("/{inversion_id}/aportes", response_model=schemas.ContributionRead, status_code=201)
+def add_aporte(
+    inversion_id: int,
+    data: schemas.ContributionCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Add a contribution to an investment."""
+    inv = _get_investment_or_404(inversion_id, current_user, db)
+
+    # Optional: prevent future dates
+    if data.fecha > ahora_buenos_aires():
+        raise HTTPException(
+            status_code=400,
+            detail="La fecha del aporte no puede ser futura",
+        )
+
+    aporte = models.AporteInversion(
         inversion_id=inv.id,
         **data.model_dump(),
     )
-    db.add(historial)
+    db.add(aporte)
     db.commit()
-    db.refresh(historial)
-    return historial
+    db.refresh(aporte)
+    return aporte
 
 
-@router.delete("/{inversion_id}/historial/{historial_id}", status_code=204)
-def delete_historial(
+@router.delete("/{inversion_id}/aportes/{aporte_id}", status_code=204)
+def delete_aporte(
     inversion_id: int,
-    historial_id: int,
+    aporte_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    """Delete a price history entry from an investment."""
-    inv = (
-        db.query(models.Inversion)
+    """Delete a single contribution from an investment."""
+    inv = _get_investment_or_404(inversion_id, current_user, db)
+
+    aporte = (
+        db.query(models.AporteInversion)
         .filter(
-            models.Inversion.id == inversion_id,
-            models.Inversion.user_id == current_user.id,
+            models.AporteInversion.id == aporte_id,
+            models.AporteInversion.inversion_id == inv.id,
         )
         .first()
     )
-    if not inv:
-        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+    if not aporte:
+        raise HTTPException(status_code=404, detail="Aporte no encontrado")
 
-    historial = (
-        db.query(models.HistorialInversion)
-        .filter(
-            models.HistorialInversion.id == historial_id,
-            models.HistorialInversion.inversion_id == inv.id,
-        )
-        .first()
-    )
-    if not historial:
-        raise HTTPException(status_code=404, detail="Historial no encontrado")
-
-    db.delete(historial)
+    db.delete(aporte)
     db.commit()
-
-
-@router.post("/{inversion_id}/actualizar")
-def actualizar_precio(
-    inversion_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
-):
-    """Trigger the scraper to fetch the current valor cuota."""
-    inv = (
-        db.query(models.Inversion)
-        .filter(
-            models.Inversion.id == inversion_id,
-            models.Inversion.user_id == current_user.id,
-        )
-        .first()
-    )
-    if not inv:
-        raise HTTPException(status_code=404, detail="Inversión no encontrada")
-    if not inv.ticker:
-        raise HTTPException(
-            status_code=400,
-            detail="La inversión no tiene ticker configurado",
-        )
-
-    valor = scrape_valor_cuota(inv.ticker)
-    if valor is None:
-        return {
-            "success": False,
-            "message": "No se pudo obtener el valor cuota automáticamente. Probá cargarlo manualmente.",
-            "inversion_id": inversion_id,
-        }
-
-    historial = models.HistorialInversion(
-        inversion_id=inv.id,
-        fecha=ahora_buenos_aires(),
-        valor_cuota=valor,
-        fuente="scraping",
-    )
-    db.add(historial)
-
-    # Recalcular cuotapartes siempre que haya monto_invertido
-    if inv.monto_invertido is not None and valor > 0:
-        inv.cuotapartes = (inv.monto_invertido / valor).quantize(Decimal("0.0001"))
-
-    db.commit()
-
-    msg = f"Valor cuota actualizado: ${float(valor):,.2f}"
-    if inv.cuotapartes is not None:
-        valor_actual = float(inv.cuotapartes * valor)
-        msg += f" | Inversión actual: ${valor_actual:,.2f}"
-
-    return {
-        "success": True,
-        "message": msg,
-        "valor_cuota": float(valor),
-        "inversion_id": inversion_id,
-    }
