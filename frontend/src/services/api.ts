@@ -22,6 +22,9 @@ import type {
   PresupuestoItemCreate,
   GastoFijo,
   GastoFijoUpdate,
+  Investment,
+  InvestmentDetail,
+  Contribution,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -437,4 +440,59 @@ export const updateGastoFijo = async (id: number, patch: GastoFijoUpdate): Promi
   const response = await api.put(`/gastos-fijos/${id}`, patch);
   return response.data;
 };
+
+// ============== INVERSIONES MANUALES ==============
+
+// GET /inversiones/ → lista de inversiones activas
+export const getInvestments = async (limit = 100, offset = 0): Promise<Investment[]> => {
+  const response = await api.get('/inversiones/', { params: { limit, offset } });
+  return response.data;
+};
+
+// POST /inversiones/ → crear nueva inversión
+export const createInvestment = async (data: { nombre: string }): Promise<Investment> => {
+  const response = await api.post('/inversiones/', data);
+  return response.data;
+};
+
+// GET /inversiones/{id} → detalle de inversión con aportes
+export const getInvestment = async (id: number): Promise<InvestmentDetail> => {
+  const response = await api.get(`/inversiones/${id}`);
+  return response.data;
+};
+
+// PUT /inversiones/{id} → actualizar campos de inversión
+export const updateInvestment = async (
+  id: number,
+  data: { nombre?: string; valor_actual_ars?: number; cotizacion_usd_actual?: number; activo?: boolean }
+): Promise<Investment> => {
+  const response = await api.put(`/inversiones/${id}`, data);
+  return response.data;
+};
+
+// DELETE /inversiones/{id} → eliminar inversión (cascade aportes)
+export const deleteInvestment = async (id: number): Promise<void> => {
+  await api.delete(`/inversiones/${id}`);
+};
+
+// GET /inversiones/{id}/aportes → lista de aportes
+export const getContributions = async (investmentId: number): Promise<Contribution[]> => {
+  const response = await api.get(`/inversiones/${investmentId}/aportes`);
+  return response.data;
+};
+
+// POST /inversiones/{id}/aportes → agregar aporte
+export const addContribution = async (
+  investmentId: number,
+  data: { fecha: string; monto_ars: number; cotizacion_usd?: number }
+): Promise<Contribution> => {
+  const response = await api.post(`/inversiones/${investmentId}/aportes`, data);
+  return response.data;
+};
+
+// DELETE /inversiones/{id}/aportes/{aporteId} → eliminar aporte
+export const deleteContribution = async (investmentId: number, aporteId: number): Promise<void> => {
+  await api.delete(`/inversiones/${investmentId}/aportes/${aporteId}`);
+};
+
 export default api;
