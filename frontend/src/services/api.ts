@@ -408,6 +408,13 @@ export const reabrirCiclo = async (id: number): Promise<Ciclo> => {
   return response.data;
 };
 
+// GET /ciclos/ultimo → último ciclo cerrado con resumen (para sugerencias de presupuesto)
+export const getUltimoCiclo = async (): Promise<Ciclo | null> => {
+  const response = await api.get('/ciclos/ultimo');
+  if (response.status === 204) return null;
+  return response.data;
+};
+
 // GET /ciclos/ → lista todos los ciclos del usuario (sin resumen)
 export const getCiclos = async (): Promise<Ciclo[]> => {
   const response = await api.get('/ciclos/');

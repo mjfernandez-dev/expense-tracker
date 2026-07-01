@@ -23,8 +23,24 @@ def obtener_movimientos_ciclo(
     db: "Session",
     user_id: int,
 ) -> list[models.Movimiento]:
-    """Carga los movimientos del ciclo con sus categorías para exportación."""
-    return (
+    """Carga los movimientos del ciclo con sus categorías para exportación.
+
+    Excluye movimientos que sean movimiento_origen de OTROS ciclos,
+    para evitar duplicar ingresos cuando dos ciclos se solapan (mismo día).
+    """
+    # IDs de movimientos que son origen de OTROS ciclos (no este)
+    other_origen_ids = [
+        row[0] for row in
+        db.query(models.Ciclo.movimiento_origen_id)
+        .filter(
+            models.Ciclo.user_id == user_id,
+            models.Ciclo.movimiento_origen_id.isnot(None),
+            models.Ciclo.id != ciclo.id,
+        )
+        .all()
+    ]
+
+    query = (
         db.query(models.Movimiento)
         .options(
             joinedload(models.Movimiento.categoria),
@@ -35,9 +51,12 @@ def obtener_movimientos_ciclo(
             models.Movimiento.fecha >= ciclo.fecha_inicio,
             models.Movimiento.fecha <= ciclo.fecha_fin,
         )
-        .order_by(models.Movimiento.fecha.desc())
-        .all()
     )
+
+    if other_origen_ids:
+        query = query.filter(~models.Movimiento.id.in_(other_origen_ids))
+
+    return query.order_by(models.Movimiento.fecha.desc()).all()
 
 
 def generar_txt(

@@ -126,6 +126,35 @@ def get_ciclo_activo(
     return _ciclo_to_read(ciclo, db, current_user.id)
 
 
+@router.get("/ultimo", response_model=Optional[schemas.CicloRead])
+def get_ultimo_ciclo(
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Devuelve el ciclo cerrado más reciente con su resumen.
+    Útil para obtener sugerencias de presupuesto del ciclo anterior.
+    Retorna null (204) si no hay ciclos cerrados.
+    """
+    ciclo = (
+        db.query(models.Ciclo)
+        .options(
+            joinedload(models.Ciclo.presupuesto_items).joinedload(
+                models.PresupuestoItem.movimientos
+            ),
+        )
+        .filter(models.Ciclo.user_id == current_user.id, models.Ciclo.activo == False)
+        .order_by(models.Ciclo.fecha_inicio.desc())
+        .first()
+    )
+    if not ciclo:
+        response.status_code = 204
+        return None
+
+    return _ciclo_to_read(ciclo, db, current_user.id)
+
+
 @router.patch("/{ciclo_id}", response_model=schemas.CicloRead)
 def actualizar_ciclo(
     ciclo_id: int,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { PresupuestoItemCreate, UserCategory } from '../types';
-import { getUserCategories, getCicloActivo, createCiclo, confirmarPresupuesto, cerrarCiclo } from '../services/api';
+import { getUserCategories, getCicloActivo, getUltimoCiclo, createCiclo, confirmarPresupuesto, cerrarCiclo } from '../services/api';
 import {
   getDaysRemainingInclusiveBA,
   getLastDayOfCurrentMonthBA,
@@ -65,10 +65,12 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
     const cargar = async () => {
       setLoadingCats(true);
       try {
-        const [cats, cicloActualData] = await Promise.all([getUserCategories(), getCicloActivo()]);
+        // Intentar sugerencias del ciclo activo primero, si no hay, del último cerrado
+        const cicloConDatos = (await getCicloActivo()) ?? (await getUltimoCiclo());
+        const [cats] = await Promise.all([getUserCategories()]);
         const sugerenciasCiclo: Record<number, number> = {};
-        if (cicloActualData?.resumen?.presupuesto_items) {
-          for (const item of cicloActualData.resumen.presupuesto_items) {
+        if (cicloConDatos?.resumen?.presupuesto_items) {
+          for (const item of cicloConDatos.resumen.presupuesto_items) {
             if (item.user_category_id) {
               sugerenciasCiclo[item.user_category_id] = Math.max(
                 Number(item.monto_estimado),
