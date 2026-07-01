@@ -32,10 +32,9 @@ def upgrade() -> None:
         op.drop_table("inversiones_historial")
 
     if "inversiones" in tables:
-        # Drop FK references that might block the drop
-        op.execute("PRAGMA foreign_keys = OFF")
+        # Drop FK constraints first to avoid PostgreSQL dependency issues
+        op.execute("ALTER TABLE inversiones DROP CONSTRAINT IF EXISTS inversiones_user_id_fkey CASCADE")
         op.drop_table("inversiones")
-        op.execute("PRAGMA foreign_keys = ON")
 
     # ── Refresh inspector ────────────────────────────────────────────────
     inspector = sa_inspect(bind)
@@ -81,9 +80,8 @@ def downgrade() -> None:
         op.drop_table("aportes_inversion")
 
     if "inversiones" in tables:
-        op.execute("PRAGMA foreign_keys = OFF")
+        op.execute("ALTER TABLE inversiones DROP CONSTRAINT IF EXISTS inversiones_user_id_fkey CASCADE")
         op.drop_table("inversiones")
-        op.execute("PRAGMA foreign_keys = ON")
 
     # ── Refresh inspector ────────────────────────────────────────────────
     inspector = sa_inspect(bind)
