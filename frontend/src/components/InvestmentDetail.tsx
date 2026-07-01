@@ -11,9 +11,6 @@ interface InvestmentDetailProps {
 const formatARS = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
-const formatUSD = (n: number) =>
-  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n);
-
 function InvestmentDetail({ investmentId, onBack }: InvestmentDetailProps) {
   const [investment, setInvestment] = useState<InvestmentDetailType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);

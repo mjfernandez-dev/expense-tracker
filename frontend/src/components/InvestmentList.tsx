@@ -80,8 +80,6 @@ function InvestmentList({ onEdit, onCreate, refreshKey }: InvestmentListProps) {
           {investments.map((inv) => {
             const ganancia = inv.ganancia_perdida_ars;
             const isPositive = ganancia !== null && ganancia >= 0;
-            const isNegative = ganancia !== null && ganancia < 0;
-
             return (
               <button
                 key={inv.id}
