@@ -177,37 +177,4 @@ export interface CicloCreate {
   ahorro_objetivo: number;
 }
 
-// ============== TIPOS DE INVERSIONES MANUALES ==============
-
-export interface Investment {
-  id: number;
-  user_id: number;
-  nombre: string;
-  valor_actual_ars: number | null;
-  cotizacion_usd_actual: number | null;
-  activo: boolean;
-  created_at: string;
-  updated_at: string;
-  // Calculated fields (computed at read time)
-  total_invertido_ars: number;
-  total_invertido_usd: number | null;
-  valor_actual_usd: number | null;
-  ganancia_perdida_ars: number | null;
-  ganancia_perdida_usd: number | null;
-  rendimiento_pct: number | null;
-}
-
-export interface InvestmentDetail extends Investment {
-  aportes: Contribution[];
-}
-
-export interface Contribution {
-  id: number;
-  inversion_id: number;
-  fecha: string;
-  monto_ars: number;
-  cotizacion_usd: number | null;
-  created_at: string;
-}
-
 // ============== TIPOS DE CUENTA ==============

@@ -1,22 +1,19 @@
 // COMPONENTE RAÍZ: Aplicación con diseño moderno usando Tailwind
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Movimiento, Investment } from './types';
+import type { Movimiento } from './types';
 import MovimientoModal from './components/MovimientoModal';
 import MovimientoList from './components/MovimientoList';
 import DashboardCiclo from './components/DashboardCiclo';
 import BalanceCiclo from './components/BalanceCiclo';
 import CicloWizard from './components/CicloWizard';
 import PresupuestoManager from './components/PresupuestoManager';
-import InvestmentList from './components/InvestmentList';
-import InvestmentForm from './components/InvestmentForm';
-import InvestmentDetail from './components/InvestmentDetail';
 import { OfflineIndicator } from './components/OfflineIndicator';
 
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
 
-type Tab = 'inicio' | 'movimientos' | 'balance' | 'presupuesto' | 'inversiones';
+type Tab = 'inicio' | 'movimientos' | 'balance' | 'presupuesto';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
 
 function App() {
@@ -32,11 +29,6 @@ function App() {
   const [showWizard, setShowWizard] = useState<boolean>(false);
   const [wizardMovimientoId, setWizardMovimientoId] = useState<number | null>(null);
   const [wizardImporte, setWizardImporte] = useState<number>(0);
-
-  // Estado de inversiones
-  const [selectedInvestmentId, setSelectedInvestmentId] = useState<number | null>(null);
-  const [showInvestmentForm, setShowInvestmentForm] = useState<boolean>(false);
-  const [investmentToEdit, setInvestmentToEdit] = useState<Investment | null>(null);
 
   const handleMovimientoCreated = (movimiento?: Movimiento) => {
     setShowModal(false);
@@ -63,15 +55,6 @@ function App() {
   const handleCloseModal = () => {
     setShowModal(false);
     setMovimientoToEdit(null);
-  };
-
-  const handleInvestmentSaved = () => {
-    setRefreshKey(prev => prev + 1);
-  };
-
-  const handleCloseInvestmentForm = () => {
-    setShowInvestmentForm(false);
-    setInvestmentToEdit(null);
   };
 
   const handleWizardComplete = () => {
@@ -123,7 +106,6 @@ function App() {
     movimientos: 'Movimientos',
     balance: 'Balance',
     presupuesto: 'Presupuesto',
-    inversiones: 'Inversiones',
   };
 
   const tabIcon: Record<Tab, string> = {
@@ -131,7 +113,6 @@ function App() {
     movimientos: '📋',
     balance: '📊',
     presupuesto: '💰',
-    inversiones: '📈',
   };
 
   return (
@@ -206,32 +187,12 @@ function App() {
           </div>
         )}
 
-        {tab === 'inversiones' && (
-          selectedInvestmentId !== null ? (
-            <InvestmentDetail
-              key={selectedInvestmentId}
-              investmentId={selectedInvestmentId}
-              onBack={() => setSelectedInvestmentId(null)}
-            />
-          ) : (
-            <InvestmentList
-              key={refreshKey}
-              onEdit={(inv) => setSelectedInvestmentId(inv.id)}
-              onCreate={() => {
-                setInvestmentToEdit(null);
-                setShowInvestmentForm(true);
-              }}
-              refreshKey={refreshKey}
-            />
-          )
-        )}
-
       </div>
 
       {/* BOTTOM TAB BAR */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/70 shadow-lg">
         <div className="max-w-6xl mx-auto flex">
-          {(['inicio', 'movimientos', 'balance', 'presupuesto', 'inversiones'] as Tab[]).map((t) => (
+          {(['inicio', 'movimientos', 'balance', 'presupuesto'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -258,14 +219,6 @@ function App() {
           <span className="text-2xl leading-none font-light -mt-0.5">+</span>
         </button>
       )}
-
-      {/* MODAL DE INVERSIÓN */}
-      <InvestmentForm
-        isOpen={showInvestmentForm}
-        onClose={handleCloseInvestmentForm}
-        investment={investmentToEdit}
-        onSaved={handleInvestmentSaved}
-      />
 
       {/* MODAL */}
       <MovimientoModal

@@ -240,40 +240,4 @@ class PushSubscription(Base):
 
     usuario = relationship("User")
 
-# ============== INVERSIONES MANUALES ==============
 
-class Investment(Base):
-    """
-    Manual investment tracking (no FCI scraping).
-    User manages current value and USD rate manually.
-    """
-    __tablename__ = "inversiones"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    nombre = Column(String, nullable=False)
-    valor_actual_ars = Column(Numeric(14, 2), nullable=True)
-    cotizacion_usd_actual = Column(Numeric(10, 2), nullable=True)
-    activo = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=ahora_buenos_aires)
-    updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
-
-    usuario = relationship("User", backref="inversiones_manuales")
-    aportes = relationship("AporteInversion", back_populates="inversion", cascade="all, delete-orphan")
-
-
-class AporteInversion(Base):
-    """
-    Individual contributions to a manual investment.
-    Each record represents money the user put into the investment at a point in time.
-    """
-    __tablename__ = "aportes_inversion"
-
-    id = Column(Integer, primary_key=True, index=True)
-    inversion_id = Column(Integer, ForeignKey("inversiones.id", ondelete="CASCADE"), nullable=False, index=True)
-    fecha = Column(DateTime, nullable=False)
-    monto_ars = Column(Numeric(12, 2), nullable=False)
-    cotizacion_usd = Column(Numeric(10, 2), nullable=True)
-    created_at = Column(DateTime, default=ahora_buenos_aires)
-
-    inversion = relationship("Investment", back_populates="aportes")
