@@ -371,67 +371,66 @@ class PushSubscribeResponse(BaseModel):
     message: str
 
 
-# ============== SCHEMAS PARA INVERSIONES ==============
+# ============== SCHEMAS PARA INVERSIONES MANUALES ==============
 
-class InversionCreate(BaseModel):
+class InvestmentCreate(BaseModel):
     nombre: str
-    ticker: Optional[str] = None
-    cuotapartes: Optional[MoneyDecimal] = None
-    monto_invertido: Optional[MoneyDecimal] = None
-    fecha_inversion: Optional[datetime] = None
-    notas: Optional[str] = None
+
+    @field_validator('nombre')
+    @classmethod
+    def nombre_not_empty(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError('El nombre de la inversión no puede estar vacío')
+        return stripped
 
 
-class InversionUpdate(BaseModel):
+class InvestmentUpdate(BaseModel):
     nombre: Optional[str] = None
-    ticker: Optional[str] = None
-    cuotapartes: Optional[MoneyDecimal] = None
-    monto_invertido: Optional[MoneyDecimal] = None
-    fecha_inversion: Optional[datetime] = None
-    notas: Optional[str] = None
+    valor_actual_ars: Optional[MoneyDecimal] = None
+    cotizacion_usd_actual: Optional[MoneyDecimal] = None
     activo: Optional[bool] = None
 
 
-class InversionRead(BaseModel):
+class InvestmentRead(BaseModel):
     id: int
     user_id: int
     nombre: str
-    ticker: Optional[str] = None
-    cuotapartes: Optional[MoneyDecimal] = None
-    monto_invertido: Optional[MoneyDecimal] = None
-    fecha_inversion: Optional[datetime] = None
-    notas: Optional[str] = None
+    valor_actual_ars: Optional[MoneyDecimal] = None
+    cotizacion_usd_actual: Optional[MoneyDecimal] = None
     activo: bool
     created_at: datetime
     updated_at: datetime
-    valor_actual: Optional[MoneyDecimal] = None
+    # Calculated fields (computed at read time)
+    total_invertido_ars: MoneyDecimal = Decimal('0')
+    total_invertido_usd: Optional[MoneyDecimal] = None
+    valor_actual_usd: Optional[MoneyDecimal] = None
+    ganancia_perdida_ars: Optional[MoneyDecimal] = None
+    ganancia_perdida_usd: Optional[MoneyDecimal] = None
     rendimiento_pct: Optional[float] = None
-    ganancia_perdida: Optional[MoneyDecimal] = None
-    ultimo_valor_cuota: Optional[MoneyDecimal] = None
-    ultima_actualizacion: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 
-class HistorialCreate(BaseModel):
+class InvestmentDetailRead(InvestmentRead):
+    aportes: List["ContributionRead"] = []
+
+
+class ContributionCreate(BaseModel):
     fecha: datetime
-    valor_cuota: MoneyDecimal
-    fuente: str = "manual"
+    monto_ars: MoneyDecimal
+    cotizacion_usd: Optional[MoneyDecimal] = None
 
 
-class HistorialRead(BaseModel):
+class ContributionRead(BaseModel):
     id: int
     inversion_id: int
     fecha: datetime
-    valor_cuota: MoneyDecimal
-    fuente: str
+    monto_ars: MoneyDecimal
+    cotizacion_usd: Optional[MoneyDecimal] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
-
-
-class InversionDetailRead(InversionRead):
-    historial: List[HistorialRead] = []
 

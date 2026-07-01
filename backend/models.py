@@ -240,47 +240,40 @@ class PushSubscription(Base):
 
     usuario = relationship("User")
 
-# ============== INVERSIONES (FCI TRACKING) ==============
+# ============== INVERSIONES MANUALES ==============
 
-class Inversion(Base):
+class Investment(Base):
     """
-    FCI investment tracking configuration.
-    Each record represents a user's investment in a specific FCI.
+    Manual investment tracking (no FCI scraping).
+    User manages current value and USD rate manually.
     """
     __tablename__ = "inversiones"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     nombre = Column(String, nullable=False)
-    ticker = Column(String, nullable=True)
-    cuotapartes = Column(Numeric(14, 4), nullable=True)
-    monto_invertido = Column(Numeric(10, 2), nullable=True)
-    fecha_inversion = Column(DateTime, nullable=True)
-    notas = Column(EncryptedString, nullable=True)
+    valor_actual_ars = Column(Numeric(14, 2), nullable=True)
+    cotizacion_usd_actual = Column(Numeric(10, 2), nullable=True)
     activo = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=ahora_buenos_aires)
     updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
 
-    usuario = relationship("User", backref="inversiones")
-    historial = relationship("HistorialInversion", back_populates="inversion", cascade="all, delete-orphan")
+    usuario = relationship("User", backref="inversiones_manuales")
+    aportes = relationship("AporteInversion", back_populates="inversion", cascade="all, delete-orphan")
 
 
-class HistorialInversion(Base):
+class AporteInversion(Base):
     """
-    Historical price snapshots for an FCI investment.
-    One record per day per investment.
+    Individual contributions to a manual investment.
+    Each record represents money the user put into the investment at a point in time.
     """
-    __tablename__ = "inversiones_historial"
+    __tablename__ = "aportes_inversion"
 
     id = Column(Integer, primary_key=True, index=True)
     inversion_id = Column(Integer, ForeignKey("inversiones.id", ondelete="CASCADE"), nullable=False, index=True)
     fecha = Column(DateTime, nullable=False)
-    valor_cuota = Column(Numeric(14, 6), nullable=False)
-    fuente = Column(String, default="manual", nullable=False)
+    monto_ars = Column(Numeric(12, 2), nullable=False)
+    cotizacion_usd = Column(Numeric(10, 2), nullable=True)
     created_at = Column(DateTime, default=ahora_buenos_aires)
 
-    __table_args__ = (
-        UniqueConstraint("inversion_id", "fecha", name="uq_inversion_fecha"),
-    )
-
-    inversion = relationship("Inversion", back_populates="historial")
+    inversion = relationship("Investment", back_populates="aportes")
