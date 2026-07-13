@@ -155,6 +155,17 @@ def get_ultimo_ciclo(
     return _ciclo_to_read(ciclo, db, current_user.id)
 
 
+@router.get("/{ciclo_id}", response_model=schemas.CicloRead)
+def get_ciclo(
+    ciclo_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Devuelve un ciclo específico con su resumen calculado en tiempo real."""
+    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    return _ciclo_to_read(ciclo, db, current_user.id)
+
+
 @router.patch("/{ciclo_id}", response_model=schemas.CicloRead)
 def actualizar_ciclo(
     ciclo_id: int,
