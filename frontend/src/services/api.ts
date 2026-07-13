@@ -412,6 +412,12 @@ export const getUltimoCiclo = async (): Promise<Ciclo | null> => {
   return response.data;
 };
 
+// GET /ciclos/{id} → devuelve un ciclo específico con su resumen
+export const getCiclo = async (id: number): Promise<Ciclo> => {
+  const response = await api.get(`/ciclos/${id}`);
+  return response.data;
+};
+
 // GET /ciclos/ → lista todos los ciclos del usuario (sin resumen)
 export const getCiclos = async (): Promise<Ciclo[]> => {
   const response = await api.get('/ciclos/');
