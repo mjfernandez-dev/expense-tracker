@@ -1,5 +1,5 @@
-"""Router de wishlist: /wishlist/ — CRUD con wish farm, prioridades y categorías."""
-from typing import Optional
+"""Router de wishlist: /wishlist/ — CRUD con wish farm, prioridades, categorías y contribuciones."""
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -14,6 +14,11 @@ from services.wishlist_service import (
     get_wishlist_item,
     update_wishlist_item,
     delete_wishlist_item,
+)
+from services.goal_service import (
+    contribute_to_goal,
+    withdraw_from_goal,
+    list_contributions_for_goal,
 )
 
 router = APIRouter(prefix="/wishlist", tags=["wishlist"])
@@ -77,3 +82,41 @@ def delete_item(
     """Elimina un item del usuario."""
     item = get_wishlist_item(db, item_id, current_user.id)
     delete_wishlist_item(db, item)
+
+
+# ============== CONTRIBUCIONES A METAS ==============
+
+
+@router.post("/{item_id}/contribute", response_model=schemas.WishlistItemRead)
+def contribute(
+    item_id: int,
+    data: schemas.GoalContributeRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Aporta fondos a una meta desde una o más fuentes (disponible / presupuesto)."""
+    item = contribute_to_goal(db, current_user.id, item_id, data)
+    return schemas.WishlistItemRead.model_validate(item)
+
+
+@router.post("/{item_id}/withdraw", response_model=schemas.WishlistItemRead)
+def withdraw(
+    item_id: int,
+    data: schemas.GoalWithdrawRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Retira fondos de una meta (vuelven al disponible)."""
+    item = withdraw_from_goal(db, current_user.id, item_id, data.amount)
+    return schemas.WishlistItemRead.model_validate(item)
+
+
+@router.get("/{item_id}/contributions", response_model=List[schemas.GoalContributionRead])
+def list_contributions(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Lista todas las contribuciones/retiros de una meta."""
+    contribs = list_contributions_for_goal(db, item_id, current_user.id)
+    return [schemas.GoalContributionRead.model_validate(c) for c in contribs]

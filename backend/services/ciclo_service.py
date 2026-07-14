@@ -195,7 +195,32 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         if item.confirmado
     )
 
-    saldo_disponible_total = total_ingresos - ciclo.ahorro_objetivo - presupuesto_confirmado
+    # Goal contributions: savings that reduce available balance
+    goal_savings = (
+        db.query(func.coalesce(func.sum(models.GoalContribution.amount), 0))
+        .filter(
+            models.GoalContribution.ciclo_id == ciclo.id,
+            models.GoalContribution.amount > 0,
+        )
+        .scalar()
+    )
+    goal_savings = Decimal(str(goal_savings))
+
+    goal_contrib_from_presupuesto = (
+        db.query(func.coalesce(func.sum(models.GoalContribution.amount), 0))
+        .filter(
+            models.GoalContribution.ciclo_id == ciclo.id,
+            models.GoalContribution.source_type == "presupuesto",
+            models.GoalContribution.amount > 0,
+        )
+        .scalar()
+    )
+    goal_contrib_from_presupuesto = Decimal(str(goal_contrib_from_presupuesto))
+
+    # Effective budget after deducting goal contributions from presupuesto
+    presupuesto_efectivo = presupuesto_confirmado - goal_contrib_from_presupuesto
+
+    saldo_disponible_total = total_ingresos - ciclo.ahorro_objetivo - goal_savings - presupuesto_efectivo
     saldo_disponible_actual = saldo_disponible_total - gastos_no_planificados
 
     # Días restantes (mínimo 1 para evitar división por cero)
