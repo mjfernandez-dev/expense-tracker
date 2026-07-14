@@ -16,6 +16,50 @@ from database import Base, get_db
 import main
 from main import app, limiter
 
+
+class _APIPrefixClient:
+    """Wraps TestClient para auto-anteoner /api a paths que no lo tengan.
+
+    Todas las rutas están registradas bajo /api en main.py, pero los tests
+    heredados usan paths sin el prefijo. Este wrapper evita tener que modificar
+    cada test file individualmente.
+    """
+
+    def __init__(self, client: TestClient):
+        self._client = client
+
+    def _api(self, path: str) -> str:
+        if path.startswith("/api"):
+            return path
+        return f"/api{path}" if path.startswith("/") else f"/api/{path}"
+
+    def __getattr__(self, name: str):
+        return getattr(self._client, name)
+
+    def request(self, method: str, url: str, **kwargs):
+        return self._client.request(method, self._api(url), **kwargs)
+
+    def get(self, url: str, **kwargs):
+        return self._client.get(self._api(url), **kwargs)
+
+    def post(self, url: str, **kwargs):
+        return self._client.post(self._api(url), **kwargs)
+
+    def put(self, url: str, **kwargs):
+        return self._client.put(self._api(url), **kwargs)
+
+    def patch(self, url: str, **kwargs):
+        return self._client.patch(self._api(url), **kwargs)
+
+    def delete(self, url: str, **kwargs):
+        return self._client.delete(self._api(url), **kwargs)
+
+    def options(self, url: str, **kwargs):
+        return self._client.options(self._api(url), **kwargs)
+
+    def head(self, url: str, **kwargs):
+        return self._client.head(self._api(url), **kwargs)
+
 # URI con cache compartido: todas las conexiones ven la misma DB en memoria
 TEST_DATABASE_URL = f"sqlite:///file:testdb_{uuid4().hex}?mode=memory&cache=shared&uri=true"
 
@@ -60,7 +104,7 @@ def client(db_session):
             return None
     main.create_scheduler = lambda: _DummyScheduler()
     with TestClient(app, raise_server_exceptions=False) as c:
-        yield c
+        yield _APIPrefixClient(c)
     app.dependency_overrides.clear()
 
 @pytest.fixture
