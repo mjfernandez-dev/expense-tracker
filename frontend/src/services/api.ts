@@ -26,6 +26,10 @@ import type {
   WishlistItemCreate,
   WishlistItemUpdate,
   WishlistListResponse,
+  GoalContributeRequest,
+  GoalWithdrawRequest,
+  GoalContributeResponse,
+  GoalContribution,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -478,6 +482,26 @@ export const updateWishlistItem = async (id: number, data: WishlistItemUpdate): 
 // DELETE /wishlist/{id} → elimina un item
 export const deleteWishlistItem = async (id: number): Promise<void> => {
   await api.delete(`/wishlist/${id}`);
+};
+
+// ============== GOAL CONTRIBUTIONS ==============
+
+// POST /wishlist/{id}/contribute → aporta fondos a una meta
+export const contributeToGoal = async (id: number, data: GoalContributeRequest): Promise<WishlistItem> => {
+  const response = await api.post(`/wishlist/${id}/contribute`, data);
+  return response.data;
+};
+
+// POST /wishlist/{id}/withdraw → retira fondos de una meta
+export const withdrawFromGoal = async (id: number, data: GoalWithdrawRequest): Promise<WishlistItem> => {
+  const response = await api.post(`/wishlist/${id}/withdraw`, data);
+  return response.data;
+};
+
+// GET /wishlist/{id}/contributions → lista contribuciones de una meta
+export const getGoalContributions = async (id: number): Promise<GoalContribution[]> => {
+  const response = await api.get(`/wishlist/${id}/contributions`);
+  return response.data;
 };
 
 export default api;

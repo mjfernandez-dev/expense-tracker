@@ -21,9 +21,11 @@ interface WishlistItemCardProps {
   item: WishlistItem;
   onEdit: (item: WishlistItem) => void;
   onDelete: () => void;
+  onContribute?: (item: WishlistItem) => void;
+  onWithdraw?: (item: WishlistItem) => void;
 }
 
-function WishlistItemCard({ item, onEdit, onDelete }: WishlistItemCardProps) {
+function WishlistItemCard({ item, onEdit, onDelete, onContribute, onWithdraw }: WishlistItemCardProps) {
   const priorityCfg = PRIORITY_CONFIG[item.priority] ?? PRIORITY_CONFIG.baja;
   const statusCfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.draft;
 
@@ -80,11 +82,45 @@ function WishlistItemCard({ item, onEdit, onDelete }: WishlistItemCardProps) {
           <span className="text-slate-400 text-xs">Costo estimado</span>
           <p className="text-white font-semibold">{formatARS(item.estimated_cost)}</p>
         </div>
-        {item.monto_ahorrado > 0 && (
-          <div className="text-right">
-            <span className="text-slate-400 text-xs">Ahorrado</span>
-            <p className="text-green-400 font-medium">{formatARS(item.monto_ahorrado)}</p>
+        <div className="text-right">
+          <span className="text-slate-400 text-xs">Ahorrado</span>
+          <p className="text-green-400 font-medium">{formatARS(item.monto_ahorrado)}</p>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {item.estimated_cost > 0 && (
+        <div className="space-y-1">
+          <div className="w-full bg-slate-700/50 rounded-full h-2">
+            <div
+              className="bg-blue-500 rounded-full h-2 transition-all duration-300"
+              style={{ width: `${Math.min(100, (item.monto_ahorrado / item.estimated_cost) * 100)}%` }}
+            />
           </div>
+          <div className="flex justify-between text-xs text-slate-500">
+            <span>{Math.min(100, Math.round((item.monto_ahorrado / item.estimated_cost) * 100))}%</span>
+            <span>Meta: {formatARS(item.estimated_cost)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Contribute / Withdraw buttons */}
+      <div className="flex gap-2">
+        {onContribute && (
+          <button
+            onClick={() => onContribute(item)}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Aportar
+          </button>
+        )}
+        {onWithdraw && item.monto_ahorrado > 0 && (
+          <button
+            onClick={() => onWithdraw(item)}
+            className="flex-1 bg-slate-700/60 hover:bg-slate-600/60 text-slate-300 hover:text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Retirar
+          </button>
         )}
       </div>
 

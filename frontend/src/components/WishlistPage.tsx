@@ -3,6 +3,7 @@ import type { WishlistItem } from '../types';
 import { getWishlistItems } from '../services/api';
 import WishlistItemCard from './WishlistItemCard';
 import WishlistForm from './WishlistForm';
+import GoalContributeForm from './GoalContributeForm';
 
 type GroupStatus = 'en-progreso' | 'draft' | 'completado' | 'cancelado';
 
@@ -23,6 +24,8 @@ function WishlistPage() {
   const [showForm, setShowForm] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<WishlistItem | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<GroupStatus>>(COLLAPSED_BY_DEFAULT);
+  const [contributeTarget, setContributeTarget] = useState<WishlistItem | null>(null);
+  const [withdrawTarget, setWithdrawTarget] = useState<WishlistItem | null>(null);
 
   const toggleGroup = (status: GroupStatus) => {
     setCollapsedGroups((prev) => {
@@ -77,6 +80,29 @@ function WishlistPage() {
 
   const handleDelete = () => {
     fetchItems();
+  };
+
+  const handleContribute = (item: WishlistItem) => {
+    setContributeTarget(item);
+  };
+
+  const handleWithdraw = (item: WishlistItem) => {
+    setWithdrawTarget(item);
+  };
+
+  const handleContributeSuccess = () => {
+    setContributeTarget(null);
+    fetchItems();
+  };
+
+  const handleWithdrawSuccess = () => {
+    setWithdrawTarget(null);
+    fetchItems();
+  };
+
+  const handleGoalFormClose = () => {
+    setContributeTarget(null);
+    setWithdrawTarget(null);
   };
 
   // Agrupar items por status en el orden definido
@@ -173,6 +199,8 @@ function WishlistPage() {
                         item={item}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
+                        onContribute={handleContribute}
+                        onWithdraw={handleWithdraw}
                       />
                     ))}
                   </div>
@@ -183,12 +211,32 @@ function WishlistPage() {
         </div>
       )}
 
-      {/* Form modal */}
+      {/* Wishlist form modal */}
       {showForm && (
         <WishlistForm
           item={editingItem}
           onSuccess={handleFormSuccess}
           onClose={handleFormClose}
+        />
+      )}
+
+      {/* Contribute modal */}
+      {contributeTarget && (
+        <GoalContributeForm
+          item={contributeTarget}
+          mode="contribute"
+          onSuccess={handleContributeSuccess}
+          onClose={handleGoalFormClose}
+        />
+      )}
+
+      {/* Withdraw modal */}
+      {withdrawTarget && (
+        <GoalContributeForm
+          item={withdrawTarget}
+          mode="withdraw"
+          onSuccess={handleWithdrawSuccess}
+          onClose={handleGoalFormClose}
         />
       )}
     </div>
