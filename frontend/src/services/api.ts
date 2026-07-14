@@ -28,7 +28,6 @@ import type {
   WishlistListResponse,
   GoalContributeRequest,
   GoalWithdrawRequest,
-  GoalContributeResponse,
   GoalContribution,
 } from '../types';
 

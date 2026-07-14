@@ -238,12 +238,6 @@ export interface GoalContributeRequest {
   sources: GoalContributionSource[];
 }
 
-export interface GoalContributeResponse {
-  id: number;
-  monto_ahorrado: number;
-  message: string;
-}
-
 export interface GoalWithdrawRequest {
   amount: number;
 }
