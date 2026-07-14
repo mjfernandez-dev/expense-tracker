@@ -4,6 +4,17 @@ import { getWishlistItems } from '../services/api';
 import WishlistItemCard from './WishlistItemCard';
 import WishlistForm from './WishlistForm';
 
+type GroupStatus = 'en-progreso' | 'draft' | 'completado' | 'cancelado';
+
+const STATUS_GROUPS: { status: GroupStatus; label: string; icon: string }[] = [
+  { status: 'en-progreso', label: 'En Progreso', icon: '🎯' },
+  { status: 'draft', label: 'Borrador', icon: '💡' },
+  { status: 'completado', label: 'Completado', icon: '✅' },
+  { status: 'cancelado', label: 'Cancelado', icon: '✕' },
+];
+
+const COLLAPSED_BY_DEFAULT: Set<GroupStatus> = new Set(['completado', 'cancelado']);
+
 function WishlistPage() {
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [total, setTotal] = useState<number>(0);
@@ -11,6 +22,19 @@ function WishlistPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<WishlistItem | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<GroupStatus>>(COLLAPSED_BY_DEFAULT);
+
+  const toggleGroup = (status: GroupStatus) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) {
+        next.delete(status);
+      } else {
+        next.add(status);
+      }
+      return next;
+    });
+  };
 
   const fetchItems = useCallback(async () => {
     try {
@@ -55,17 +79,30 @@ function WishlistPage() {
     fetchItems();
   };
 
+  // Agrupar items por status en el orden definido
+  const grouped = STATUS_GROUPS.map((g) => ({
+    ...g,
+    groupItems: items.filter((i) => i.status === g.status),
+  })).filter((g) => g.groupItems.length > 0);
+
+  const subtitle = (() => {
+    if (total === 0) return 'Tus metas de ahorro';
+    const enProgreso = items.filter((i) => i.status === 'en-progreso').length;
+    const borradores = items.filter((i) => i.status === 'draft').length;
+    const partes: string[] = [];
+    if (enProgreso > 0) partes.push(`${enProgreso} en progreso`);
+    if (borradores > 0) partes.push(`${borradores} borrador${borradores !== 1 ? 'es' : ''}`);
+    if (partes.length === 0) return `${total} ${total === 1 ? 'meta' : 'metas'}`;
+    return partes.join(' · ');
+  })();
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-bold text-white">Metas</h2>
-          <p className="text-slate-400 text-xs mt-0.5">
-            {total > 0
-              ? `${total} ${total === 1 ? 'item' : 'items'} — hasta 3 en progreso`
-              : 'Tus metas de ahorro'}
-          </p>
+          <p className="text-slate-400 text-xs mt-0.5">{subtitle}</p>
         </div>
         <button
           onClick={handleCreate}
@@ -104,17 +141,45 @@ function WishlistPage() {
         </div>
       )}
 
-      {/* Items grid */}
-      {!loading && !error && items.length > 0 && (
-        <div className="grid gap-3">
-          {items.map((item) => (
-            <WishlistItemCard
-              key={item.id}
-              item={item}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))}
+      {/* Items agrupados por estado */}
+      {!loading && !error && grouped.length > 0 && (
+        <div className="space-y-6">
+          {grouped.map(({ status, label, icon, groupItems }) => {
+            const isCollapsed = collapsedGroups.has(status);
+            return (
+              <section key={status}>
+                {/* Header del grupo */}
+                <button
+                  onClick={() => toggleGroup(status)}
+                  className="flex items-center gap-2 w-full text-left group mb-2"
+                >
+                  <span className="text-sm">{icon}</span>
+                  <h3 className="text-sm font-semibold text-slate-300 group-hover:text-white transition-colors">
+                    {label}
+                  </h3>
+                  <span className="text-xs text-slate-500 bg-slate-800/60 px-1.5 py-0.5 rounded-full">
+                    {groupItems.length}
+                  </span>
+                  {isCollapsed && (
+                    <span className="text-xs text-slate-500 ml-auto">{groupItems.length} ocultos</span>
+                  )}
+                </button>
+
+                {!isCollapsed && (
+                  <div className="grid gap-2">
+                    {groupItems.map((item) => (
+                      <WishlistItemCard
+                        key={item.id}
+                        item={item}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
         </div>
       )}
 
