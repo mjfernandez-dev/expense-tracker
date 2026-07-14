@@ -39,6 +39,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const suggestionTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
   const descRef = useRef<HTMLInputElement>(null);
   const suggestionListRef = useRef<HTMLUListElement>(null);
+  const justSelectedRef = useRef(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -58,6 +59,12 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
   // Buscar sugerencias de descripciones con debounce
   useEffect(() => {
+    // Si el cambio vino de seleccionar una sugerencia, no buscar de nuevo
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
+
     if (suggestionTimeoutRef.current) {
       clearTimeout(suggestionTimeoutRef.current);
     }
@@ -147,6 +154,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       e.preventDefault();
       const selected = suggestions[selectedSuggestionIndex];
       if (selected) {
+        justSelectedRef.current = true;
         setDescripcion(selected.descripcion);
         setShowSuggestions(false);
         setSuggestions([]);
@@ -158,6 +166,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   };
 
   const selectSuggestion = useCallback((desc: string) => {
+    justSelectedRef.current = true;
     setDescripcion(desc);
     setShowSuggestions(false);
     setSuggestions([]);
