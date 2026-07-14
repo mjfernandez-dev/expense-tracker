@@ -226,4 +226,36 @@ export interface WishlistListResponse {
   offset: number;
 }
 
+// ============== TIPOS DE GOAL CONTRIBUTIONS ==============
+
+export interface GoalContributionSource {
+  source_type: 'disponible' | 'presupuesto';
+  presupuesto_item_id?: number | null;
+  amount: number;
+}
+
+export interface GoalContributeRequest {
+  sources: GoalContributionSource[];
+}
+
+export interface GoalContributeResponse {
+  id: number;
+  monto_ahorrado: number;
+  message: string;
+}
+
+export interface GoalWithdrawRequest {
+  amount: number;
+}
+
+export interface GoalContribution {
+  id: number;
+  goal_id: number;
+  ciclo_id: number;
+  amount: number;
+  source_type: string;
+  presupuesto_item_id: number | null;
+  created_at: string;
+}
+
 // ============== TIPOS DE CUENTA ==============

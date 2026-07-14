@@ -246,6 +246,26 @@ class WishlistItem(Base):
 
     usuario = relationship("User", backref="wishlist_items")
     category = relationship("UserCategory", backref="wishlist_items")
+    contributions = relationship("GoalContribution", back_populates="goal", cascade="all, delete-orphan")
+
+
+# ============== GOAL CONTRIBUTIONS ==============
+
+class GoalContribution(Base):
+    """Track per-source money movements to/from a wishlist goal."""
+    __tablename__ = "goal_contributions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    goal_id = Column(Integer, ForeignKey("wishlist_items.id"), nullable=False, index=True)
+    ciclo_id = Column(Integer, ForeignKey("ciclos.id"), nullable=False, index=True)
+    amount = Column(Numeric(10, 2), nullable=False)  # positive=contribute, negative=withdraw
+    source_type = Column(String, nullable=False)  # "disponible" | "presupuesto"
+    presupuesto_item_id = Column(Integer, ForeignKey("presupuesto_items.id"), nullable=True, index=True)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+
+    goal = relationship("WishlistItem", back_populates="contributions")
+    ciclo = relationship("Ciclo", backref="goal_contributions")
+    presupuesto_item = relationship("PresupuestoItem", backref="goal_contributions")
 
 
 # ============== PUSH NOTIFICATIONS ==============

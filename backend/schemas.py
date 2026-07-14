@@ -443,6 +443,53 @@ class WishlistItemRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ============== SCHEMAS PARA GOAL CONTRIBUTIONS ==============
+
+class GoalContributionSource(BaseModel):
+    """A single source for contributing to a goal."""
+    source_type: str  # "disponible" | "presupuesto"
+    presupuesto_item_id: Optional[int] = None
+    amount: MoneyDecimal
+
+    @field_validator('source_type')
+    @classmethod
+    def validate_source_type(cls, v):
+        if v not in ("disponible", "presupuesto"):
+            raise ValueError("source_type debe ser 'disponible' o 'presupuesto'")
+        return v
+
+
+class GoalContributeRequest(BaseModel):
+    """Request body for contributing to a goal from one or more sources."""
+    sources: List[GoalContributionSource]
+
+
+class GoalContributeResponse(BaseModel):
+    """Response after a contribution or withdrawal."""
+    id: int
+    monto_ahorrado: MoneyDecimal
+    message: str
+
+
+class GoalWithdrawRequest(BaseModel):
+    """Request body for withdrawing from a goal."""
+    amount: MoneyDecimal
+
+
+class GoalContributionRead(BaseModel):
+    """Read schema for a contribution record."""
+    id: int
+    goal_id: int
+    ciclo_id: int
+    amount: MoneyDecimal
+    source_type: str
+    presupuesto_item_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # ============== SCHEMAS PARA PUSH NOTIFICATIONS ==============
 
 class PushSubscribeRequest(BaseModel):
