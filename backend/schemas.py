@@ -1,5 +1,5 @@
 # Pydantic valida que los datos recibidos/enviados por la API sean correctos
-from pydantic import BaseModel, EmailStr, field_validator, PlainSerializer, Field, computed_field
+from pydantic import BaseModel, EmailStr, field_validator, PlainSerializer, Field
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Optional, List
@@ -441,15 +441,6 @@ class WishlistItemRead(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
-
-    @computed_field
-    @property
-    def size(self) -> str:
-        if self.estimated_cost < 500:
-            return "chico"
-        if self.estimated_cost <= 5000:
-            return "mediano"
-        return "grande"
 
 
 # ============== SCHEMAS PARA PUSH NOTIFICATIONS ==============

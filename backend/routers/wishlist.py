@@ -28,7 +28,6 @@ def list_items(
 ):
     """Lista items del usuario autenticado, ordenados por prioridad y fecha."""
     items, total = list_wishlist_items(db, current_user.id, limit, offset)
-    # Convertir cada item a schema read para incluir computed_field size
     return {
         "items": [schemas.WishlistItemRead.model_validate(i) for i in items],
         "total": total,

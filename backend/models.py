@@ -229,7 +229,7 @@ class Ciclo(Base):
 # ============== WISHLIST (LISTA DE DESEOS) ==============
 
 class WishlistItem(Base):
-    """Item de wishlist con wish farm, prioridades y computed size."""
+    """Item de wishlist con wish farm y prioridades."""
     __tablename__ = "wishlist_items"
 
     id = Column(Integer, primary_key=True, index=True)

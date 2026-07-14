@@ -17,12 +17,6 @@ const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
   cancelado: { label: 'Cancelado', classes: 'bg-rose-500/20 text-rose-300 border-rose-500/40' },
 };
 
-const SIZE_CONFIG: Record<string, { label: string; classes: string }> = {
-  chico: { label: 'Chico', classes: 'bg-teal-500/20 text-teal-300 border-teal-500/40' },
-  mediano: { label: 'Mediano', classes: 'bg-amber-500/20 text-amber-300 border-amber-500/40' },
-  grande: { label: 'Grande', classes: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' },
-};
-
 interface WishlistItemCardProps {
   item: WishlistItem;
   onEdit: (item: WishlistItem) => void;
@@ -32,7 +26,6 @@ interface WishlistItemCardProps {
 function WishlistItemCard({ item, onEdit, onDelete }: WishlistItemCardProps) {
   const priorityCfg = PRIORITY_CONFIG[item.priority] ?? PRIORITY_CONFIG.baja;
   const statusCfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.draft;
-  const sizeCfg = SIZE_CONFIG[item.size] ?? SIZE_CONFIG.mediano;
 
   const handleDelete = async () => {
     try {
@@ -64,13 +57,10 @@ function WishlistItemCard({ item, onEdit, onDelete }: WishlistItemCardProps) {
         </div>
       </div>
 
-      {/* Badge row: priority + size + status */}
+      {/* Badge row: priority + status + category */}
       <div className="flex flex-wrap gap-2">
         <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${priorityCfg.classes}`}>
           {priorityCfg.label}
-        </span>
-        <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${sizeCfg.classes}`}>
-          {sizeCfg.label}
         </span>
         <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${statusCfg.classes}`}>
           {statusCfg.label}

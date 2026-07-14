@@ -2,35 +2,10 @@
 Tests para el módulo Wishlist (Lista de Deseos).
 
 Cubre:
-- Unit: _derive_size boundaries, _validate_transition matrix, @computed_field size
+- Unit: _validate_transition matrix
 - Integration: CRUD completo, Wish Farm limit, multi-tenant isolation,
   inline category creation+dedup, invalid status transitions
 """
-from decimal import Decimal
-from datetime import datetime
-
-# ============== UNIT TESTS: _derive_size ==============
-
-from services.wishlist_service import _derive_size
-
-
-def test_derive_size_chico():
-    assert _derive_size(Decimal('0')) == 'chico'
-    assert _derive_size(Decimal('499.99')) == 'chico'
-    assert _derive_size(Decimal('1')) == 'chico'
-
-
-def test_derive_size_mediano():
-    assert _derive_size(Decimal('500')) == 'mediano'
-    assert _derive_size(Decimal('2500')) == 'mediano'
-    assert _derive_size(Decimal('5000')) == 'mediano'
-
-
-def test_derive_size_grande():
-    assert _derive_size(Decimal('5000.01')) == 'grande'
-    assert _derive_size(Decimal('10000')) == 'grande'
-    assert _derive_size(Decimal('999999')) == 'grande'
-
 
 # ============== UNIT TESTS: _validate_transition ==============
 
@@ -63,45 +38,6 @@ def test_invalid_transitions():
         _validate_transition('completado', 'cancelado')
 
 
-# ============== UNIT TESTS: @computed_field size ==============
-
-from schemas import WishlistItemRead
-
-
-def test_computed_field_chico():
-    item = WishlistItemRead(
-        id=1, user_id=1, name="Test", estimated_cost=Decimal('300'),
-        monto_ahorrado=Decimal('0'), priority="media", status="draft",
-        created_at=datetime.now(), updated_at=datetime.now(),
-    )
-    assert item.size == "chico"
-
-
-def test_computed_field_mediano():
-    item = WishlistItemRead(
-        id=1, user_id=1, name="Test", estimated_cost=Decimal('500'),
-        monto_ahorrado=Decimal('0'), priority="media", status="draft",
-        created_at=datetime.now(), updated_at=datetime.now(),
-    )
-    assert item.size == "mediano"
-
-    item2 = WishlistItemRead(
-        id=2, user_id=1, name="Test2", estimated_cost=Decimal('5000'),
-        monto_ahorrado=Decimal('0'), priority="media", status="draft",
-        created_at=datetime.now(), updated_at=datetime.now(),
-    )
-    assert item2.size == "mediano"
-
-
-def test_computed_field_grande():
-    item = WishlistItemRead(
-        id=1, user_id=1, name="Test", estimated_cost=Decimal('5000.01'),
-        monto_ahorrado=Decimal('0'), priority="media", status="draft",
-        created_at=datetime.now(), updated_at=datetime.now(),
-    )
-    assert item.size == "grande"
-
-
 # ============== HELPERS PARA TESTS DE INTEGRACIÓN ==============
 
 def _wishlist_item(name: str = "Viaje soñado", cost: float = 2500.0, priority: str = "alta") -> dict:
@@ -131,7 +67,6 @@ def test_create_wishlist_item(logged_in_client):
     assert data["estimated_cost"] == 2500.0
     assert data["priority"] == "alta"
     assert data["status"] == "draft"
-    assert data["size"] == "mediano"
     assert "id" in data
     assert "user_id" in data
     assert "created_at" in data

@@ -20,7 +20,7 @@ function WishlistPage() {
       setItems(data.items);
       setTotal(data.total);
     } catch {
-      setError('Error al cargar la lista de deseos');
+      setError('Error al cargar las metas');
     } finally {
       setLoading(false);
     }
@@ -60,11 +60,11 @@ function WishlistPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-white">Lista de Deseos</h2>
+          <h2 className="text-xl font-bold text-white">Metas</h2>
           <p className="text-slate-400 text-xs mt-0.5">
             {total > 0
               ? `${total} ${total === 1 ? 'item' : 'items'} — hasta 3 en progreso`
-              : 'Tus metas y deseos'}
+              : 'Tus metas de ahorro'}
           </p>
         </div>
         <button
@@ -93,7 +93,7 @@ function WishlistPage() {
       {/* Empty state */}
       {!loading && !error && items.length === 0 && (
         <div className="bg-slate-900/50 border border-slate-700/50 rounded-2xl p-8 text-center">
-          <p className="text-slate-400 text-lg mb-2">Tu lista de deseos está vacía</p>
+          <p className="text-slate-400 text-lg mb-2">Todavía no tenés metas</p>
           <p className="text-slate-500 text-sm mb-4">Agregá metas, viajes o compras que querés planificar</p>
           <button
             onClick={handleCreate}

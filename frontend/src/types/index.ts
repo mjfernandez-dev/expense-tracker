@@ -181,7 +181,6 @@ export interface CicloCreate {
 
 export type WishlistPriority = 'alta' | 'media' | 'baja';
 export type WishlistStatus = 'draft' | 'en-progreso' | 'completado' | 'cancelado';
-export type WishlistSize = 'chico' | 'mediano' | 'grande';
 
 export interface WishlistItem {
   id: number;
@@ -191,7 +190,6 @@ export interface WishlistItem {
   monto_ahorrado: number;
   priority: WishlistPriority;
   status: WishlistStatus;
-  size: WishlistSize;
   category_id: number | null;
   category: UserCategory | null;
   notes: string | null;

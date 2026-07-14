@@ -1,5 +1,4 @@
 """Lógica de negocio para la wishlist: CRUD, wish farm, transiciones de estado."""
-from decimal import Decimal
 from typing import Optional
 
 from fastapi import HTTPException
@@ -11,15 +10,6 @@ import schemas
 
 
 # ============== HELPERS PRIVADOS ==============
-
-def _derive_size(estimated_cost: Decimal) -> str:
-    """Deriva el tamaño del item según el costo estimado."""
-    if estimated_cost < 500:
-        return "chico"
-    if estimated_cost <= 5000:
-        return "mediano"
-    return "grande"
-
 
 def _validate_transition(current: str, target: str) -> None:
     """Valida que la transición de estado sea permitida."""

@@ -107,7 +107,7 @@ function App() {
     movimientos: 'Movimientos',
     balance: 'Balance',
     presupuesto: 'Presupuesto',
-    wishlist: 'Deseos',
+    wishlist: 'Metas',
   };
 
   const tabIcon: Record<Tab, string> = {
