@@ -22,6 +22,10 @@ import type {
   PresupuestoItemCreate,
   GastoFijo,
   GastoFijoUpdate,
+  WishlistItem,
+  WishlistItemCreate,
+  WishlistItemUpdate,
+  WishlistListResponse,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -449,6 +453,31 @@ export const getGastosFijos = async (): Promise<GastoFijo[]> => {
 export const updateGastoFijo = async (id: number, patch: GastoFijoUpdate): Promise<GastoFijo> => {
   const response = await api.put(`/gastos-fijos/${id}`, patch);
   return response.data;
+};
+
+// ============== WISHLIST ==============
+
+// GET /wishlist/ → lista items del usuario autenticado (paginado)
+export const getWishlistItems = async (limit: number = 50, offset: number = 0): Promise<WishlistListResponse> => {
+  const response = await api.get('/wishlist/', { params: { limit, offset } });
+  return response.data;
+};
+
+// POST /wishlist/ → crea un item
+export const createWishlistItem = async (data: WishlistItemCreate): Promise<WishlistItem> => {
+  const response = await api.post('/wishlist/', data);
+  return response.data;
+};
+
+// PATCH /wishlist/{id} → actualiza parcialmente un item
+export const updateWishlistItem = async (id: number, data: WishlistItemUpdate): Promise<WishlistItem> => {
+  const response = await api.patch(`/wishlist/${id}`, data);
+  return response.data;
+};
+
+// DELETE /wishlist/{id} → elimina un item
+export const deleteWishlistItem = async (id: number): Promise<void> => {
+  await api.delete(`/wishlist/${id}`);
 };
 
 export default api;

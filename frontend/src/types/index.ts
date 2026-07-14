@@ -177,4 +177,55 @@ export interface CicloCreate {
   ahorro_objetivo: number;
 }
 
+// ============== TIPOS DE WISHLIST ==============
+
+export type WishlistPriority = 'alta' | 'media' | 'baja';
+export type WishlistStatus = 'draft' | 'en-progreso' | 'completado' | 'cancelado';
+export type WishlistSize = 'chico' | 'mediano' | 'grande';
+
+export interface WishlistItem {
+  id: number;
+  user_id: number;
+  name: string;
+  estimated_cost: number;
+  monto_ahorrado: number;
+  priority: WishlistPriority;
+  status: WishlistStatus;
+  size: WishlistSize;
+  category_id: number | null;
+  category: UserCategory | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WishlistItemCreate {
+  name: string;
+  estimated_cost: number;
+  priority: WishlistPriority;
+  status?: WishlistStatus;
+  category_id?: number | null;
+  category_name?: string | null;
+  notes?: string | null;
+  monto_ahorrado?: number;
+}
+
+export interface WishlistItemUpdate {
+  name?: string;
+  estimated_cost?: number;
+  priority?: WishlistPriority;
+  status?: WishlistStatus;
+  category_id?: number | null;
+  category_name?: string | null;
+  notes?: string | null;
+  monto_ahorrado?: number;
+}
+
+export interface WishlistListResponse {
+  items: WishlistItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 // ============== TIPOS DE CUENTA ==============

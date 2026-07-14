@@ -226,6 +226,28 @@ class Ciclo(Base):
     presupuesto_items = relationship("PresupuestoItem", back_populates="ciclo", cascade="all, delete-orphan")
 
 
+# ============== WISHLIST (LISTA DE DESEOS) ==============
+
+class WishlistItem(Base):
+    """Item de wishlist con wish farm, prioridades y computed size."""
+    __tablename__ = "wishlist_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(EncryptedString, nullable=False)
+    estimated_cost = Column(Numeric(10, 2), nullable=False)
+    monto_ahorrado = Column(Numeric(10, 2), nullable=False, default=Decimal('0'))
+    priority = Column(String, nullable=False, default="media")
+    status = Column(String, nullable=False, default="draft")
+    category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
+    notes = Column(EncryptedString, nullable=True)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+    updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
+
+    usuario = relationship("User", backref="wishlist_items")
+    category = relationship("UserCategory", backref="wishlist_items")
+
+
 # ============== PUSH NOTIFICATIONS ==============
 
 class PushSubscription(Base):

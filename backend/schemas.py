@@ -1,5 +1,5 @@
 # Pydantic valida que los datos recibidos/enviados por la API sean correctos
-from pydantic import BaseModel, EmailStr, field_validator, PlainSerializer, Field
+from pydantic import BaseModel, EmailStr, field_validator, PlainSerializer, Field, computed_field
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Optional, List
@@ -356,6 +356,100 @@ class CicloRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============== SCHEMAS PARA WISHLIST ==============
+
+VALID_PRIORITIES = {"alta", "media", "baja"}
+VALID_STATUSES = {"draft", "en-progreso", "completado", "cancelado"}
+STATUS_TRANSITIONS = {
+    "draft": {"en-progreso", "cancelado"},
+    "en-progreso": {"completado", "cancelado"},
+    "completado": set(),
+    "cancelado": set(),
+}
+
+class WishlistItemCreate(BaseModel):
+    name: str
+    estimated_cost: MoneyDecimal
+    priority: str = "media"
+    status: str = "draft"
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
+    notes: Optional[str] = None
+    monto_ahorrado: MoneyDecimal = Decimal('0')
+
+    @field_validator('estimated_cost')
+    @classmethod
+    def cost_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError('El costo estimado debe ser positivo')
+        return v
+
+    @field_validator('priority')
+    @classmethod
+    def priority_valid(cls, v):
+        if v not in VALID_PRIORITIES:
+            raise ValueError(f'Prioridad inválida. Debe ser una de: {", ".join(sorted(VALID_PRIORITIES))}')
+        return v
+
+    @field_validator('status')
+    @classmethod
+    def status_valid(cls, v):
+        if v not in VALID_STATUSES:
+            raise ValueError(f'Estado inválido. Debe ser una de: {", ".join(sorted(VALID_STATUSES))}')
+        return v
+
+
+class WishlistItemUpdate(BaseModel):
+    name: Optional[str] = None
+    estimated_cost: Optional[MoneyDecimal] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
+    notes: Optional[str] = None
+    monto_ahorrado: Optional[MoneyDecimal] = None
+
+    @field_validator('priority')
+    @classmethod
+    def priority_valid(cls, v):
+        if v is not None and v not in VALID_PRIORITIES:
+            raise ValueError(f'Prioridad inválida. Debe ser una de: {", ".join(sorted(VALID_PRIORITIES))}')
+        return v
+
+    @field_validator('status')
+    @classmethod
+    def status_valid(cls, v):
+        if v is not None and v not in VALID_STATUSES:
+            raise ValueError(f'Estado inválido. Debe ser una de: {", ".join(sorted(VALID_STATUSES))}')
+        return v
+
+
+class WishlistItemRead(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    estimated_cost: MoneyDecimal
+    monto_ahorrado: MoneyDecimal = Decimal('0')
+    priority: str
+    status: str
+    category_id: Optional[int] = None
+    category: Optional[UserCategoryRead] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @computed_field
+    @property
+    def size(self) -> str:
+        if self.estimated_cost < 500:
+            return "chico"
+        if self.estimated_cost <= 5000:
+            return "mediano"
+        return "grande"
 
 
 # ============== SCHEMAS PARA PUSH NOTIFICATIONS ==============

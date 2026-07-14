@@ -84,7 +84,7 @@ def logged_in_client(client, registered_user):
 @pytest.fixture
 def user_category_id(logged_in_client) -> int:
     """Crea una categoría personalizada y devuelve su ID."""
-    r = logged_in_client.post("/user-categories/", json={
+    r = logged_in_client.post("/api/user-categories/", json={
         "nombre": "Test Categoria",
         "descripcion": "Para tests",
         "color": "#FF0000",
