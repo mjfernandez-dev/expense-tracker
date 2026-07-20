@@ -150,6 +150,25 @@ def contribute_to_goal(
 
     # Validar cada fuente antes de escribir
     total_amount = Decimal("0")
+    pending_disponible = Decimal("0")
+
+    # First pass: calculate total disponible requested
+    for source in data.sources:
+        if source.source_type == "disponible":
+            pending_disponible += Decimal(str(source.amount))
+
+    # Read resumen once for disponible validation
+    if pending_disponible > 0:
+        resumen = calcular_resumen(ciclo, db, user_id)
+        saldo_disponible_actual = resumen.saldo_disponible_total - resumen.gastos_no_planificados
+        if pending_disponible > saldo_disponible_actual:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El saldo disponible actual es ${saldo_disponible_actual:.2f}. "
+                       f"No se pueden aportar ${pending_disponible:.2f} desde disponible."
+            )
+
+    # Second pass: validate each source
     for source in data.sources:
         amount = Decimal(str(source.amount))
         if amount <= 0:
@@ -165,13 +184,6 @@ def contribute_to_goal(
                 )
             _validate_presupuesto_source(
                 db, source.presupuesto_item_id, amount, user_id, ciclo.id
-            )
-        elif source.source_type == "disponible":
-            _validate_disponible_source(db, amount, ciclo, user_id, Decimal("0"))
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"source_type inválido: {source.source_type}"
             )
 
         total_amount += amount
