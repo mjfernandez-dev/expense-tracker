@@ -135,7 +135,6 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
 
   const r = selectedCiclo.resumen;
   const items = r.presupuesto_items.filter((i) => i.confirmado);
-  const balanceNeto = r.total_ingresos - totalGastos;
   const realEnCuenta = r.total_ingresos - totalGastos - selectedCiclo.ahorro_objetivo;
 
   return (
@@ -183,24 +182,6 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
             ? `${r.dias_restantes} día${r.dias_restantes !== 1 ? 's' : ''} restante${r.dias_restantes !== 1 ? 's' : ''}`
             : 'Ciclo cerrado'}
         </span>
-      </div>
-
-      {/* ── Resumen: Ingresos / Gastos / Balance ─────── */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="bg-slate-900/80 border border-green-500/20 backdrop-blur-2xl rounded-xl p-3 text-center">
-          <p className="text-xs font-mono text-green-400 uppercase tracking-widest mb-1">Ingresos</p>
-          <p className="text-sm sm:text-base font-bold text-green-300 tabular-nums leading-tight">{formatARS(r.total_ingresos)}</p>
-        </div>
-        <div className="bg-slate-900/80 border border-red-500/20 backdrop-blur-2xl rounded-xl p-3 text-center">
-          <p className="text-xs font-mono text-red-400 uppercase tracking-widest mb-1">Gastos</p>
-          <p className="text-sm sm:text-base font-bold text-red-300 tabular-nums leading-tight">{formatARS(totalGastos)}</p>
-        </div>
-        <div className={`bg-slate-900/80 border backdrop-blur-2xl rounded-xl p-3 text-center ${balanceNeto >= 0 ? 'border-blue-500/20' : 'border-orange-500/20'}`}>
-          <p className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-1">Balance</p>
-          <p className={`text-sm sm:text-base font-bold tabular-nums leading-tight ${balanceNeto >= 0 ? 'text-blue-300' : 'text-orange-300'}`}>
-            {balanceNeto >= 0 ? '+' : ''}{formatARS(balanceNeto)}
-          </p>
-        </div>
       </div>
 
       {/* ── Real en cuenta ──────────────── */}
