@@ -35,6 +35,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const [autoDeleteTarget, setAutoDeleteTarget] = useState<Movimiento | null>(null);  // modal 3 opciones
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [tabActivo, setTabActivo] = useState<TabActivo>('gastos');
 
   const fetchMovimientos = useCallback(async () => {
@@ -74,13 +75,13 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   }, [movimientosMes, searchQuery]);
 
   const gastosMes = useMemo(() =>
-    movimientosSearch.filter((m) => m.tipo === 'gasto').sort(sortMovimientos),
-    [movimientosSearch]
+    movimientosCategoria.filter((m) => m.tipo === 'gasto').sort(sortMovimientos),
+    [movimientosCategoria]
   );
 
   const ingresosMes = useMemo(() =>
-    movimientosSearch.filter((m) => m.tipo === 'ingreso').sort(sortMovimientos),
-    [movimientosSearch]
+    movimientosCategoria.filter((m) => m.tipo === 'ingreso').sort(sortMovimientos),
+    [movimientosCategoria]
   );
 
   const totalGastos = useMemo(() => gastosMes.reduce((sum, m) => sum + m.importe, 0), [gastosMes]);
@@ -88,6 +89,19 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
   const getNombreCategoria = (mov: Movimiento) =>
     mov.categoria?.nombre ?? mov.user_category?.nombre ?? 'Sin categoría';
+
+  // Categorías únicas disponibles en los movimientos del mes (para el selector)
+  const categoriasDelMes = useMemo(() => {
+    const names = new Set<string>();
+    movimientosMes.forEach((m) => names.add(getNombreCategoria(m)));
+    return Array.from(names).sort();
+  }, [movimientosMes]);
+
+  // Filtro por categoría
+  const movimientosCategoria = useMemo(() => {
+    if (!selectedCategory) return movimientosSearch;
+    return movimientosSearch.filter((m) => getNombreCategoria(m) === selectedCategory);
+  }, [movimientosSearch, selectedCategory]);
 
   const handlePrevMonth = () => {
     if (selectedMonth === 0) { setSelectedMonth(11); setSelectedYear((y) => y - 1); }
@@ -319,6 +333,37 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         )}
       </div>
 
+      {/* FILTRO POR CATEGORÍA */}
+      <div className="relative mb-4">
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          aria-label="Filtrar por categoría"
+          className="w-full px-4 py-2.5 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm appearance-none"
+        >
+          <option value="">Todas las categorías</option>
+          {categoriasDelMes.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+          <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+        {selectedCategory && (
+          <button
+            onClick={() => setSelectedCategory('')}
+            className="absolute inset-y-0 right-8 pr-0 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
+            aria-label="Limpiar filtro de categoría"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       <>
           {/* Resumen del tab */}
           <div className={`rounded-lg p-4 mb-4 border ${
@@ -338,13 +383,16 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
           {listaActiva.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
-              {searchQuery.trim() ? (
+              {searchQuery.trim() || selectedCategory ? (
                 <>
                   <p className="text-lg">
-                    No hay {esIngreso ? 'ingresos' : 'gastos'} que coincidan con "<span className="text-slate-300 font-medium">{searchQuery.trim()}</span>"
+                    No hay {esIngreso ? 'ingresos' : 'gastos'}
+                    {searchQuery.trim() ? <> que coincidan con "<span className="text-slate-300 font-medium">{searchQuery.trim()}</span>"</> : ''}
+                    {selectedCategory ? <> en la categoría <span className="text-slate-300 font-medium">{selectedCategory}</span></> : ''}.
                   </p>
                   <p className="text-sm mt-2">
-                    Probá con otra descripción o <button onClick={() => setSearchQuery('')} className="text-blue-400 hover:text-blue-300 underline">limpiá el filtro</button>
+                    Probá con otros filtros o{' '}
+                    <button onClick={() => { setSearchQuery(''); setSelectedCategory(''); }} className="text-blue-400 hover:text-blue-300 underline">limpiá los filtros</button>
                   </p>
                 </>
               ) : (
