@@ -74,19 +74,6 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     return movimientosMes.filter((m) => m.descripcion.toLowerCase().includes(q));
   }, [movimientosMes, searchQuery]);
 
-  const gastosMes = useMemo(() =>
-    movimientosCategoria.filter((m) => m.tipo === 'gasto').sort(sortMovimientos),
-    [movimientosCategoria]
-  );
-
-  const ingresosMes = useMemo(() =>
-    movimientosCategoria.filter((m) => m.tipo === 'ingreso').sort(sortMovimientos),
-    [movimientosCategoria]
-  );
-
-  const totalGastos = useMemo(() => gastosMes.reduce((sum, m) => sum + m.importe, 0), [gastosMes]);
-  const totalIngresos = useMemo(() => ingresosMes.reduce((sum, m) => sum + m.importe, 0), [ingresosMes]);
-
   const getNombreCategoria = (mov: Movimiento) =>
     mov.categoria?.nombre ?? mov.user_category?.nombre ?? 'Sin categoría';
 
@@ -102,6 +89,19 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     if (!selectedCategory) return movimientosSearch;
     return movimientosSearch.filter((m) => getNombreCategoria(m) === selectedCategory);
   }, [movimientosSearch, selectedCategory]);
+
+  const gastosMes = useMemo(() =>
+    movimientosCategoria.filter((m) => m.tipo === 'gasto').sort(sortMovimientos),
+    [movimientosCategoria]
+  );
+
+  const ingresosMes = useMemo(() =>
+    movimientosCategoria.filter((m) => m.tipo === 'ingreso').sort(sortMovimientos),
+    [movimientosCategoria]
+  );
+
+  const totalGastos = useMemo(() => gastosMes.reduce((sum, m) => sum + m.importe, 0), [gastosMes]);
+  const totalIngresos = useMemo(() => ingresosMes.reduce((sum, m) => sum + m.importe, 0), [ingresosMes]);
 
   const handlePrevMonth = () => {
     if (selectedMonth === 0) { setSelectedMonth(11); setSelectedYear((y) => y - 1); }
