@@ -34,6 +34,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);  // modal normal
   const [autoDeleteTarget, setAutoDeleteTarget] = useState<Movimiento | null>(null);  // modal 3 opciones
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [tabActivo, setTabActivo] = useState<TabActivo>('gastos');
 
   const fetchMovimientos = useCallback(async () => {
@@ -65,14 +66,21 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     });
   }, [movimientos, selectedYear, selectedMonth]);
 
+  // Filtro por descripción (client-side, sobre el mes seleccionado)
+  const movimientosSearch = useMemo(() => {
+    if (!searchQuery.trim()) return movimientosMes;
+    const q = searchQuery.trim().toLowerCase();
+    return movimientosMes.filter((m) => m.descripcion.toLowerCase().includes(q));
+  }, [movimientosMes, searchQuery]);
+
   const gastosMes = useMemo(() =>
-    movimientosMes.filter((m) => m.tipo === 'gasto').sort(sortMovimientos),
-    [movimientosMes]
+    movimientosSearch.filter((m) => m.tipo === 'gasto').sort(sortMovimientos),
+    [movimientosSearch]
   );
 
   const ingresosMes = useMemo(() =>
-    movimientosMes.filter((m) => m.tipo === 'ingreso').sort(sortMovimientos),
-    [movimientosMes]
+    movimientosSearch.filter((m) => m.tipo === 'ingreso').sort(sortMovimientos),
+    [movimientosSearch]
   );
 
   const totalGastos = useMemo(() => gastosMes.reduce((sum, m) => sum + m.importe, 0), [gastosMes]);
@@ -283,6 +291,34 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         </button>
       </div>
 
+      {/* BÚSQUEDA POR DESCRIPCIÓN */}
+      <div className="relative mb-4">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Buscar por descripción…"
+          aria-label="Buscar movimientos por descripción"
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
+            aria-label="Limpiar búsqueda"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       <>
           {/* Resumen del tab */}
           <div className={`rounded-lg p-4 mb-4 border ${
@@ -302,14 +338,27 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
           {listaActiva.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
-              <p className="text-lg">
-                No hay {esIngreso ? 'ingresos' : 'gastos'} en {MESES[selectedMonth]} {selectedYear}.
-              </p>
-              <p className="text-sm mt-2">
-                {movimientos.length === 0
-                  ? `Comenzá registrando tu primer ${esIngreso ? 'ingreso' : 'gasto'} arriba`
-                  : 'Probá navegando a otro mes'}
-              </p>
+              {searchQuery.trim() ? (
+                <>
+                  <p className="text-lg">
+                    No hay {esIngreso ? 'ingresos' : 'gastos'} que coincidan con "<span className="text-slate-300 font-medium">{searchQuery.trim()}</span>"
+                  </p>
+                  <p className="text-sm mt-2">
+                    Probá con otra descripción o <button onClick={() => setSearchQuery('')} className="text-blue-400 hover:text-blue-300 underline">limpiá el filtro</button>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg">
+                    No hay {esIngreso ? 'ingresos' : 'gastos'} en {MESES[selectedMonth]} {selectedYear}.
+                  </p>
+                  <p className="text-sm mt-2">
+                    {movimientos.length === 0
+                      ? `Comenzá registrando tu primer ${esIngreso ? 'ingreso' : 'gasto'} arriba`
+                      : 'Probá navegando a otro mes'}
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <>
