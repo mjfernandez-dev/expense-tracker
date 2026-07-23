@@ -258,8 +258,47 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     <div className="bg-slate-800/70 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6">
       <h2 className="text-2xl font-bold mb-4 text-white">Movimientos</h2>
 
+      {/* HERO: total del mes + navegación integrada */}
+      <div className={`rounded-2xl p-5 mb-4 border bg-gradient-to-br ${
+        esIngreso
+          ? 'from-green-900/30 via-green-800/5 to-slate-800/50 border-green-700/30'
+          : 'from-red-900/30 via-red-800/5 to-slate-800/50 border-red-700/30'
+      }`}>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={handlePrevMonth}
+            className="w-10 h-10 rounded-xl bg-slate-800/60 border border-slate-600/60 text-slate-400 hover:text-white hover:border-slate-400 flex items-center justify-center transition-all shrink-0"
+            aria-label="Mes anterior"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="text-center flex-1 min-w-0">
+            <span className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
+              {MESES[selectedMonth]} {selectedYear}
+            </span>
+            <div className="text-[2.5rem] leading-none font-extrabold text-white mt-2 tracking-tight">
+              {esIngreso ? '+' : '-'}{formatARS(esIngreso ? totalIngresos : totalGastos)}
+            </div>
+            <span className="text-sm text-slate-400 mt-1.5 block">
+              total {esIngreso ? 'ingresos' : 'gastos'}
+            </span>
+          </div>
+          <button
+            onClick={handleNextMonth}
+            className="w-10 h-10 rounded-xl bg-slate-800/60 border border-slate-600/60 text-slate-400 hover:text-white hover:border-slate-400 flex items-center justify-center transition-all shrink-0"
+            aria-label="Mes siguiente"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       {/* TABS */}
-      <div className="flex gap-1 mb-5 p-1 bg-slate-700/50 rounded-xl w-fit">
+      <div className="flex gap-1 mb-4 p-1 bg-slate-700/50 rounded-xl w-fit">
         {(['gastos', 'ingresos'] as TabActivo[]).map((tab) => {
           const labels: Record<TabActivo, string> = { gastos: 'Gastos', ingresos: 'Ingresos' };
           const activeStyles: Record<TabActivo, string> = {
@@ -280,106 +319,66 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         })}
       </div>
 
-      {/* SELECTOR DE MES */}
-      <div className="flex items-center justify-between mb-4">
-        <button
-          onClick={handlePrevMonth}
-          className="border border-blue-400/60 bg-slate-700/50 text-blue-300 px-3 py-2 rounded-lg hover:bg-slate-700/70 transition-all"
-        >
-          &larr; Anterior
-        </button>
-        <h3 className="text-lg font-semibold text-white">
-          {(() => {
-            const hoy = new Date();
-            if (selectedYear === hoy.getFullYear() && selectedMonth === hoy.getMonth()) {
-              return `${DIAS[hoy.getDay()]} ${hoy.getDate()} de ${MESES[selectedMonth].toLowerCase()} de ${selectedYear}`;
-            }
-            return `${MESES[selectedMonth]} ${selectedYear}`;
-          })()}
-        </h3>
-        <button
-          onClick={handleNextMonth}
-          className="border border-blue-400/60 bg-slate-700/50 text-blue-300 px-3 py-2 rounded-lg hover:bg-slate-700/70 transition-all"
-        >
-          Siguiente &rarr;
-        </button>
-      </div>
-
-      {/* BÚSQUEDA POR DESCRIPCIÓN */}
-      <div className="relative mb-4">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar por descripción…"
-          aria-label="Buscar movimientos por descripción"
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
-            aria-label="Limpiar búsqueda"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      {/* FILTROS: búsqueda + categoría en fila */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+            <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-          </button>
-        )}
-      </div>
-
-      {/* FILTRO POR CATEGORÍA */}
-      <div className="relative mb-4">
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          aria-label="Filtrar por categoría"
-          className="w-full px-4 py-2.5 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm appearance-none"
-        >
-          <option value="">Todas las categorías</option>
-          {categoriasDelMes.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
-        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-          <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por descripción…"
+            aria-label="Buscar movimientos por descripción"
+            className="w-full pl-9 pr-8 py-2 rounded-lg bg-slate-700/60 border border-slate-600/60 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
+              aria-label="Limpiar búsqueda"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
-        {selectedCategory && (
-          <button
-            onClick={() => setSelectedCategory('')}
-            className="absolute inset-y-0 right-8 pr-0 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
-            aria-label="Limpiar filtro de categoría"
+        <div className="relative sm:w-48">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            aria-label="Filtrar por categoría"
+            className="w-full px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600/60 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <option value="">Todas las categorías</option>
+            {categoriasDelMes.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+            <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
-          </button>
-        )}
+          </div>
+          {selectedCategory && (
+            <button
+              onClick={() => setSelectedCategory('')}
+              className="absolute inset-y-0 right-6 pr-0 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
+              aria-label="Limpiar filtro de categoría"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <>
-          {/* Resumen del tab */}
-          <div className={`rounded-lg p-4 mb-4 border ${
-            esIngreso
-              ? 'bg-green-500/10 border-green-300/60'
-              : 'bg-red-500/10 border-red-300/60'
-          }`}>
-            <div className="flex items-center justify-between">
-              <span className={`text-sm font-medium ${esIngreso ? 'text-green-200' : 'text-blue-200'}`}>
-                Total {esIngreso ? 'ingresos' : 'gastos'} {MESES[selectedMonth]}
-              </span>
-              <span className={`text-2xl font-bold ${esIngreso ? 'text-green-100' : 'text-blue-100'}`}>
-                {esIngreso ? '+' : ''}{formatARS(esIngreso ? totalIngresos : totalGastos)}
-              </span>
-            </div>
-          </div>
 
           {listaActiva.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
