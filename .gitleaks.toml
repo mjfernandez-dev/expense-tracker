@@ -1,0 +1,45 @@
+# ======================================================
+# GITLEAKS CONFIG — Secret Detection Rules
+# ======================================================
+# Custom allowlist for known false positives
+
+title = "Gitleaks Config - FinanzaApp"
+
+# Extend the default rules
+[extend]
+useDefault = true
+
+# ======================================================
+# ALLOWLIST — Paths & patterns to NEVER flag
+# ======================================================
+[allowlist]
+  description = "Known false positives for this project"
+
+  # Files that are known non-secrets
+  paths = [
+    '''\.secrets\.baseline''',
+    '''\.env\.example''',
+    '''openspec/.*''',
+    '''backend/tests/.*''',
+    '''backend/alembic/versions/.*''',
+    '''\.github/workflows/.*''',
+    '''\.atl/.*''',
+    '''\.claude/worktrees/.*\.env\.example''',
+  ]
+
+  # Pattern-level exclusions (test/placeholder values)
+  regexes = [
+    '''test-secret-key-for-ci-only-32chars''',
+    '''test-secret-key-for-testing-only-32chars''',
+    '''dev-secret-key-for-local-testing''',
+    '''dev-secret-key-change-in-production''',
+    '''tu-clave-segura-de-32-caracteres-cambiar-en-produccion''',
+    '''tu-clave-secreta-muy-segura-cambiar-en-produccion''',
+  ]
+
+  # Ignore hex revision IDs in alembic migrations
+  stopwords = [
+    "revision",
+    "down_revision",
+    "hashed_secret",
+  ]

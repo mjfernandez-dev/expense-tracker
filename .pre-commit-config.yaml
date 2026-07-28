@@ -1,0 +1,29 @@
+# ======================================================
+# PRE-COMMIT HOOKS — Quality & Security Gates
+# ======================================================
+# Instalación:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Escaneo manual:
+#   pre-commit run --all-files
+# ======================================================
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: gitleaks
+        name: Secret detection (gitleaks)
+        entry: gitleaks detect --staged --source . --config .gitleaks.toml --no-banner
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: false

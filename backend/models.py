@@ -64,7 +64,7 @@ class Category(Base):
     Estas son de solo lectura para los usuarios.
     """
     __tablename__ = "categories"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, nullable=False, unique=True, index=True)  # Único global
     descripcion = Column(String, nullable=True)
@@ -84,7 +84,7 @@ class UserCategory(Base):
     No interfieren con las de otros usuarios.
     """
     __tablename__ = "user_categories"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)  # Vincular al usuario
     nombre = Column(String, nullable=False)  # NO es unique global
@@ -95,12 +95,12 @@ class UserCategory(Base):
     tiene_monto_fijo = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=ahora_buenos_aires)
     updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
-    
+
     # ✅ Unique constraint por usuario: permite mismo nombre en diferentes usuarios
     __table_args__ = (
         UniqueConstraint('user_id', 'nombre', name='uq_user_categoria_nombre'),
     )
-    
+
     # RELACIONES
     usuario = relationship("User", backref="categorias_personalizadas")
     movimientos = relationship("Movimiento", back_populates="user_category")
@@ -281,5 +281,3 @@ class PushSubscription(Base):
     created_at = Column(DateTime, default=ahora_buenos_aires)
 
     usuario = relationship("User")
-
-

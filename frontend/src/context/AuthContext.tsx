@@ -15,4 +15,3 @@ export interface AuthContextType {
 
 // Crear el contexto
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-

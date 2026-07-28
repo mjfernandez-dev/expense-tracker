@@ -67,29 +67,29 @@
         <div class="header">
             <h1>🔐 Código de Verificación</h1>
         </div>
-        
+
         <div class="content">
             <p>Hola <strong>{{ username }}</strong>,</p>
-            
+
             <p>Tu código de verificación es:</p>
-            
+
             <div class="code-box">{{ code }}</div>
-            
+
             <div class="warning">
                 <strong>⏱️ Este código expirará en {{ expires_in_minutes }} minutos.</strong>
                 <br>
                 Ingresa este código en la aplicación para completar tu verificación.
             </div>
-            
+
             <p>Si <strong>no</strong> solicitaste este código, por favor ignora este email. Tu cuenta está segura.</p>
-            
+
             <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
-            
+
             <p style="font-size: 13px; color: #666;">
                 Por razones de seguridad, nos nunca solicitaremos este código por email.
             </p>
         </div>
-        
+
         <div class="footer">
             <p>© {{ current_year }} FinanzaApp. Todos los derechos reservados.</p>
             <p>Este es un email automatizado. Por favor, no respondas directamente.</p>

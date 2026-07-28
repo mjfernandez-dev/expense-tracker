@@ -3,13 +3,17 @@ Servicio de envío de emails para autenticación y notificaciones.
 Soporta SMTP real (producción) y modo desarrollo (consola).
 """
 
+import logging
 import os
-from typing import Optional
 from datetime import datetime
-import aiosmtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from urllib.parse import quote
+
+import aiosmtplib
 import jinja2
+
+logger = logging.getLogger(__name__)
 
 # Configuración
 SMTP_HOST = os.getenv("SMTP_HOST")
@@ -25,6 +29,67 @@ template_loader = jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__)
 template_env = jinja2.Environment(loader=template_loader, autoescape=True)
 
 
+async def _send_email(
+    to_email: str,
+    subject: str,
+    template_name: str,
+    context: dict,
+    text_body: str,
+) -> bool:
+    """
+    Core de envío de emails. En development printea a consola,
+    en producción envía por SMTP con STARTTLS.
+
+    Args:
+        to_email: Email destino
+        subject: Asunto del mensaje
+        template_name: Nombre del template HTML (ej: "password_reset.html")
+        context: Variables para renderizar el template
+        text_body: Versión texto plano (fallback para clientes sin HTML)
+
+    Returns:
+        True si se envió correctamente, False si falló
+    """
+    try:
+        template = template_env.get_template(template_name)
+        html_content = template.render(**context)
+
+        if ENVIRONMENT == "development":
+            logger.info(
+                "[DEV] Email a %s | Asunto: %s | Template: %s",
+                to_email, subject, template_name,
+            )
+            return True
+
+        # Modo producción: SMTP real
+        if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD]):
+            logger.error(
+                "Configuración SMTP incompleta. Define SMTP_HOST, SMTP_USER, SMTP_PASSWORD"
+            )
+            return False
+
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
+        message["From"] = SENDER_EMAIL
+        message["To"] = to_email
+
+        message.attach(MIMEText(text_body, "plain"))
+        message.attach(MIMEText(html_content, "html"))
+
+        async with aiosmtplib.SMTP(
+            hostname=SMTP_HOST, port=SMTP_PORT, start_tls=True,
+        ) as smtp:
+            await smtp.login(SMTP_USER, SMTP_PASSWORD)
+            await smtp.send_message(message)
+
+        logger.info("Email enviado a %s: %s", to_email, subject)
+        return True
+
+    except Exception as e:
+        logger.exception("Error enviando email a %s: %s", to_email, e)
+        return False
+
+
 async def send_password_reset_email(
     email: str,
     username: str,
@@ -33,38 +98,29 @@ async def send_password_reset_email(
 ) -> bool:
     """
     Envía email de restablecimiento de contraseña.
-    
+
     Args:
         email: Email del usuario
         username: Nombre de usuario
         reset_token: Token único para resetear contraseña
         expires_in_hours: Horas de validez del token
-    
+
     Returns:
         True si se envió correctamente, False si falló
     """
-    
-    # URL del enlace de reset
-    reset_url = f"{FRONTEND_URL}/reset-password?token={reset_token}"
-    
-    # Datos para el template
+    reset_url = f"{FRONTEND_URL}/reset-password?token={quote(reset_token)}"
+
     context = {
         "username": username,
         "reset_url": reset_url,
         "expires_in_hours": expires_in_hours,
         "current_year": datetime.now().year,
     }
-    
-    try:
-        # Renderizar template HTML
-        template = template_env.get_template("password_reset.html")
-        html_content = template.render(**context)
-        
-        # Template de texto plano (fallback)
-        text_content = f"""
+
+    text_body = f"""
 Hola {username},
 
-Recibiste esta solicitud para restablecer tu contraseña. 
+Recibiste esta solicitud para restablecer tu contraseña.
 Haz clic en el enlace abajo para crear una nueva contraseña.
 
 {reset_url}
@@ -75,50 +131,15 @@ Si no solicitaste un reset de contraseña, ignora este email.
 
 ---
 FinanzaApp
-        """
-        
-        if ENVIRONMENT == "development":
-            # Modo desarrollo: imprimir en consola
-            print("\n" + "=" * 60)
-            print(f"📧 [DEV] Email de reset de contraseña para: {email}")
-            print("=" * 60)
-            print(f"Usuario: {username}")
-            print(f"URL: {reset_url}")
-            print(f"Expira en: {expires_in_hours} hora(s)")
-            print("=" * 60 + "\n")
-            return True
-        
-        # Modo producción: SMTP real
-        if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD]):
-            print(
-                "❌ Configuración SMTP incompleta. Define: "
-                "SMTP_HOST, SMTP_USER, SMTP_PASSWORD"
-            )
-            return False
-        
-        # Crear mensaje
-        message = MIMEMultipart("alternative")
-        message["Subject"] = "Restablece tu contraseña - FinanzaApp"
-        message["From"] = SENDER_EMAIL
-        message["To"] = email
-        
-        # Adjuntar versiones
-        part1 = MIMEText(text_content, "plain")
-        part2 = MIMEText(html_content, "html")
-        message.attach(part1)
-        message.attach(part2)
-        
-        # Enviar
-        async with aiosmtplib.SMTP(hostname=SMTP_HOST, port=SMTP_PORT) as smtp:
-            await smtp.login(SMTP_USER, SMTP_PASSWORD)
-            await smtp.send_message(message)
-        
-        print(f"✅ Email de reset enviado a {email}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error enviando email a {email}: {str(e)}")
-        return False
+    """.strip()
+
+    return await _send_email(
+        to_email=email,
+        subject="Restablece tu contraseña - FinanzaApp",
+        template_name="password_reset.html",
+        context=context,
+        text_body=text_body,
+    )
 
 
 async def send_two_factor_code(
@@ -130,29 +151,24 @@ async def send_two_factor_code(
     """
     Envía código de autenticación de dos factores.
     Útil para implementación futura.
-    
+
     Args:
         email: Email del usuario
         username: Nombre de usuario
         code: Código de 6 dígitos
         expires_in_minutes: Minutos de validez del código
-    
+
     Returns:
         True si se envió correctamente
     """
-    
     context = {
         "username": username,
         "code": code,
         "expires_in_minutes": expires_in_minutes,
         "current_year": datetime.now().year,
     }
-    
-    try:
-        template = template_env.get_template("two_factor_code.html")
-        html_content = template.render(**context)
-        
-        text_content = f"""
+
+    text_body = f"""
 Hola {username},
 
 Tu código de verificación es: {code}
@@ -163,41 +179,15 @@ Si no solicitaste este código, ignora este email.
 
 ---
 FinanzaApp
-        """
-        
-        if ENVIRONMENT == "development":
-            print("\n" + "=" * 60)
-            print(f"📧 [DEV] Código 2FA para: {email}")
-            print("=" * 60)
-            print(f"Usuario: {username}")
-            print(f"Código: {code}")
-            print(f"Expira en: {expires_in_minutes} minutos")
-            print("=" * 60 + "\n")
-            return True
-        
-        if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD]):
-            return False
-        
-        message = MIMEMultipart("alternative")
-        message["Subject"] = "Tu código de verificación - FinanzaApp"
-        message["From"] = SENDER_EMAIL
-        message["To"] = email
-        
-        part1 = MIMEText(text_content, "plain")
-        part2 = MIMEText(html_content, "html")
-        message.attach(part1)
-        message.attach(part2)
-        
-        async with aiosmtplib.SMTP(hostname=SMTP_HOST, port=SMTP_PORT) as smtp:
-            await smtp.login(SMTP_USER, SMTP_PASSWORD)
-            await smtp.send_message(message)
-        
-        print(f"✅ Código 2FA enviado a {email}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error enviando código 2FA a {email}: {str(e)}")
-        return False
+    """.strip()
+
+    return await _send_email(
+        to_email=email,
+        subject="Tu código de verificación - FinanzaApp",
+        template_name="two_factor_code.html",
+        context=context,
+        text_body=text_body,
+    )
 
 
 async def send_welcome_email(
@@ -206,67 +196,35 @@ async def send_welcome_email(
 ) -> bool:
     """
     Envía email de bienvenida cuando se registra un usuario.
-    
+
     Args:
         email: Email del nuevo usuario
         username: Nombre de usuario
-    
+
     Returns:
         True si se envió correctamente
     """
-    
-    app_url = FRONTEND_URL
-    
     context = {
         "username": username,
-        "app_url": app_url,
+        "app_url": FRONTEND_URL,
         "current_year": datetime.now().year,
     }
-    
-    try:
-        template = template_env.get_template("welcome.html")
-        html_content = template.render(**context)
-        
-        text_content = f"""
+
+    text_body = f"""
 ¡Bienvenido {username}!
 
 Tu cuenta en FinanzaApp ha sido creada exitosamente.
 
-Accede a la aplicación aquí: {app_url}
+Accede a la aplicación aquí: {FRONTEND_URL}
 
 ---
 FinanzaApp
-        """
-        
-        if ENVIRONMENT == "development":
-            print("\n" + "=" * 60)
-            print(f"📧 [DEV] Email de bienvenida para: {email}")
-            print("=" * 60)
-            print(f"Usuario: {username}")
-            print(f"URL: {app_url}")
-            print("=" * 60 + "\n")
-            return True
-        
-        if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD]):
-            return False
-        
-        message = MIMEMultipart("alternative")
-        message["Subject"] = "¡Bienvenido a FinanzaApp!"
-        message["From"] = SENDER_EMAIL
-        message["To"] = email
-        
-        part1 = MIMEText(text_content, "plain")
-        part2 = MIMEText(html_content, "html")
-        message.attach(part1)
-        message.attach(part2)
-        
-        async with aiosmtplib.SMTP(hostname=SMTP_HOST, port=SMTP_PORT) as smtp:
-            await smtp.login(SMTP_USER, SMTP_PASSWORD)
-            await smtp.send_message(message)
-        
-        print(f"✅ Email de bienvenida enviado a {email}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error enviando email de bienvenida a {email}: {str(e)}")
-        return False
+    """.strip()
+
+    return await _send_email(
+        to_email=email,
+        subject="¡Bienvenido a FinanzaApp!",
+        template_name="welcome.html",
+        context=context,
+        text_body=text_body,
+    )

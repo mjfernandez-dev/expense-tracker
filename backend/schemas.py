@@ -131,7 +131,7 @@ class CategoryCreate(CategoryBase):
 class CategoryRead(CategoryBase):
     id: int
     es_predeterminada: bool
-    
+
     class Config:
         from_attributes = True
 
@@ -166,7 +166,7 @@ class UserCategoryRead(UserCategoryBase):
     user_id: int
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -501,7 +501,3 @@ class PushSubscribeRequest(BaseModel):
 class PushSubscribeResponse(BaseModel):
     id: int
     message: str
-
-
-
-

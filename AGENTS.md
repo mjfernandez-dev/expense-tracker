@@ -89,4 +89,3 @@
 - `revision` ID must be a real 12-char hex string — NEVER `'xxxx'` or placeholder
 - `down_revision` must chain correctly to the previous migration
 - Migration filenames must describe the change: `add_presupuesto_item.py`, not `auto_generated.py`
- 

@@ -1,7 +1,7 @@
 """Initial schema with UserCategory and multi-tenant categories
 
 Revision ID: 93994adc28c3
-Revises: 
+Revises:
 Create Date: 2026-02-17 10:53:42.764553
 
 """
