@@ -326,6 +326,15 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                           ? `Restan ${formatARS(totalPresupuestado - totalEjecutado)} por ejecutar`
                           : 'Presupuesto completamente ejecutado'}
                       </p>
+                      {/* Total líquido: disponible + lo que resta por ejecutar */}
+                      <div className="border-t border-slate-700/40 pt-2 mt-1 flex items-center justify-between">
+                        <span className="text-xs font-mono text-slate-400">
+                          Disponible + restante
+                        </span>
+                        <span className="text-sm font-mono font-bold text-slate-100 tabular-nums">
+                          {formatARS(r.saldo_disponible_actual + totalPresupuestado - totalEjecutado)}
+                        </span>
+                      </div>
                     </div>
                   );
                 })()}
