@@ -228,6 +228,18 @@ export const getUserCategories = async (): Promise<UserCategory[]> => {
   }
 };
 
+// Obtener movimientos filtrados por rango de fechas
+// GET /movimientos/?fecha_desde=&fecha_hasta= → devuelve Movimiento[]
+export const getMovimientosByDateRange = async (
+  fecha_desde: string,
+  fecha_hasta: string,
+): Promise<Movimiento[]> => {
+  const response = await api.get('/movimientos/', {
+    params: { fecha_desde, fecha_hasta },
+  });
+  return response.data;
+};
+
 // Crear una categoría personalizada
 // POST /user-categories/ → envía {nombre}, devuelve UserCategory
 export const createCategory = async (nombre: string): Promise<UserCategory> => {

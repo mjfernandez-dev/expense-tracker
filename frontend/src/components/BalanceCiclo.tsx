@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Ciclo, Movimiento } from '../types';
-import { getCiclo, getCiclos, getMovimientos } from '../services/api';
+import { getCiclo, getCiclos, getMovimientosByDateRange } from '../services/api';
 import ClasificacionPie from './ClasificacionPie';
 
 interface BalanceCicloProps {
@@ -19,23 +19,38 @@ const formatFechaLargo = (s: string) =>
 export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
   const [ciclos, setCiclos] = useState<Ciclo[]>([]);
   const [selectedCiclo, setSelectedCiclo] = useState<Ciclo | null>(null);
-  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+  const [movimientosCiclo, setMovimientosCiclo] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMovs, setLoadingMovs] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchMovimientos = async (ciclo: Ciclo) => {
+    setLoadingMovs(true);
+    try {
+      const desde = ciclo.fecha_inicio.split('T')[0];
+      const hasta = ciclo.fecha_fin.split('T')[0];
+      const movs = await getMovimientosByDateRange(desde, hasta);
+      setMovimientosCiclo(movs);
+    } catch {
+      setMovimientosCiclo([]);
+    } finally {
+      setLoadingMovs(false);
+    }
+  };
 
   useEffect(() => {
     const cargar = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [todos, movs] = await Promise.all([getCiclos(), getMovimientos()]);
+        const todos = await getCiclos();
         setCiclos(todos);
-        setMovimientos(movs);
 
         const defaultId = todos.find(c => c.activo)?.id ?? todos[0]?.id;
         if (defaultId) {
           const full = await getCiclo(defaultId);
           setSelectedCiclo(full);
+          await fetchMovimientos(full);
         } else {
           setSelectedCiclo(null);
         }
@@ -54,24 +69,21 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
     try {
       const full = await getCiclo(id);
       setSelectedCiclo(full);
+      await fetchMovimientos(full);
     } catch {
       setError('No se pudo cargar el ciclo seleccionado.');
     }
   };
 
-  const gastosCiclo = useMemo(() => {
-    if (!selectedCiclo) return [];
-    const desde = new Date(selectedCiclo.fecha_inicio).getTime();
-    const hasta = new Date(selectedCiclo.fecha_fin).getTime();
-    return movimientos.filter(
-      (m) => m.tipo === 'gasto' && new Date(m.fecha).getTime() >= desde && new Date(m.fecha).getTime() <= hasta
-    );
-  }, [movimientos, selectedCiclo]);
+  const gastosCiclo = useMemo(
+    () => movimientosCiclo.filter((m) => m.tipo === 'gasto'),
+    [movimientosCiclo],
+  );
 
   const gastosSinPresupuesto = useMemo(() => {
     if (!selectedCiclo?.resumen) return [];
     const confirmedIds = new Set(
-      selectedCiclo.resumen.presupuesto_items.filter(i => i.confirmado).map(i => i.id)
+      selectedCiclo.resumen.presupuesto_items.filter(i => i.confirmado).map(i => i.id),
     );
     const map: Record<string, number> = {};
     gastosCiclo
@@ -96,7 +108,9 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
   }, [gastosCiclo]);
 
   const totalGastos = gastosCiclo.reduce((s, m) => s + m.importe, 0);
+  const totalSinPresupuesto = gastosSinPresupuesto.reduce((s, [, m]) => s + m, 0);
 
+  // ── Loading ──
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
@@ -135,13 +149,13 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
 
   const r = selectedCiclo.resumen;
   const items = r.presupuesto_items.filter((i) => i.confirmado);
-  const realEnCuenta = r.total_ingresos - totalGastos - selectedCiclo.ahorro_objetivo;
+  const resultado = r.total_ingresos - totalGastos - selectedCiclo.ahorro_objetivo;
 
   return (
     <div className="space-y-4 pb-4">
 
       {/* ── Selector de ciclos ──────────────────────── */}
-      <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-3">
+      <div className="relative bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-3">
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
           {ciclos.map((c) => {
             const isSelected = c.id === selectedCiclo.id;
@@ -163,9 +177,11 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
             );
           })}
         </div>
+        {/* Fade que indica scroll horizontal en mobile */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-900/80 to-transparent rounded-r-2xl md:hidden" />
       </div>
 
-      {/* ── Encabezado del ciclo seleccionado ──────────── */}
+      {/* ── Encabezado ──────────────────────────── */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <h2 className="text-xs font-mono font-semibold text-slate-400 uppercase tracking-widest">
@@ -184,15 +200,34 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
         </span>
       </div>
 
-      {/* ── Real en cuenta ──────────────── */}
-      <div className={`bg-slate-900/80 border backdrop-blur-2xl rounded-xl px-5 py-3 flex items-center justify-between ${realEnCuenta >= 0 ? 'border-emerald-500/30' : 'border-red-500/30'}`}>
-        <div>
-          <p className="text-xs font-mono text-slate-400 uppercase tracking-widest">Real en cuenta</p>
-          <p className="text-xs text-slate-500 mt-0.5">Ingresos − gastos − ahorro objetivo</p>
+      {/* ── Resultado del ciclo ──────────────────── */}
+      <div className={`bg-slate-900/80 border backdrop-blur-2xl rounded-xl px-5 py-3 ${
+        resultado >= 0 ? 'border-emerald-500/30' : 'border-red-500/30'
+      }`}>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <p className="text-xs font-mono text-slate-400 uppercase tracking-widest">Resultado del ciclo</p>
+            <p className="text-xs text-slate-500 mt-0.5">Ingresos − gastos − ahorro objetivo</p>
+          </div>
+          <p className={`text-lg font-bold tabular-nums ${resultado >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+            {resultado >= 0 ? '+' : ''}{formatARS(resultado)}
+          </p>
         </div>
-        <p className={`text-lg font-bold tabular-nums ${realEnCuenta >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
-          {realEnCuenta >= 0 ? '+' : ''}{formatARS(realEnCuenta)}
-        </p>
+        {/* Mini breakdown */}
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs tabular-nums border-t border-slate-700/40 pt-2 mt-1">
+          <span className="text-emerald-400">
+            +{formatARS(r.total_ingresos)} <span className="text-slate-500 font-mono">ingresos</span>
+          </span>
+          <span className="text-red-400">
+            −{formatARS(totalGastos)} <span className="text-slate-500 font-mono">gastos</span>
+          </span>
+          <span className="text-amber-400">
+            −{formatARS(selectedCiclo.ahorro_objetivo)} <span className="text-slate-500 font-mono">ahorro</span>
+          </span>
+          <span className={resultado >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+            = {formatARS(resultado)} <span className="text-slate-500 font-mono">resultado</span>
+          </span>
+        </div>
       </div>
 
       {/* ── Desktop: 2 columnas / Mobile: 1 columna ─── */}
@@ -257,8 +292,16 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
                 })}
 
                 {items.length > 0 && gastosSinPresupuesto.length > 0 && (
-                  <div className="px-4 py-1.5 bg-slate-800/50">
-                    <span className="text-xs font-mono text-slate-500 uppercase tracking-widest">Sin presupuesto</span>
+                  <div className="sticky top-0 px-4 py-2 bg-slate-800/80 backdrop-blur-xl border-y border-slate-700/40">
+                    <div className="flex items-center gap-2">
+                      <div className="w-px h-4 bg-slate-600/60" />
+                      <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">
+                        Gastos sin presupuesto
+                      </span>
+                      <span className="text-xs font-mono text-slate-500">
+                        {formatARS(totalSinPresupuesto)}
+                      </span>
+                    </div>
                   </div>
                 )}
 
@@ -286,6 +329,12 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
               </div>
             )}
           </div>
+          {loadingMovs && (
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <div className="w-3 h-3 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-slate-500">Cargando movimientos...</span>
+            </div>
+          )}
         </section>
 
         {/* ── Necesidad vs Deseo ──────────── */}
@@ -299,12 +348,31 @@ export default function BalanceCiclo({ refreshKey }: BalanceCicloProps) {
                 Clasificá tus gastos como Necesidad o Deseo al registrarlos.
               </p>
             ) : (
-              <ClasificacionPie
-                necesidad={clasificacionData.necesidad}
-                deseo={clasificacionData.deseo}
-                sinClasificar={clasificacionData.sinClasificar}
-                total={totalGastos}
-              />
+              <>
+                <ClasificacionPie
+                  necesidad={clasificacionData.necesidad}
+                  deseo={clasificacionData.deseo}
+                  sinClasificar={clasificacionData.sinClasificar}
+                  total={totalGastos}
+                />
+                {/* Mini resumen numérico debajo del pie */}
+                <div className="mt-3 space-y-1 text-xs tabular-nums border-t border-slate-700/40 pt-3">
+                  <div className="flex justify-between">
+                    <span className="text-emerald-400">Necesidad</span>
+                    <span className="text-slate-200 font-medium">{formatARS(clasificacionData.necesidad)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-amber-400">Deseo</span>
+                    <span className="text-slate-200 font-medium">{formatARS(clasificacionData.deseo)}</span>
+                  </div>
+                  {clasificacionData.sinClasificar > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 italic">Sin clasificar</span>
+                      <span className="text-slate-400">{formatARS(clasificacionData.sinClasificar)}</span>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </section>
