@@ -293,7 +293,10 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
+
+        {/* ═══════ DATOS PRINCIPALES ═══════ */}
+        <div className="space-y-4">
 
         <div className={`rounded-xl border p-4 text-center ${isIngreso ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
           <label className={`block text-xs font-semibold uppercase tracking-widest mb-2 ${isIngreso ? 'text-green-400' : 'text-red-400'}`}>
@@ -361,127 +364,144 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           )}
         </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-sm font-medium text-slate-100">
-              Categoría *
-            </label>
-            <button
-              type="button"
-              onClick={() => { setShowNewCat((v) => !v); setNewCatNombre(''); }}
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-            >
-              {showNewCat ? '✕ Cancelar' : '+ Nueva'}
-            </button>
-          </div>
-          <select
-            value={categoriaId}
-            onChange={(e) => setCategoriaId(e.target.value)}
-            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
-          >
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.nombre}
-              </option>
-            ))}
-          </select>
-          {showNewCat && (
-            <div className="mt-2 flex gap-2">
-              <input
-                type="text"
-                value={newCatNombre}
-                onChange={(e) => setNewCatNombre(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
-                placeholder="Nombre de la categoría"
-                autoFocus
-                className="flex-1 px-3 py-2 rounded-lg bg-slate-700/80 border border-blue-500/50 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-slate-100">
+                Categoría *
+              </label>
               <button
                 type="button"
-                onClick={handleCreateCategory}
-                disabled={savingCat || !newCatNombre.trim()}
-                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 text-white text-sm font-medium transition-colors"
+                onClick={() => { setShowNewCat((v) => !v); setNewCatNombre(''); }}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
               >
-                {savingCat ? '...' : 'Crear'}
+                {showNewCat ? '✕ Cancelar' : '+ Nueva'}
               </button>
+            </div>
+            <select
+              value={categoriaId}
+              onChange={(e) => setCategoriaId(e.target.value)}
+              className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+            >
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.nombre}
+                </option>
+              ))}
+            </select>
+            {showNewCat && (
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={newCatNombre}
+                  onChange={(e) => setNewCatNombre(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
+                  placeholder="Nombre de la categoría"
+                  autoFocus
+                  className="flex-1 px-3 py-2 rounded-lg bg-slate-700/80 border border-blue-500/50 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateCategory}
+                  disabled={savingCat || !newCatNombre.trim()}
+                  className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 text-white text-sm font-medium transition-colors"
+                >
+                  {savingCat ? '...' : 'Crear'}
+                </button>
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-100 mb-1">
+              Fecha
+            </label>
+            <input
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all [color-scheme:dark] ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+            />
+          </div>
+        </div>
+
+        </div> {/* fin: datos principales */}
+
+        {/* ──────── DETALLES OPCIONALES ──────── */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-600/30" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-slate-800/70 px-3 text-xs font-mono text-slate-500 uppercase tracking-widest">
+              Detalles opcionales
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              Nota
+            </label>
+            <input
+              type="text"
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              placeholder="Información adicional"
+              className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              Medio de pago
+            </label>
+            <select
+              value={medioPago}
+              onChange={e => setMedioPago(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option value="">Sin especificar</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="debito">Débito</option>
+              <option value="credito">Crédito</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+
+          {!isIngreso && (
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">
+                Clasificación
+              </label>
+              <div className="flex gap-1 p-1 rounded-xl bg-slate-900/60 border border-slate-600/30">
+                {[
+                  { value: '', label: '— Sin clasificar' },
+                  { value: 'necesidad', label: '🏠 Necesidad' },
+                  { value: 'deseo', label: '✨ Deseo' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setClasificacion(opt.value)}
+                    className={`flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-all duration-150 ${
+                      clasificacion === opt.value
+                        ? opt.value === 'necesidad'
+                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-700 text-white shadow-md shadow-emerald-500/30'
+                          : opt.value === 'deseo'
+                          ? 'bg-gradient-to-r from-amber-500 to-amber-700 text-white shadow-md shadow-amber-500/30'
+                          : 'bg-gradient-to-r from-slate-500 to-slate-700 text-white shadow-md shadow-slate-500/20'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-100 mb-1">
-            Fecha
-          </label>
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all [color-scheme:dark] ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-100 mb-1">
-            Nota (opcional)
-          </label>
-          <input
-            type="text"
-            value={nota}
-            onChange={(e) => setNota(e.target.value)}
-            placeholder="Información adicional"
-            className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-100 mb-1">
-            Medio de pago <span className="text-slate-400 font-normal">(opcional)</span>
-          </label>
-          <select
-            value={medioPago}
-            onChange={e => setMedioPago(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-          >
-            <option value="">Sin especificar</option>
-            <option value="efectivo">Efectivo</option>
-            <option value="debito">Débito</option>
-            <option value="credito">Crédito</option>
-            <option value="transferencia">Transferencia</option>
-            <option value="otro">Otro</option>
-          </select>
-        </div>
-
-        {!isIngreso && (
-          <div>
-            <label className="block text-sm font-medium text-slate-100 mb-1">
-              Clasificación <span className="text-slate-400 font-normal">(opcional)</span>
-            </label>
-            <div className="flex gap-1 p-1 rounded-xl bg-slate-900/60 border border-slate-600/30">
-              {[
-                { value: '', label: '— Sin clasificar' },
-                { value: 'necesidad', label: '🏠 Necesidad' },
-                { value: 'deseo', label: '✨ Deseo' },
-              ].map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setClasificacion(opt.value)}
-                  className={`flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-all duration-150 ${
-                    clasificacion === opt.value
-                      ? opt.value === 'necesidad'
-                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-700 text-white shadow-md shadow-emerald-500/30'
-                        : opt.value === 'deseo'
-                        ? 'bg-gradient-to-r from-amber-500 to-amber-700 text-white shadow-md shadow-amber-500/30'
-                        : 'bg-gradient-to-r from-slate-500 to-slate-700 text-white shadow-md shadow-slate-500/20'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {!movimientoToEdit && isIngreso && (
           <div
