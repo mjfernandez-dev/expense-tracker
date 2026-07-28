@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import type { Movimiento } from '../types';
 import { getMovimientos, deleteMovimiento } from '../services/api';
 import ClasificacionBadge from './ClasificacionBadge';
@@ -32,7 +32,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);  // modal normal
-  const [autoDeleteTarget, setAutoDeleteTarget] = useState<Movimiento | null>(null);  // modal 3 opciones
+  const [autoDeleteTarget, setAutoDeleteTarget] = useState<Movimiento | null>(null);  // modal auto-generado
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -173,12 +173,10 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
   const renderTarjetaMobile = (mov: Movimiento) => {
     const isExpanded = expandedId === mov.id;
+    const hasNote = !!mov.nota;
     return (
       <div key={mov.id} className="bg-slate-700/50 border border-slate-600/60 rounded-xl overflow-hidden">
-        <button
-          onClick={() => setExpandedId(isExpanded ? null : mov.id)}
-          className="w-full px-4 py-3 text-left"
-        >
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-100 truncate mr-3">{mov.descripcion}</span>
             <span className={`text-sm font-bold whitespace-nowrap ${esIngreso ? 'text-green-300' : 'text-white'}`}>
@@ -202,38 +200,50 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
               )}
               <ClasificacionBadge value={mov.clasificacion} />
             </div>
-            <svg className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </button>
-        <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="px-4 pb-3 pt-1 border-t border-slate-600/50">
-            {mov.nota && (
-              <p className="text-xs text-slate-400 mb-3"><span className="text-slate-500">Nota:</span> {mov.nota}</p>
+            {hasNote && (
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : mov.id)}
+                className="flex-shrink-0"
+                aria-label={isExpanded ? 'Ocultar nota' : 'Ver nota'}
+              >
+                <svg className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             )}
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => onEdit?.(mov)}
-                aria-label="Editar"
-                className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 p-2 rounded-lg transition-all"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => handleDeleteRequest(mov)}
-                aria-label="Eliminar"
-                className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 p-2 rounded-lg transition-all"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
+          </div>
+        </div>
+
+        {/* Nota expandible */}
+        {hasNote && (
+          <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="px-4 pb-3 pt-1 border-t border-slate-600/50">
+              <p className="text-xs text-slate-400"><span className="text-slate-500">Nota:</span> {mov.nota}</p>
             </div>
           </div>
+        )}
+
+        {/* Acciones siempre visibles */}
+        <div className={`flex gap-2 justify-end px-4 pb-3 ${hasNote && !isExpanded ? 'pt-0' : ''}`}>
+          <button
+            onClick={() => onEdit?.(mov)}
+            aria-label="Editar"
+            className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 p-2 rounded-lg transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => handleDeleteRequest(mov)}
+            aria-label="Eliminar"
+            className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 p-2 rounded-lg transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
         </div>
       </div>
     );
@@ -297,8 +307,11 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         </div>
       </div>
 
+      {/* STICKY: tabs + filtros */}
+      <div className="sticky top-0 z-10 -mx-6 px-6 pt-0 pb-3 bg-slate-800/70 backdrop-blur-2xl [container-type:inline-size]">
+
       {/* TABS */}
-      <div className="flex gap-1 mb-4 p-1 bg-slate-700/50 rounded-xl w-fit">
+      <div className="flex gap-1 mb-3 p-1 bg-slate-700/50 rounded-xl w-fit">
         {(['gastos', 'ingresos'] as TabActivo[]).map((tab) => {
           const labels: Record<TabActivo, string> = { gastos: 'Gastos', ingresos: 'Ingresos' };
           const activeStyles: Record<TabActivo, string> = {
@@ -320,7 +333,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
       </div>
 
       {/* FILTROS: búsqueda + categoría en fila */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
             <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -377,6 +390,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
           )}
         </div>
       </div>
+      </div> {/* fin: sticky tabs+filtros */}
 
       <>
 
@@ -417,15 +431,14 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                       <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Descripción</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Categoría</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-slate-300 uppercase tracking-wider">Importe</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-300 uppercase tracking-wider">Nota</th>
                       <th className="px-4 py-3 text-center text-sm font-semibold text-slate-300 uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-600/40">
                     {listaAgrupadaPorDia.map(({ key, label, items, total }) => (
-                      <>
+                      <React.Fragment key={key}>
                         <tr key={`header-${key}`} className="bg-slate-700/30 border-y border-slate-600/50">
-                          <td colSpan={3} className="px-4 py-2">
+                          <td colSpan={2} className="px-4 py-2">
                             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</span>
                           </td>
                           <td colSpan={2} className={`px-4 py-2 text-right text-xs font-semibold ${esIngreso ? 'text-green-400' : 'text-slate-400'}`}>
@@ -443,6 +456,9 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                                   </span>
                                 )}
                               </div>
+                              {mov.nota && (
+                                <p className="text-xs text-slate-500 mt-0.5 font-normal">{mov.nota}</p>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-sm">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -458,9 +474,6 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                             </td>
                             <td className={`px-4 py-3 text-sm text-right font-semibold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
                               {esIngreso ? '+' : '-'}{formatARS(mov.importe)}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-slate-300">
-                              {mov.nota || <span className="text-slate-500">-</span>}
                             </td>
                             <td className="px-4 py-3 text-sm text-center">
                               <div className="flex justify-center gap-2">
@@ -480,7 +493,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                             </td>
                           </tr>
                         ))}
-                      </>
+                      </React.Fragment>
                     ))}
                   </tbody>
                   <tfoot>
@@ -489,7 +502,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                       <td className={`px-4 py-3 text-sm text-right font-bold ${esIngreso ? 'text-green-300' : 'text-white'}`}>
                         {esIngreso ? '+' : ''}{formatARS(esIngreso ? totalIngresos : totalGastos)}
                       </td>
-                      <td colSpan={2}></td>
+                      <td></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -554,7 +567,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
         </div>
       )}
 
-      {/* Modal 3 opciones: eliminar movimiento auto-generado */}
+      {/* Modal: eliminar movimiento auto-generado */}
       {autoDeleteTarget !== null && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeleting && setAutoDeleteTarget(null)} />

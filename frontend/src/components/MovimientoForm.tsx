@@ -94,6 +94,20 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     };
   }, [descripcion, movimientoToEdit]);
 
+  const resetForm = useCallback(() => {
+    setTipo('gasto');
+    setImporte('');
+    setDescripcion('');
+    setNota('');
+    setFecha(getCurrentBADateInputValue());
+    setEsInicioCiclo(false);
+    setMedioPago('');
+    setClasificacion('');
+    if (categories.length > 0) {
+      setCategoriaId(categories[0].id.toString());
+    }
+  }, [categories]);
+
   useEffect(() => {
     if (movimientoToEdit) {
       setTipo(movimientoToEdit.tipo);
@@ -106,19 +120,9 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setMedioPago(movimientoToEdit.medio_pago || '');
       setClasificacion(movimientoToEdit.clasificacion || '');
     } else {
-      setTipo('gasto');
-      setImporte('');
-      setDescripcion('');
-      setNota('');
-      setFecha(getCurrentBADateInputValue());
-      setEsInicioCiclo(false);
-      setMedioPago('');
-      setClasificacion('');
-      if (categories.length > 0) {
-        setCategoriaId(categories[0].id.toString());
-      }
+      resetForm();
     }
-  }, [movimientoToEdit, categories]);
+  }, [movimientoToEdit, categories, resetForm]);
 
   const handleCreateCategory = async () => {
     const nombre = newCatNombre.trim();
@@ -205,18 +209,13 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         const resultado = await createMovimiento(movimientoData);
         if (resultado.id < 0) {
           setOfflineQueued(true);
-          setImporte(''); setDescripcion(''); setNota(''); setEsInicioCiclo(false);
+          resetForm();
           return;
         }
         onMovimientoCreated(resultado);
       }
 
-      setImporte('');
-      setDescripcion('');
-      setNota('');
-      setEsInicioCiclo(false);
-      setMedioPago('');
-      setClasificacion('');
+      resetForm();
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error desconocido';
