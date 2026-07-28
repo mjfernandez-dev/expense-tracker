@@ -299,6 +299,37 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                   </div>
                 </div>
 
+                {/* ── Resumen ejecución del presupuesto ── */}
+                {(() => {
+                  const items = r.presupuesto_items.filter(i => i.confirmado);
+                  if (items.length === 0) return null;
+                  const totalPresupuestado = items.reduce((s, i) => s + i.monto_estimado, 0);
+                  const totalEjecutado = items.reduce((s, i) => s + i.monto_ejecutado, 0);
+                  const pct = totalPresupuestado > 0 ? Math.round((totalEjecutado / totalPresupuestado) * 100) : 0;
+                  return (
+                    <div className="bg-slate-800/50 border border-slate-700/40 rounded-xl px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">Ejecución</span>
+                        <span className="text-xs font-mono text-slate-500">{pct}%</span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-sm font-mono text-slate-200 font-semibold">{formatARS(totalEjecutado)}</span>
+                        <span className="text-xs font-mono text-slate-500">
+                          de <span className="text-slate-300">{formatARS(totalPresupuestado)}</span> presupuestados
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%` }} />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {totalPresupuestado - totalEjecutado > 0
+                          ? `Restan ${formatARS(totalPresupuestado - totalEjecutado)} por ejecutar`
+                          : 'Presupuesto completamente ejecutado'}
+                      </p>
+                    </div>
+                  );
+                })()}
+
                 {/* Items del presupuesto */}
                 <div className="space-y-0 text-xs font-mono">
                   <div className="flex items-center py-1.5">
