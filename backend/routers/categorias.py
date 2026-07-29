@@ -1,5 +1,5 @@
 """Routers de categorías: /categories/ y /user-categories/"""
-from typing import List
+from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -41,6 +41,19 @@ def list_user_categories(
     current_user: models.User = Depends(get_current_active_user),
 ):
     return user_category_service.listar_categorias_usuario(current_user.id, db, limit, offset)
+
+
+@router.get("/maximos-historicos")
+def get_maximos_historicos(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Devuelve {user_category_id: monto_máximo_histórico} para cada categoría.
+
+    Toma el valor más alto entre monto_estimado y monto_ejecutado
+    de todos los presupuestos históricos del usuario.
+    """
+    return user_category_service.obtener_maximos_historicos(current_user.id, db)
 
 
 @router.get("/{category_id}", response_model=schemas.UserCategoryRead)

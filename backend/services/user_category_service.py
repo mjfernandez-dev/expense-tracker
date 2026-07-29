@@ -1,8 +1,9 @@
 """Servicio de categorías personalizadas del usuario."""
 from decimal import Decimal
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 import models
@@ -161,3 +162,43 @@ def actualizar_user_category(
     db.commit()
     db.refresh(category)
     return category
+
+
+def obtener_maximos_historicos(user_id: int, db: Session) -> Dict[int, float]:
+    """Calcula el máximo histórico por user_category_id.
+
+    Por cada PresupuestoItem confirmado del usuario, toma
+    max(monto_estimado, suma de movimientos vinculados).
+    Luego agrupa por user_category_id y devuelve el mayor valor.
+    """
+    items = (
+        db.query(
+            models.PresupuestoItem.user_category_id,
+            models.PresupuestoItem.monto_estimado,
+            func.coalesce(func.sum(models.Movimiento.importe), 0),
+        )
+        .join(models.Ciclo, models.PresupuestoItem.ciclo_id == models.Ciclo.id)
+        .outerjoin(
+            models.Movimiento,
+            models.Movimiento.presupuesto_item_id == models.PresupuestoItem.id,
+        )
+        .filter(
+            models.Ciclo.user_id == user_id,
+            models.PresupuestoItem.user_category_id.isnot(None),
+            models.PresupuestoItem.confirmado == True,
+        )
+        .group_by(
+            models.PresupuestoItem.id,
+            models.PresupuestoItem.user_category_id,
+            models.PresupuestoItem.monto_estimado,
+        )
+        .all()
+    )
+
+    per_category: Dict[int, float] = {}
+    for user_category_id, estimado, ejecutado in items:
+        valor = max(float(estimado), float(ejecutado))
+        if user_category_id not in per_category or valor > per_category[user_category_id]:
+            per_category[user_category_id] = valor
+
+    return per_category

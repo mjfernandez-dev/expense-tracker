@@ -228,6 +228,18 @@ export const getUserCategories = async (): Promise<UserCategory[]> => {
   }
 };
 
+// GET /user-categories/maximos-historicos → { user_category_id: monto_máximo_histórico }
+export const getMaximosHistoricos = async (): Promise<Record<number, number>> => {
+  const response = await api.get('/user-categories/maximos-historicos');
+  // Las claves vienen como string desde JSON → parsear a número
+  const data: Record<string, number> = response.data;
+  const result: Record<number, number> = {};
+  for (const [key, value] of Object.entries(data)) {
+    result[Number(key)] = value;
+  }
+  return result;
+};
+
 // Obtener movimientos filtrados por rango de fechas
 // GET /movimientos/?fecha_desde=&fecha_hasta= → devuelve Movimiento[]
 export const getMovimientosByDateRange = async (

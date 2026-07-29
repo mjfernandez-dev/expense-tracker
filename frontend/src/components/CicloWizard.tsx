@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { PresupuestoItemCreate, UserCategory } from '../types';
-import { getUserCategories, getCicloActivo, getUltimoCiclo, createCiclo, confirmarPresupuesto, cerrarCiclo } from '../services/api';
+import { getUserCategories, getCicloActivo, getUltimoCiclo, getMaximosHistoricos, createCiclo, confirmarPresupuesto, cerrarCiclo } from '../services/api';
 import {
   getDaysRemainingInclusiveBA,
   getLastDayOfCurrentMonthBA,
@@ -65,20 +65,35 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
     const cargar = async () => {
       setLoadingCats(true);
       try {
-        // Intentar sugerencias del ciclo activo primero, si no hay, del último cerrado
-        const cicloConDatos = (await getCicloActivo()) ?? (await getUltimoCiclo());
-        const [cats] = await Promise.all([getUserCategories()]);
+        const [cicloConDatos, cats, maximosHistoricos] = await Promise.all([
+          (await getCicloActivo()) ?? (await getUltimoCiclo()),
+          getUserCategories(),
+          getMaximosHistoricos(),
+        ]);
         const sugerenciasCiclo: Record<number, number> = {};
+
+        // Sugerencias del último ciclo, combinadas con el máximo histórico
         if (cicloConDatos?.resumen?.presupuesto_items) {
           for (const item of cicloConDatos.resumen.presupuesto_items) {
             if (item.user_category_id) {
-              sugerenciasCiclo[item.user_category_id] = Math.max(
+              const ultimoCiclo = Math.max(
                 Number(item.monto_estimado),
                 Number(item.monto_ejecutado ?? 0),
               );
+              const historico = maximosHistoricos[item.user_category_id] ?? 0;
+              sugerenciasCiclo[item.user_category_id] = Math.max(ultimoCiclo, historico);
             }
           }
         }
+
+        // Categorías con gasto histórico que no estuvieron en el último ciclo
+        for (const [catId, maximo] of Object.entries(maximosHistoricos)) {
+          const id = Number(catId);
+          if (!sugerenciasCiclo[id]) {
+            sugerenciasCiclo[id] = maximo;
+          }
+        }
+
         setCategorias(
           cats.map((cat: UserCategory) => {
             if (sugerenciasCiclo[cat.id]) {
@@ -91,7 +106,7 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
           })
         );
       } catch {
-        setError('No se pudieron cargar las categorías. Intentá de nuevo.');
+        setError('No se pudieron cargar las sugerencias de presupuesto.');
       } finally {
         setLoadingCats(false);
       }
