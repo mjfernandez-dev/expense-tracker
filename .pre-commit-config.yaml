@@ -22,7 +22,7 @@ repos:
     hooks:
       - id: gitleaks
         name: Secret detection (gitleaks)
-        entry: gitleaks detect --staged --source . --config .gitleaks.toml --no-banner
+        entry: bash -c 'git diff --cached | gitleaks detect --pipe --config .gitleaks.toml --no-banner'
         language: system
         pass_filenames: false
         always_run: true
