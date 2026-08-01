@@ -18,6 +18,7 @@ import {
 } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import SaveIndicator from './SaveIndicator';
+import ConfirmModal from './ConfirmModal';
 import type { SaveState } from './SaveIndicator';
 
 interface CategoryRow extends UserCategory {
@@ -50,6 +51,9 @@ function PresupuestoManager() {
   const [gastoFijoSaveErrors, setGastoFijoSaveErrors] = useState<Record<number, string>>({});
   const [gastosFijosLoading, setGastosFijosLoading] = useState<boolean>(false);
   const [gastosFijosError, setGastosFijosError] = useState<string | null>(null);
+
+  // ── Confirmación in-app de notificaciones push ────────────────────
+  const [showPushConfirm, setShowPushConfirm] = useState<boolean>(false);
 
   const fetchGastosFijos = useCallback(async () => {
     setGastosFijosLoading(true);
@@ -86,15 +90,11 @@ function PresupuestoManager() {
     if (Notification.permission === 'denied') return;
 
     // Show in-app confirmation before browser prompt (better UX)
-    const confirmed = window.confirm(
-      '¿Querés recibir avisos cuando se acerque el vencimiento?\n\n' +
-      'Te notificaremos incluso con la app cerrada.'
-    );
-    if (!confirmed) {
-      localStorage.setItem('push_denied', 'true');
-      return;
-    }
+    setShowPushConfirm(true);
+  };
 
+  const handlePushOptInConfirm = async () => {
+    setShowPushConfirm(false);
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       try {
@@ -695,6 +695,22 @@ function PresupuestoManager() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Confirmación in-app de notificaciones push ─────────────── */}
+      {showPushConfirm && (
+        <ConfirmModal
+          title="Activar notificaciones"
+          confirmLabel="Activar"
+          onConfirm={handlePushOptInConfirm}
+          onCancel={() => {
+            setShowPushConfirm(false);
+            localStorage.setItem('push_denied', 'true');
+          }}
+        >
+          <p>¿Querés recibir avisos cuando se acerque el vencimiento de un gasto fijo?</p>
+          <p className="text-slate-400 text-xs">Te notificaremos incluso con la app cerrada.</p>
+        </ConfirmModal>
       )}
     </div>
   );

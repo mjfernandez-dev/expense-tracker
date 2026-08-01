@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Ciclo } from '../types';
 import { getCicloActivo, cerrarCiclo, getCiclos, exportarCiclo, reabrirCiclo } from '../services/api';
 import EditCicloModal from './EditCicloModal';
+import ConfirmModal from './ConfirmModal';
 
 interface DashboardCicloProps {
   refreshKey: number;
@@ -32,6 +33,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
   const [ciclo, setCiclo] = useState<Ciclo | null | undefined>(undefined);
   const [loadingCiclo, setLoadingCiclo] = useState<boolean>(true);
   const [showEdit, setShowEdit] = useState<boolean>(false);
+  const [showConfirmCerrar, setShowConfirmCerrar] = useState<boolean>(false);
   const [closingCiclo, setClosingCiclo] = useState<boolean>(false);
   const [reopeningId, setReopeningId] = useState<number | null>(null);
   const [exporting, setExporting] = useState<boolean>(false);
@@ -75,12 +77,18 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
     fetchHistorial();
   }, [fetchHistorial, refreshKey]);
 
-  const handleCerrar = async () => {
-    if (!ciclo || !confirm('¿Cerrar este ciclo?')) return;
+  const handleCerrarClick = () => {
+    if (!ciclo) return;
+    setShowConfirmCerrar(true);
+  };
+
+  const handleCerrarConfirm = async () => {
+    if (!ciclo) return;
     setClosingCiclo(true);
     try {
       await cerrarCiclo(ciclo.id);
       setCiclo(null);
+      setShowConfirmCerrar(false);
       await fetchHistorial();
     } catch {
       setErrorCiclo('No se pudo cerrar el ciclo. Intentá de nuevo.');
@@ -210,6 +218,23 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
         />
       )}
 
+      {showConfirmCerrar && (
+        <ConfirmModal
+          title="Cerrar ciclo"
+          confirmLabel="Cerrar ciclo"
+          loadingLabel="Cerrando..."
+          destructive
+          loading={closingCiclo}
+          onConfirm={handleCerrarConfirm}
+          onCancel={() => setShowConfirmCerrar(false)}
+        >
+          <p>
+            ¿Seguro que querés cerrar el ciclo actual? El seguimiento diario se detendrá
+            hasta que registres un nuevo ingreso e inicies otro ciclo.
+          </p>
+        </ConfirmModal>
+      )}
+
       <div className={`border rounded-2xl p-4 mb-6 ${colors.bg}`}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -235,7 +260,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
             </button>
             <span className="w-px h-4 bg-slate-600/50 mx-1" />
             <button
-              onClick={handleCerrar}
+              onClick={handleCerrarClick}
               disabled={closingCiclo}
               className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
             >
@@ -245,7 +270,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
         </div>
 
         {/* ── Card 1: SOLVENCIA DIARIA ── */}
-        <div className="bg-slate-800/90 border border-slate-600/50 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm mb-4">
+        <div className="bg-slate-900/80 border border-slate-700/70 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-2xl mb-4">
           <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border-b border-slate-600/30 px-5 py-3 flex items-center gap-2">
             <span className="text-blue-400 text-lg">⚡</span>
             <h3 className="text-slate-200 font-mono font-semibold text-sm tracking-wider">SOLVENCIA DIARIA</h3>
@@ -281,7 +306,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
           const pctFijos = Math.round((r.gastos_fijos_efectivizados / total) * 100);
           const pctVariables = Math.round((r.gastos_no_planificados / total) * 100);
           return (
-            <div className="bg-slate-800/90 border border-slate-600/50 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm mb-4">
+            <div className="bg-slate-900/80 border border-slate-700/70 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-2xl mb-4">
               <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border-b border-slate-600/30 px-5 py-3 flex items-center gap-2">
                 <span className="text-blue-400 text-lg">📊</span>
                 <h3 className="text-slate-200 font-mono font-semibold text-sm tracking-wider">PRESUPUESTO DEL CICLO</h3>
