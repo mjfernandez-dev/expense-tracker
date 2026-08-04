@@ -1,11 +1,11 @@
 // COMPONENTE RAÍZ: Aplicación con diseño moderno usando Tailwind
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Movimiento } from './types';
 import MovimientoModal from './components/MovimientoModal';
 import MovimientoList from './components/MovimientoList';
 import DashboardCiclo from './components/DashboardCiclo';
-import BalanceCiclo from './components/BalanceCiclo';
+import CicloTab from './components/CicloTab';
 import CicloWizard from './components/CicloWizard';
 import WishlistPage from './components/WishlistPage';
 import { OfflineIndicator } from './components/OfflineIndicator';
@@ -13,7 +13,7 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
 
-type Tab = 'inicio' | 'movimientos' | 'balance' | 'wishlist';
+type Tab = 'inicio' | 'movimientos' | 'ciclo' | 'metas';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
 
 function App() {
@@ -70,21 +70,30 @@ function App() {
     setWizardImporte(0);
   };
 
+  const syncingRef = useRef<boolean>(false);
+
   const syncPendingQueue = useCallback(async () => {
-    const pending = await getPendingOperations();
-    if (pending.length === 0) return;
-    for (const op of pending) {
-      try {
-        if (op.type === 'createMovimiento' && op.id != null) {
-          await createMovimiento(op.payload); // navigator.onLine=true, no encolará de nuevo
-          await removePendingOperation(op.id);
+    if (syncingRef.current) return; // evita re-entrancia por eventos online repetidos
+    syncingRef.current = true;
+    try {
+      const pending = getPendingOperations();
+      const operations = await pending;
+      if (operations.length === 0) return;
+      for (const op of operations) {
+        try {
+          if (op.type === 'createMovimiento' && op.id != null) {
+            await createMovimiento(op.payload); // navigator.onLine=true, no encolará de nuevo
+            await removePendingOperation(op.id);
+          }
+        } catch (err) {
+          setSyncError(err instanceof Error ? err.message : 'Error al sincronizar operaciones pendientes');
+          break;
         }
-      } catch (err) {
-        setSyncError(err instanceof Error ? err.message : 'Error al sincronizar operaciones pendientes');
-        break;
       }
+      setRefreshKey(prev => prev + 1);
+    } finally {
+      syncingRef.current = false;
     }
-    setRefreshKey(prev => prev + 1);
   }, []);
 
   useEffect(() => {
@@ -104,15 +113,15 @@ function App() {
   const tabLabel: Record<Tab, string> = {
     inicio: 'Inicio',
     movimientos: 'Movimientos',
-    balance: 'Balance',
-    wishlist: 'Metas',
+    ciclo: 'Ciclo',
+    metas: 'Metas',
   };
 
   const tabIcon: Record<Tab, string> = {
     inicio: '⚡',
     movimientos: '📋',
-    balance: '📊',
-    wishlist: '⭐',
+    ciclo: '📊',
+    metas: '⭐',
   };
 
   return (
@@ -177,18 +186,18 @@ function App() {
           <MovimientoList key={refreshKey} onEdit={handleEdit} />
         )}
 
-        {tab === 'balance' && (
-          <BalanceCiclo refreshKey={refreshKey} />
+        {tab === 'ciclo' && (
+          <CicloTab refreshKey={refreshKey} />
         )}
 
-        {tab === 'wishlist' && <WishlistPage />}
+        {tab === 'metas' && <WishlistPage />}
 
       </div>
 
       {/* BOTTOM TAB BAR */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/70 shadow-lg">
         <div className="max-w-6xl mx-auto flex">
-          {(['inicio', 'movimientos', 'balance', 'wishlist'] as Tab[]).map((t) => (
+          {(['inicio', 'movimientos', 'ciclo', 'metas'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}

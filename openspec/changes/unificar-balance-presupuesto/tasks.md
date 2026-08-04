@@ -47,8 +47,8 @@ Chain strategy: size-exception
 
 ## Phase 3 — CicloTab + navegación (P3)
 
-- [ ] **T13** `frontend/src/components/CicloTab.tsx` (Create): reporte desde `resumen` (`saldo_disponible_actual`, `total_gastos`, `total_ingresos`, `ahorro_objetivo`, `semaforo`, `daily_cap`) SIN `getMovimientosByDateRange`; lista única `divide-y` (confirmed items badge "comprometida" + `gastos_sin_presupuesto` desc badge "sin comprometer"); barra progreso, estado, restante por fila; edición inline (`editingId/editingValue/savingId/inlineError`, éxito → `setSelectedCiclo(respuestaPATCH)`, error → detalle es y revert); `ClasificacionPie` desde `clasificacion_importes`.
-- [ ] **T14** `frontend/src/App.tsx`: `type Tab = 'inicio'|'movimientos'|'ciclo'|'metas'`; quitar "balance"/"presupuesto"; render `CicloTab` en `ciclo`; quitar `PresupuestoManager`; renombrar wishlist→metas; bottom nav con 4 tabs.
+- [x] **T13** `frontend/src/components/CicloTab.tsx` (Create): reporte desde `resumen` (`saldo_disponible_actual`, `total_gastos`, `total_ingresos`, `ahorro_objetivo`, `semaforo`, `daily_cap`) SIN `getMovimientosByDateRange`; lista única `divide-y` (confirmed items badge "comprometida" + `gastos_sin_presupuesto` desc badge "sin comprometer"); barra progreso, estado, restante por fila; edición inline (`editingId/editingValue/savingId/inlineError`, éxito → `setSelectedCiclo(respuestaPATCH)`, error → detalle es y revert); `ClasificacionPie` desde `clasificacion_importes`.
+- [x] **T14** `frontend/src/App.tsx`: `type Tab = 'inicio'|'movimientos'|'ciclo'|'metas'`; quitar "balance"/"presupuesto"; render `CicloTab` en `ciclo`; quitar `PresupuestoManager`; renombrar wishlist→metas; bottom nav con 4 tabs.
 
 ## Phase 4 — Cleanup (P4)
 
