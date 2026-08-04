@@ -269,6 +269,11 @@ class PresupuestoItemBulk(BaseModel):
     items: List[PresupuestoItemCreate]
 
 
+class PresupuestoItemPatch(BaseModel):
+    """Cuerpo del PATCH granular de un item de presupuesto del ciclo."""
+    monto_estimado: MoneyDecimal = Field(..., ge=0)
+
+
 class PresupuestoItemRead(BaseModel):
     id: int
     ciclo_id: int
@@ -321,6 +326,19 @@ class CicloUpdate(BaseModel):
     ahorro_objetivo: Optional[MoneyDecimal] = None
 
 
+class GastoNoPlanificadoRead(BaseModel):
+    """Gastos del ciclo sin item de presupuesto, agrupados por categoría."""
+    categoria: str
+    importe: MoneyDecimal
+
+
+class ClasificacionImportes(BaseModel):
+    """Suma de gastos del ciclo por clasificación necesidad/deseo."""
+    necesidad: MoneyDecimal = Decimal('0')
+    deseo: MoneyDecimal = Decimal('0')
+    sin_clasificar: MoneyDecimal = Decimal('0')
+
+
 class CicloResumen(BaseModel):
     ciclo_id: int
     fecha_inicio: datetime
@@ -341,6 +359,8 @@ class CicloResumen(BaseModel):
     semaforo: str
     presupuesto_items: List[PresupuestoItemRead] = []
     gastos_fijos: List[GastoFijoCompromiso] = []
+    gastos_sin_presupuesto: List[GastoNoPlanificadoRead] = []
+    clasificacion_importes: ClasificacionImportes = ClasificacionImportes()
 
 
 class CicloRead(BaseModel):

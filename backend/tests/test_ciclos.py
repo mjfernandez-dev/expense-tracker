@@ -276,3 +276,143 @@ def test_dias_restantes_usa_fecha_de_buenos_aires(logged_in_client, user_categor
 
     resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
     assert resumen["dias_restantes"] == 18
+
+
+# ── PATCH granular de monto estimado (presupuesto/items/{item_id}) ──
+
+def _crear_ciclo_con_item(logged_in_client, user_category_id, monto=200.0):
+    """Crea un ciclo y confirma un item de presupuesto, devolviendo (ciclo, item_id)."""
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1200.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+    confirm = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+        "items": [
+            {
+                "gasto_fijo_id": None,
+                "monto_confirmado": monto,
+                "confirmado": True,
+                "descripcion_override": "Alquiler",
+            }
+        ]
+    })
+    assert confirm.status_code == 200, confirm.text
+    item_id = confirm.json()["resumen"]["presupuesto_items"][0]["id"]
+    return ciclo, item_id
+
+
+def test_patch_item_valido_recalcula_estado(logged_in_client, user_category_id):
+    ciclo, item_id = _crear_ciclo_con_item(logged_in_client, user_category_id, monto=200.0)
+
+    # Ejecutar 100 → estado "parcial"
+    gasto = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 100.0, item_id))
+    assert gasto.status_code == 200, gasto.text
+
+    # Bajar el estimado al ejecutado (100) → estado "efectivizado"
+    r = logged_in_client.patch(f"/ciclos/{ciclo['id']}/presupuesto/items/{item_id}", json={
+        "monto_estimado": 100.0,
+    })
+    assert r.status_code == 200, r.text
+    resumen = r.json()["resumen"]
+    item = next(i for i in resumen["presupuesto_items"] if i["id"] == item_id)
+    assert item["monto_estimado"] == 100.0
+    assert item["estado"] == "efectivizado"
+
+
+def test_patch_item_monto_menor_al_ejecutado_devuelve_400(logged_in_client, user_category_id):
+    ciclo, item_id = _crear_ciclo_con_item(logged_in_client, user_category_id, monto=200.0)
+    gasto = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 120.0, item_id))
+    assert gasto.status_code == 200, gasto.text
+
+    r = logged_in_client.patch(f"/ciclos/{ciclo['id']}/presupuesto/items/{item_id}", json={
+        "monto_estimado": 50.0,
+    })
+    assert r.status_code == 400, r.text
+    assert "monto estimado" in r.json()["detail"].lower()
+
+
+def test_patch_item_monto_negativo_no_se_acepta(logged_in_client, user_category_id):
+    ciclo, item_id = _crear_ciclo_con_item(logged_in_client, user_category_id, monto=200.0)
+    r = logged_in_client.patch(f"/ciclos/{ciclo['id']}/presupuesto/items/{item_id}", json={
+        "monto_estimado": -10.0,
+    })
+    assert r.status_code == 422, r.text
+
+
+def test_patch_item_inexistente_devuelve_404(logged_in_client, user_category_id):
+    ciclo, _ = _crear_ciclo_con_item(logged_in_client, user_category_id, monto=200.0)
+    r = logged_in_client.patch(f"/ciclos/{ciclo['id']}/presupuesto/items/9999", json={
+        "monto_estimado": 150.0,
+    })
+    assert r.status_code == 404, r.text
+
+
+def test_patch_item_ajeno_devuelve_404(logged_in_client, second_logged_in_client, user_category_id):
+    # Primer usuario crea el ciclo + item
+    ciclo, item_id = _crear_ciclo_con_item(logged_in_client, user_category_id, monto=200.0)
+
+    # Segundo usuario intenta PATCHear ese item → 404 sin revelar recurso
+    r = second_logged_in_client.patch(f"/ciclos/{ciclo['id']}/presupuesto/items/{item_id}", json={
+        "monto_estimado": 300.0,
+    })
+    assert r.status_code == 404, r.text
+
+
+def test_patch_item_en_ciclo_ajeno_devuelve_404(logged_in_client, second_logged_in_client, user_category_id):
+    ciclo, _ = _crear_ciclo_con_item(logged_in_client, user_category_id, monto=200.0)
+    # El segundo usuario no puede PATCHear ni el ciclo ni sus items → 404
+    r = second_logged_in_client.patch(f"/ciclos/{ciclo['id']}/presupuesto/items/1", json={
+        "monto_estimado": 300.0,
+    })
+    assert r.status_code == 404, r.text
+
+
+def test_resumen_enriquecido_gastos_sin_presupuesto_y_clasificacion(logged_in_client, user_category_id):
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    # Item comprometido 500
+    confirm = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+        "items": [{
+            "gasto_fijo_id": None,
+            "monto_confirmado": 500.0,
+            "confirmado": True,
+            "descripcion_override": "Alquiler",
+        }]
+    })
+    assert confirm.status_code == 200, confirm.text
+    item_id = confirm.json()["resumen"]["presupuesto_items"][0]["id"]
+
+    # Gasto SIN presupuesto (necesidad) 400
+    sin_presupuesto = logged_in_client.post("/movimientos/", json={
+        **_gasto(user_category_id, 400.0),
+        "clasificacion": "necesidad",
+    })
+    assert sin_presupuesto.status_code == 200, sin_presupuesto.text
+
+    # Gasto SIN presupuesto (deseo) 100
+    deseo = logged_in_client.post("/movimientos/", json={
+        **_gasto(user_category_id, 100.0),
+        "clasificacion": "deseo",
+    })
+    assert deseo.status_code == 200, deseo.text
+
+    # Gasto vinculado al item (necesidad) 300
+    vinculado = logged_in_client.post("/movimientos/", json={
+        **_gasto(user_category_id, 300.0, item_id),
+        "clasificacion": "necesidad",
+    })
+    assert vinculado.status_code == 200, vinculado.text
+
+    resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
+
+    # Σ de gastos_sin_presupuesto == gastos_no_planificados (400 + 100)
+    total_sin = sum(g["importe"] for g in resumen["gastos_sin_presupuesto"])
+    assert total_sin == resumen["gastos_no_planificados"] == 500.0
+    # Orden desc por importe
+    importes = [g["importe"] for g in resumen["gastos_sin_presupuesto"]]
+    assert importes == sorted(importes, reverse=True)
+
+    # Clasificación: necesidad 400+300=700, deseo 100, total gastos 800
+    clas = resumen["clasificacion_importes"]
+    assert clas["necesidad"] == 700.0
+    assert clas["deseo"] == 100.0
+    assert clas["sin_clasificar"] == 0.0

@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
@@ -24,6 +24,15 @@ def crear_nuevo_ciclo(
     """
     if fecha_fin <= ciclo_time_service.ahora_buenos_aires():
         raise ValueError("La fecha de fin debe ser posterior a hoy")
+
+    # Validar ownership del movimiento origen (multi-tenant)
+    if movimiento_origen_id is not None:
+        mov_origen = db.query(models.Movimiento).filter(
+            models.Movimiento.id == movimiento_origen_id,
+            models.Movimiento.user_id == user_id,
+        ).first()
+        if mov_origen is None:
+            raise ValueError("El movimiento de origen no pertenece al usuario o no existe")
 
     existe_activo = (
         db.query(models.Ciclo)
@@ -133,6 +142,10 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
     # + el movimiento que originó el ciclo (puede ser anterior a fecha_inicio)
     movimientos = (
         db.query(models.Movimiento)
+        .options(
+            joinedload(models.Movimiento.categoria),
+            joinedload(models.Movimiento.user_category),
+        )
         .filter(
             models.Movimiento.user_id == user_id,
             models.Movimiento.fecha >= ciclo.fecha_inicio,
@@ -142,9 +155,14 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
     )
 
     # Incluir movimiento origen aunque esté fuera del rango de fechas
+    # (validando ownership multi-tenant: solo movimientos del mismo usuario).
     if ciclo.movimiento_origen_id:
-        mov_origen = db.query(models.Movimiento).filter(
+        mov_origen = db.query(models.Movimiento).options(
+            joinedload(models.Movimiento.categoria),
+            joinedload(models.Movimiento.user_category),
+        ).filter(
             models.Movimiento.id == ciclo.movimiento_origen_id,
+            models.Movimiento.user_id == user_id,
         ).first()
         if mov_origen and mov_origen not in movimientos:
             movimientos.append(mov_origen)
@@ -308,6 +326,57 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         for item in ciclo.presupuesto_items
     ]
 
+    # ── Desglose de gastos sin presupuesto (categoría + importe) ─────
+    # Nombre de categoría: prioriza user_category, luego category, luego "Sin categoría".
+    def _categoria_nombre(movimiento) -> str:
+        if movimiento.user_category is not None:
+            return movimiento.user_category.nombre
+        if movimiento.categoria is not None:
+            return movimiento.categoria.nombre
+        return "Sin categoría"
+
+    sin_presupuesto_por_categoria: dict[str, Decimal] = {}
+    clasificacion = {"necesidad": Decimal("0"), "deseo": Decimal("0"), "sin_clasificar": Decimal("0")}
+
+    for movimiento in movimientos:
+        if movimiento.tipo != "gasto":
+            continue
+        if movimiento.clasificacion == "necesidad":
+            clasificacion["necesidad"] += movimiento.importe
+        elif movimiento.clasificacion == "deseo":
+            clasificacion["deseo"] += movimiento.importe
+        else:
+            clasificacion["sin_clasificar"] += movimiento.importe
+        if movimiento.presupuesto_item_id is not None:
+            continue
+        categoria = _categoria_nombre(movimiento)
+        sin_presupuesto_por_categoria[categoria] = (
+            sin_presupuesto_por_categoria.get(categoria, Decimal("0")) + movimiento.importe
+        )
+
+    # Exceso de items vinculados (superaron su presupuesto) → gasto
+    # sin presupuesto atribuido a la categoría del item.
+    for item in ciclo.presupuesto_items:
+        progreso = progresos[item.id]
+        if progreso.ejecutado > progreso.reservado:
+            exceso = progreso.ejecutado - progreso.reservado
+            categoria = item.descripcion or "Sin categoría"
+            sin_presupuesto_por_categoria[categoria] = (
+                sin_presupuesto_por_categoria.get(categoria, Decimal("0")) + exceso
+            )
+
+    gastos_sin_presupuesto = [
+        schemas.GastoNoPlanificadoRead(
+            categoria=categoria,
+            importe=importe,
+        )
+        for categoria, importe in sorted(
+            sin_presupuesto_por_categoria.items(),
+            key=lambda kv: kv[1],
+            reverse=True,
+        )
+    ]
+
     return schemas.CicloResumen(
         ciclo_id=ciclo.id,
         fecha_inicio=ciclo.fecha_inicio,
@@ -328,4 +397,6 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         semaforo=semaforo,
         presupuesto_items=presupuesto_items_read,
         gastos_fijos=gastos_fijos_read,
+        gastos_sin_presupuesto=gastos_sin_presupuesto,
+        clasificacion_importes=schemas.ClasificacionImportes(**clasificacion),
     )

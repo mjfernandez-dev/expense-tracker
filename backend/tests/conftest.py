@@ -125,6 +125,31 @@ def logged_in_client(client, registered_user):
     assert r.status_code == 200, r.text
     return client
 
+
+@pytest.fixture
+def second_logged_in_client(client):
+    """TestClient aislado autenticado como un SEGUNDO usuario distinto.
+
+    Usa su propia instancia de TestClient (cookie jar independiente) sobre el
+    mismo app/DB de pruebas, para poder probar ownership multi-tenant sin
+    pisar la sesión del primer usuario.
+    """
+    payload = {
+        "username": "testuser2",
+        "email": "test2@example.com",
+        "password": "TestPass123!",
+    }
+    r = client.post("/api/auth/register", json=payload)
+    assert r.status_code == 200, r.text
+
+    second = _APIPrefixClient(TestClient(app, raise_server_exceptions=False))
+    r = second.post("/api/auth/login", json={
+        "username": payload["username"],
+        "password": payload["password"],
+    })
+    assert r.status_code == 200, r.text
+    return second
+
 @pytest.fixture
 def user_category_id(logged_in_client) -> int:
     """Crea una categoría personalizada y devuelve su ID."""
