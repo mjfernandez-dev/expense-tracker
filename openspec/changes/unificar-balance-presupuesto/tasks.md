@@ -52,4 +52,4 @@ Chain strategy: size-exception
 
 ## Phase 4 — Cleanup (P4)
 
-- [ ] **T15** `backend/`N/A; `frontend/src/components/BalanceCiclo.tsx`: eliminar (dead tras P3) — `chore: remove BalanceCiclo`.
+- [x] **T15** `backend/`N/A; `frontend/src/components/BalanceCiclo.tsx`: eliminar (dead tras P3) — `chore: remove BalanceCiclo`.
