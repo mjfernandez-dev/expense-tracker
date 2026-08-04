@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { PresupuestoItemCreate, UserCategory } from '../types';
-import { getUserCategories, getCicloActivo, getUltimoCiclo, getMaximosHistoricos, createCiclo, confirmarPresupuesto, cerrarCiclo } from '../services/api';
+import { getUserCategories, getCicloActivo, getUltimoCiclo, getMaximosHistoricos, createCiclo, confirmarPresupuesto, cerrarCiclo, updateUserPreferences } from '../services/api';
 import {
   getDaysRemainingInclusiveBA,
   getLastDayOfCurrentMonthBA,
@@ -39,7 +39,10 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
   const [step, setStep] = useState<number>(0);
   const [fechaFin, setFechaFin] = useState<string>(getLastDayOfCurrentMonthBA());
   const ahorroCalculado = Math.round(importeReferencia * porcentajeAhorro / 100);
+  // Paso Ahorro bidireccional: el último campo tocado manda y el otro se deriva.
   const [ahorro, setAhorro] = useState<string>(String(ahorroCalculado));
+  const [ahorroPorcentaje, setAhorroPorcentaje] = useState<string>(String(porcentajeAhorro));
+  const [fuenteEdicion, setFuenteEdicion] = useState<'monto' | 'porcentaje'>('monto');
   const [categorias, setCategorias] = useState<CategoriaPresupuesto[]>([]);
   const [loadingCats, setLoadingCats] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -148,6 +151,28 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
     setCategorias(prev => prev.map((c, i) => i === idx ? { ...c, monto: value } : c));
   };
 
+  // ── Paso Ahorro: sincronización bidireccional importe ↔ porcentaje ──
+  // "Último campo tocado manda": el campo editado es la fuente, el otro se deriva.
+  const redondear1 = (n: number) => Math.round(n * 10) / 10;
+
+  const handleAhorroMontoChange = (value: string) => {
+    setFuenteEdicion('monto');
+    setAhorro(value);
+    const monto = parseFloat(value);
+    // Guard: ingreso 0 → % 0 (evita división por cero / NaN)
+    const pct = importeReferencia > 0 && !isNaN(monto) ? redondear1((monto / importeReferencia) * 100) : 0;
+    setAhorroPorcentaje(String(pct));
+  };
+
+  const handleAhorroPorcentajeChange = (value: string) => {
+    setFuenteEdicion('porcentaje');
+    setAhorroPorcentaje(value);
+    const pct = parseFloat(value);
+    // Importe redondeado a pesos
+    const monto = !isNaN(pct) ? Math.round((importeReferencia * pct) / 100) : 0;
+    setAhorro(String(monto));
+  };
+
   const handleFinish = async () => {
     setError('');
     setLoading(true);
@@ -173,6 +198,15 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
 
       if (items.length > 0) {
         await confirmarPresupuesto(ciclo.id, items);
+      }
+
+      // Persistir el % vigente como default (no bloqueante: no impide crear el ciclo)
+      const pctAhorro = parseFloat(ahorroPorcentaje);
+      if (!isNaN(pctAhorro)) {
+        updateUserPreferences({ porcentaje_ahorro_default: pctAhorro }).catch((err) => {
+          const e = err as { response?: { data?: { detail?: string } } };
+          setError(e.response?.data?.detail ?? 'El ciclo se creó, pero no se pudo guardar tu preferencia de ahorro.');
+        });
       }
 
       onComplete();
@@ -236,25 +270,40 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
           <div className="space-y-4">
             <div>
               <p className="text-slate-200 font-medium mb-1">¿Cuánto querés ahorrar este mes?</p>
-              <p className="text-slate-400 text-sm">Este monto se reserva de inmediato y no cuenta como disponible.</p>
+              <p className="text-slate-400 text-sm">Este monto se reserva de inmediato y no cuenta como disponible. El % se sincroniza con el importe y se guarda como tu default.</p>
             </div>
-            <div className="space-y-1">
-              <label className="text-slate-300 text-sm">
-                Objetivo de ahorro ($)
-                <span className="text-slate-500 ml-2 text-xs">
-                  {porcentajeAhorro}% de tu ingreso = {formatARS(ahorroCalculado)}
-                </span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="100"
-                value={ahorro}
-                onChange={e => setAhorro(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm"
-                placeholder="0"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-slate-300 text-sm">Ahorro ($)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={ahorro}
+                  onChange={e => handleAhorroMontoChange(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm"
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-slate-300 text-sm">Porcentaje (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={ahorroPorcentaje}
+                  onChange={e => handleAhorroPorcentajeChange(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm"
+                  placeholder="0"
+                />
+              </div>
             </div>
+            <p className="text-xs text-slate-500">
+              {fuenteEdicion === 'monto'
+                ? `Editaste el importe: ${redondear1(ahorroNum / (importeReferencia || 1) * 100)}% de tu ingreso`
+                : `Editaste el porcentaje: ${formatARS(ahorroNum)} de tu ingreso`}
+            </p>
             {ahorroNum < ahorroCalculado && ahorroCalculado > 0 && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-sm text-amber-300">
                 Estás ahorrando menos del {porcentajeAhorro}% recomendado ({formatARS(ahorroCalculado)}). Podés continuar, pero tené en cuenta que lo recomendado es ahorrar al menos el {porcentajeAhorro}% de tus ingresos.

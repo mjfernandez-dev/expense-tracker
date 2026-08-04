@@ -287,16 +287,22 @@ export const getMovimientos = async (tipo?: 'gasto' | 'ingreso'): Promise<Movimi
 export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Movimiento> => {
   const enqueueAndReturn = async (): Promise<Movimiento> => {
     await enqueueOperation({ type: 'createMovimiento', payload: movimiento, createdAt: new Date().toISOString() });
+    const nowIso = new Date().toISOString();
     return {
       ...movimiento,
       id: -(Date.now()),
       user_id: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: nowIso,
+      updated_at: nowIso,
       categoria: null,
       user_category: null,
       presupuesto_item_id: movimiento.presupuesto_item_id ?? null,
-    } as Movimiento;
+      es_inicio_ciclo: movimiento.es_inicio_ciclo ?? false,
+      is_auto_generated: false,
+      gasto_fijo_id: null,
+      medio_pago: movimiento.medio_pago ?? null,
+      clasificacion: movimiento.clasificacion ?? null,
+    };
   };
 
   if (!navigator.onLine) return enqueueAndReturn();
@@ -422,6 +428,16 @@ export const confirmarPresupuesto = async (
   items: PresupuestoItemCreate[]
 ): Promise<Ciclo> => {
   const response = await api.post(`/ciclos/${cicloId}/presupuesto/`, { items });
+  return response.data;
+};
+
+// PATCH /ciclos/{id}/presupuesto/items/{item_id} → actualiza el monto_estimado de un item
+export const actualizarMontoPresupuestoItem = async (
+  cicloId: number,
+  itemId: number,
+  monto_estimado: number,
+): Promise<Ciclo> => {
+  const response = await api.patch(`/ciclos/${cicloId}/presupuesto/items/${itemId}`, { monto_estimado });
   return response.data;
 };
 

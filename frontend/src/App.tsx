@@ -7,14 +7,13 @@ import MovimientoList from './components/MovimientoList';
 import DashboardCiclo from './components/DashboardCiclo';
 import BalanceCiclo from './components/BalanceCiclo';
 import CicloWizard from './components/CicloWizard';
-import PresupuestoManager from './components/PresupuestoManager';
 import WishlistPage from './components/WishlistPage';
 import { OfflineIndicator } from './components/OfflineIndicator';
 
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
 
-type Tab = 'inicio' | 'movimientos' | 'balance' | 'presupuesto' | 'wishlist';
+type Tab = 'inicio' | 'movimientos' | 'balance' | 'wishlist';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
 
 function App() {
@@ -76,9 +75,9 @@ function App() {
     if (pending.length === 0) return;
     for (const op of pending) {
       try {
-        if (op.type === 'createMovimiento') {
+        if (op.type === 'createMovimiento' && op.id != null) {
           await createMovimiento(op.payload); // navigator.onLine=true, no encolará de nuevo
-          await removePendingOperation(op.id!);
+          await removePendingOperation(op.id);
         }
       } catch (err) {
         setSyncError(err instanceof Error ? err.message : 'Error al sincronizar operaciones pendientes');
@@ -106,7 +105,6 @@ function App() {
     inicio: 'Inicio',
     movimientos: 'Movimientos',
     balance: 'Balance',
-    presupuesto: 'Presupuesto',
     wishlist: 'Metas',
   };
 
@@ -114,7 +112,6 @@ function App() {
     inicio: '⚡',
     movimientos: '📋',
     balance: '📊',
-    presupuesto: '💰',
     wishlist: '⭐',
   };
 
@@ -167,7 +164,7 @@ function App() {
             <div className="mt-6 flex justify-center">
               <button
                 onClick={() => setShowModal(true)}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-8 py-3 rounded-full shadow-[0_0_25px_rgba(59,130,246,0.6)] border border-blue-300/70 tracking-wide uppercase text-sm transition-all duration-200 active:scale-95"
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-8 py-3 rounded-full shadow-lg shadow-blue-500/60 border border-blue-300/70 tracking-wide uppercase text-sm transition-all duration-200 active:scale-95"
               >
                 <span className="text-lg leading-none font-light">+</span>
                 Registrar movimiento
@@ -184,12 +181,6 @@ function App() {
           <BalanceCiclo refreshKey={refreshKey} />
         )}
 
-        {tab === 'presupuesto' && (
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 sm:p-6">
-            <PresupuestoManager />
-          </div>
-        )}
-
         {tab === 'wishlist' && <WishlistPage />}
 
       </div>
@@ -197,7 +188,7 @@ function App() {
       {/* BOTTOM TAB BAR */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/70 shadow-lg">
         <div className="max-w-6xl mx-auto flex">
-          {(['inicio', 'movimientos', 'balance', 'presupuesto', 'wishlist'] as Tab[]).map((t) => (
+          {(['inicio', 'movimientos', 'balance', 'wishlist'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -218,7 +209,7 @@ function App() {
       {tab === 'movimientos' && (
         <button
           onClick={() => setShowModal(true)}
-          className="fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] border border-blue-300/30 active:scale-95 transition-all duration-150 flex items-center justify-center"
+          className="fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/50 border border-blue-300/30 active:scale-95 transition-all duration-150 flex items-center justify-center"
           aria-label="Registrar movimiento"
         >
           <span className="text-2xl leading-none font-light -mt-0.5">+</span>

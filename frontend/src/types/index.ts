@@ -126,7 +126,7 @@ export interface PresupuestoItem {
   monto_pendiente: number;
   confirmado: boolean;
   descripcion: string | null;
-  estado: 'pendiente' | 'parcial' | 'efectivado' | string;
+  estado: 'pendiente' | 'parcial' | 'efectivizado';
 }
 
 export interface PresupuestoItemCreate {
@@ -156,6 +156,30 @@ export interface CicloResumen {
   daily_cap_porcentaje_usado: number;
   semaforo: 'verde' | 'amarillo' | 'rojo';
   presupuesto_items: PresupuestoItem[];
+  gastos_fijos: GastoFijoCompromiso[];
+  gastos_sin_presupuesto: GastoNoPlanificado[];
+  clasificacion_importes: ClasificacionImportes;
+}
+
+export interface GastoFijoCompromiso {
+  id: number;
+  gasto_fijo_id: number | null;
+  descripcion: string;
+  monto_confirmado: number;
+  monto_ejecutado: number;
+  monto_pendiente: number;
+  estado: string;
+}
+
+export interface GastoNoPlanificado {
+  categoria: string;
+  importe: number;
+}
+
+export interface ClasificacionImportes {
+  necesidad: number;
+  deseo: number;
+  sin_clasificar: number;
 }
 
 export interface Ciclo {

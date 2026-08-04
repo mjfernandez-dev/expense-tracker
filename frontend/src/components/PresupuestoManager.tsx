@@ -25,7 +25,11 @@ interface CategoryRow extends UserCategory {
   saveState: SaveState;
 }
 
-function PresupuestoManager() {
+interface PresupuestoManagerProps {
+  refreshKey: number;
+}
+
+function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
   const { user, setUser } = useAuth();
 
   // ── Porcentaje de ahorro objetivo ─────────────────────────────────
@@ -70,7 +74,7 @@ function PresupuestoManager() {
 
   useEffect(() => {
     fetchGastosFijos();
-  }, [fetchGastosFijos]);
+  }, [fetchGastosFijos, refreshKey]);
 
   const triggerPushOptIn = async (newDiaVencimiento: number | null) => {
     if (newDiaVencimiento === null) return;
@@ -159,7 +163,7 @@ function PresupuestoManager() {
 
   useEffect(() => {
     fetchCategories();
-  }, [fetchCategories]);
+  }, [fetchCategories, refreshKey]);
 
   // ── Ahorro: auto-save con debounce 600ms ──────────────────────────
   const handlePorcentajeChange = (value: string) => {
