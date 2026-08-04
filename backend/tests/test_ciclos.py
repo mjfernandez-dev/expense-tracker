@@ -146,7 +146,10 @@ def test_compromiso_admite_ejecucion_parcial_y_multiples_gastos(logged_in_client
     assert resumen_final["saldo_disponible_actual"] == 1200.0
 
 
-def test_no_permite_superar_monto_comprometido(logged_in_client, user_category_id):
+def test_gasto_vinculado_puede_superar_monto_comprometido(logged_in_client, user_category_id):
+    """Regla de negocio: el usuario puede registrar gastos reales que superen
+    lo comprometido; el compromiso pasa a efectivizado y el sobre-gasto queda
+    registrado (el máximo histórico lo captura para sugerir presupuestos)."""
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
 
@@ -166,14 +169,13 @@ def test_no_permite_superar_monto_comprometido(logged_in_client, user_category_i
     assert primer_gasto.status_code == 200, primer_gasto.text
 
     segundo_gasto = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 60.0, compromiso_id))
-    assert segundo_gasto.status_code == 400, segundo_gasto.text
-    assert "monto pendiente del compromiso" in segundo_gasto.json()["detail"]
+    assert segundo_gasto.status_code == 200, segundo_gasto.text
 
     resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
     compromiso = resumen["gastos_fijos"][0]
-    assert compromiso["estado"] == "parcial"
-    assert compromiso["monto_ejecutado"] == 100.0
-    assert compromiso["monto_pendiente"] == 50.0
+    assert compromiso["estado"] == "efectivizado"
+    assert compromiso["monto_ejecutado"] == 160.0
+    assert compromiso["monto_pendiente"] == 0.0
 
 
 def test_gasto_no_planificado_sigue_bajando_disponible(logged_in_client, user_category_id):
