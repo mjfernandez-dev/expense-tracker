@@ -113,7 +113,7 @@ function App() {
   const tabLabel: Record<Tab, string> = {
     inicio: 'Inicio',
     movimientos: 'Movimientos',
-    ciclo: 'Ciclo',
+    ciclo: 'Presupuesto',
     metas: 'Metas',
   };
 
