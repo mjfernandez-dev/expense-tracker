@@ -418,3 +418,113 @@ def test_resumen_enriquecido_gastos_sin_presupuesto_y_clasificacion(logged_in_cl
     assert clas["necesidad"] == 700.0
     assert clas["deseo"] == 100.0
     assert clas["sin_clasificar"] == 0.0
+
+
+# ── POST granular: crear/vincular item de presupuesto (presupuesto/items/) ──
+
+def _crear_item_presupuesto(**overrides) -> dict:
+    payload = {
+        "categoria_id": None,
+        "user_category_id": None,
+        "monto_estimado": 500.0,
+        "confirmado": True,
+        "descripcion": "Test Categoria",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_crear_item_presupuesto_vincular_gastos_sueltos(logged_in_client, user_category_id):
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    # Gasto sin comprometer en la categoría → figura en gastos_sin_presupuesto
+    gasto = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 300.0))
+    assert gasto.status_code == 200, gasto.text
+    resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
+    assert resumen["gastos_sin_presupuesto"] == [{"categoria": "Test Categoria", "importe": 300.0}]
+
+    # Presupuestar esa categoría con monto >= ejecutado
+    r = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/items/", json={
+        **_crear_item_presupuesto(user_category_id=user_category_id),
+    })
+    assert r.status_code == 201, r.text
+
+    resumen = r.json()["resumen"]
+    # El gasto deja de aparecer como sin comprometer
+    assert resumen["gastos_sin_presupuesto"] == []
+    assert resumen["gastos_no_planificados"] == 0.0
+    # El item queda vinculado con la ejecución del gasto
+    item = next(i for i in resumen["presupuesto_items"] if i["user_category_id"] == user_category_id)
+    assert item["monto_estimado"] == 500.0
+    assert item["monto_ejecutado"] == 300.0
+    assert item["estado"] == "parcial"
+
+
+def test_crear_item_presupuesto_actualiza_item_existente_sin_duplicar(logged_in_client, user_category_id):
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    # Item existente del ciclo para la misma user_category (bulk)
+    confirm = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/", json={
+        "items": [{
+            "categoria_id": None,
+            "user_category_id": user_category_id,
+            "monto_estimado": 200.0,
+            "confirmado": True,
+            "descripcion": "Test Categoria",
+        }]
+    })
+    assert confirm.status_code == 200, confirm.text
+    item_id = confirm.json()["resumen"]["presupuesto_items"][0]["id"]
+
+    r = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/items/", json={
+        **_crear_item_presupuesto(user_category_id=user_category_id, monto_estimado=400.0),
+    })
+    assert r.status_code == 201, r.text
+
+    items = r.json()["resumen"]["presupuesto_items"]
+    matching = [i for i in items if i["user_category_id"] == user_category_id]
+    assert len(matching) == 1
+    assert matching[0]["id"] == item_id
+    assert matching[0]["monto_estimado"] == 400.0
+
+
+def test_crear_item_presupuesto_monto_menor_a_ejecutado_devuelve_400(logged_in_client, user_category_id):
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 300.0))
+
+    r = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/items/", json={
+        **_crear_item_presupuesto(user_category_id=user_category_id, monto_estimado=100.0),
+    })
+    assert r.status_code == 400, r.text
+    assert "monto estimado" in r.json()["detail"].lower()
+
+
+def test_crear_item_presupuesto_en_ciclo_ajeno_devuelve_404(logged_in_client, second_logged_in_client, user_category_id):
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    r = second_logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/items/", json={
+        **_crear_item_presupuesto(),
+    })
+    assert r.status_code == 404, r.text
+    assert r.json()["detail"] == "Ciclo no encontrado"
+
+
+def test_crear_item_presupuesto_solo_descripcion_no_falla(logged_in_client, user_category_id):
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    r = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/items/", json={
+        **_crear_item_presupuesto(descripcion="Sin categoría"),
+    })
+    assert r.status_code == 201, r.text
+
+    resumen = r.json()["resumen"]
+    item = next(i for i in resumen["presupuesto_items"] if i["descripcion"] == "Sin categoría")
+    assert item["monto_estimado"] == 500.0
+    assert item["monto_ejecutado"] == 0.0
+    assert item["estado"] == "pendiente"

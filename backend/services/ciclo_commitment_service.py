@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Iterable, Optional
 
 import models
+from services import ciclo_time_service
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -93,7 +94,7 @@ def aplicar_presupuesto_bulk(
         existente = _match_item(item)
         if existente:
             progreso = calcular_progreso_presupuesto(existente)
-            if item.monto_estimado < progreso.ejecutado:
+            if _to_decimal(item.monto_estimado) < progreso.ejecutado:
                 raise ValueError(
                     f"El monto estimado no puede ser menor a lo ya ejecutado ({progreso.ejecutado:.2f})"
                 )
@@ -161,6 +162,130 @@ def actualizar_monto_presupuesto_item(
     return item
 
 
+def crear_o_vincular_presupuesto_item(
+    ciclo: models.Ciclo,
+    data,
+    db: "Session",
+    user_id: int,
+) -> models.PresupuestoItem:
+    """
+    Crea (o actualiza) un item de presupuesto granular y le vincula los gastos
+    del ciclo aún sin comprometer que coincidan con su categoría.
+
+    - Match del item existente: user_category_id → categoria_id → descripcion lower.
+    - Vincula los movimientos gasto del período que aún no tienen item y que
+      coinciden con la categoría indicada (solo si viene categoría en el body).
+    - Raises ValueError si monto_estimado queda por debajo de lo ya ejecutado
+      (incluyendo los gastos sueltos que se van a vincular).
+    Commitea y devuelve el item actualizado.
+    """
+    # 1. Match de item existente del ciclo (patrón _match_item, priorizando
+    # la categoría más específica que venga en el body).
+    existente = None
+    if data.user_category_id is not None:
+        existente = next(
+            (i for i in ciclo.presupuesto_items if i.user_category_id == data.user_category_id),
+            None,
+        )
+    if existente is None and data.categoria_id is not None:
+        existente = next(
+            (i for i in ciclo.presupuesto_items if i.categoria_id == data.categoria_id),
+            None,
+        )
+    if existente is None:
+        existente = next(
+            (
+                i
+                for i in ciclo.presupuesto_items
+                if (i.descripcion or "").lower() == (data.descripcion or "").lower()
+            ),
+            None,
+        )
+
+    # 2. Movimientos del usuario dentro del período del ciclo (misma query que
+    # calcular_resumen: rango de fechas + movimiento origen fuera de rango).
+    ahora = ciclo_time_service.ahora_buenos_aires()
+    fecha_limite = min(ahora, ciclo.fecha_fin)
+    movimientos = (
+        db.query(models.Movimiento)
+        .filter(
+            models.Movimiento.user_id == user_id,
+            models.Movimiento.fecha >= ciclo.fecha_inicio,
+            models.Movimiento.fecha <= fecha_limite,
+        )
+        .all()
+    )
+    if ciclo.movimiento_origen_id:
+        mov_origen = (
+            db.query(models.Movimiento)
+            .filter(
+                models.Movimiento.id == ciclo.movimiento_origen_id,
+                models.Movimiento.user_id == user_id,
+            )
+            .first()
+        )
+        if mov_origen and mov_origen not in movimientos:
+            movimientos.append(mov_origen)
+
+    # Solo se vinculan gastos sueltos si el item trae categoría en el body.
+    # El caso "Sin categoría"/exceso (solo descripcion) no vincula movimientos.
+    sueltos = [
+        m
+        for m in movimientos
+        if m.tipo == "gasto"
+        and m.presupuesto_item_id is None
+        and (
+            (data.user_category_id is not None and m.user_category_id == data.user_category_id)
+            or (data.categoria_id is not None and m.categoria_id == data.categoria_id)
+        )
+    ]
+
+    # 3. Suma de los gastos sueltos que se van a vincular.
+    sumatoria_sueltos = sum((_to_decimal(m.importe) for m in sueltos), ZERO)
+
+    # 4. Ejecución ya comprometida en el item existente.
+    if existente is not None:
+        ejecutado_base = calcular_progreso_presupuesto(existente).ejecutado
+    else:
+        ejecutado_base = ZERO
+
+    # 5. Validación: el monto estimado no puede bajar del total ejecutado.
+    ejecutado_total = ejecutado_base + sumatoria_sueltos
+    if _to_decimal(data.monto_estimado) < ejecutado_total:
+        raise ValueError(
+            f"El monto estimado no puede ser menor a lo ya ejecutado ({ejecutado_total:.2f})"
+        )
+
+    # 6. Actualizar el item existente o crear uno nuevo.
+    if existente is not None:
+        item = existente
+        item.monto_estimado = data.monto_estimado
+        item.confirmado = True if ejecutado_total > 0 else data.confirmado
+        item.descripcion = data.descripcion
+    else:
+        item = models.PresupuestoItem(
+            ciclo_id=ciclo.id,
+            categoria_id=data.categoria_id,
+            user_category_id=data.user_category_id,
+            monto_estimado=data.monto_estimado,
+            confirmado=True,
+            descripcion=data.descripcion,
+            estado="pendiente",
+        )
+        db.add(item)
+        db.flush()
+
+    # 7. Vincular los gastos sueltos al item (así salen de gastos_sin_presupuesto).
+    for m in sueltos:
+        m.presupuesto_item = item
+
+    # 8. Recalcular estado según la ejecución real y persistir.
+    item.estado = calcular_progreso_presupuesto(item).estado
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 def confirmar_gastos_fijos_bulk(
     ciclo: models.Ciclo,
     items_data: list,
@@ -185,7 +310,7 @@ def confirmar_gastos_fijos_bulk(
         existente = existentes_por_gf.get(gf_item.gasto_fijo_id) if gf_item.gasto_fijo_id else None
 
         if existente:
-            existente.monto_estimado = gf_item.monto_confirmado
+            existente.monto_estimado = _to_decimal(gf_item.monto_confirmado)
             existente.confirmado = gf_item.confirmado
             if gf_item.descripcion_override:
                 existente.descripcion = gf_item.descripcion_override

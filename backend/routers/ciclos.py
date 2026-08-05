@@ -58,13 +58,7 @@ def listar_ciclos(
     current_user: models.User = Depends(get_current_active_user),
 ):
     """Lista todos los ciclos del usuario, sin resumen calculado."""
-    ciclos = (
-        db.query(models.Ciclo)
-        .filter(models.Ciclo.user_id == current_user.id)
-        .order_by(models.Ciclo.fecha_inicio.desc())
-        .limit(limit).offset(offset)
-        .all()
-    )
+    ciclos = ciclo_service.listar_ciclos(db, current_user.id, limit=limit, offset=offset)
     return [
         schemas.CicloRead(
             id=c.id,
@@ -109,16 +103,7 @@ def get_ciclo_activo(
     Devuelve el ciclo activo del usuario con el resumen calculado en tiempo real.
     Retorna null (204) si no hay ciclo activo.
     """
-    ciclo = (
-        db.query(models.Ciclo)
-        .options(
-            joinedload(models.Ciclo.presupuesto_items).joinedload(
-                models.PresupuestoItem.movimientos
-            ),
-        )
-        .filter(models.Ciclo.user_id == current_user.id, models.Ciclo.activo == True)
-        .first()
-    )
+    ciclo = ciclo_service.get_ciclo_activo(db, current_user.id)
     if not ciclo:
         response.status_code = 204
         return None
@@ -137,17 +122,7 @@ def get_ultimo_ciclo(
     Útil para obtener sugerencias de presupuesto del ciclo anterior.
     Retorna null (204) si no hay ciclos cerrados.
     """
-    ciclo = (
-        db.query(models.Ciclo)
-        .options(
-            joinedload(models.Ciclo.presupuesto_items).joinedload(
-                models.PresupuestoItem.movimientos
-            ),
-        )
-        .filter(models.Ciclo.user_id == current_user.id, models.Ciclo.activo == False)
-        .order_by(models.Ciclo.fecha_inicio.desc())
-        .first()
-    )
+    ciclo = ciclo_service.get_ultimo_ciclo(db, current_user.id)
     if not ciclo:
         response.status_code = 204
         return None
@@ -226,6 +201,29 @@ def actualizar_monto_presupuesto_item(
     return _ciclo_to_read(ciclo, db, current_user.id)
 
 
+@router.post("/{ciclo_id}/presupuesto/items/", response_model=schemas.CicloRead, status_code=201)
+def crear_o_vincular_presupuesto_item(
+    ciclo_id: int,
+    data: schemas.PresupuestoItemCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """
+    Crea (o actualiza) un item de presupuesto para una categoría y vincula los
+    gastos del ciclo sin comprometer que coinciden con esa categoría.
+    Alternativa granular al bulk replace: no elimina items ad-hoc.
+    """
+    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    try:
+        ciclo_commitment_service.crear_o_vincular_presupuesto_item(
+            ciclo, data, db, current_user.id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    return _ciclo_to_read(ciclo, db, current_user.id)
+
+
 @router.get("/{ciclo_id}/exportar")
 def exportar_ciclo(
     ciclo_id: int,
@@ -253,14 +251,12 @@ def cerrar_ciclo(
     current_user: models.User = Depends(get_current_active_user),
 ):
     """Cierra (desactiva) un ciclo financiero."""
-    ciclo = (
-        db.query(models.Ciclo)
-        .filter(models.Ciclo.id == ciclo_id, models.Ciclo.user_id == current_user.id)
-        .first()
-    )
-    if not ciclo:
-        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
-    ciclo_service.cerrar_ciclo(ciclo, db)
+    try:
+        ciclo_service.cerrar_ciclo(ciclo_id, current_user.id, db)
+    except ValueError as exc:
+        if str(exc) == "_not_found":
+            raise HTTPException(status_code=404, detail="Ciclo no encontrado")
+        raise HTTPException(status_code=400, detail=str(exc))
     return {"message": "Ciclo cerrado correctamente"}
 
 
@@ -271,16 +267,11 @@ def reabrir_ciclo(
     current_user: models.User = Depends(get_current_active_user),
 ):
     """Reactiva un ciclo cerrado. Falla si ya hay otro ciclo activo."""
-    ciclo = (
-        db.query(models.Ciclo)
-        .filter(models.Ciclo.id == ciclo_id, models.Ciclo.user_id == current_user.id)
-        .first()
-    )
-    if not ciclo:
-        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
     try:
-        ciclo_service.reabrir_ciclo(ciclo, db)
+        ciclo_service.reabrir_ciclo(ciclo_id, current_user.id, db)
     except ValueError as exc:
+        if str(exc) == "_not_found":
+            raise HTTPException(status_code=404, detail="Ciclo no encontrado")
         raise HTTPException(status_code=400, detail=str(exc))
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)

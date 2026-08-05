@@ -2,8 +2,9 @@
 // El backend (calcular_resumen) es la única fuente de verdad; NO se recalculan totales
 // desde movimientos ni se usa getMovimientosByDateRange para el reporte.
 import { useState, useEffect } from 'react';
-import type { Ciclo } from '../types';
-import { getCiclo, getCiclos, actualizarMontoPresupuestoItem } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import type { Ciclo, Category, UserCategory, PresupuestoItemCreate } from '../types';
+import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, crearItemPresupuesto, getUserCategories, getCategories } from '../services/api';
 import ClasificacionPie from './ClasificacionPie';
 
 interface CicloTabProps {
@@ -30,6 +31,31 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
   const [editingValue, setEditingValue] = useState<string>('');
   const [savingId, setSavingId] = useState<number | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
+
+  // ── Presupuestar gastos sin comprometer ──────────────────────────
+  const [presupuestandoCategoria, setPresupuestandoCategoria] = useState<string | null>(null);
+  const [montoPresupuestar, setMontoPresupuestar] = useState<string>('');
+  const [guardandoPresupuesto, setGuardandoPresupuesto] = useState<boolean>(false);
+  const [errorPresupuesto, setErrorPresupuesto] = useState<string | null>(null);
+  const [userCategories, setUserCategories] = useState<UserCategory[]>([]);
+  const [categoriasSistema, setCategoriasSistema] = useState<Category[]>([]);
+  const [errorCategorias, setErrorCategorias] = useState<string | null>(null);
+
+  const navigate = useNavigate();
+
+  // Carga best-effort de categorías para resolver el nombre del grupo a un id
+  useEffect(() => {
+    const cargarCategorias = async () => {
+      try {
+        const [userCats, sysCats] = await Promise.all([getUserCategories(), getCategories()]);
+        setUserCategories(userCats);
+        setCategoriasSistema(sysCats);
+      } catch {
+        setErrorCategorias('No se pudieron cargar las categorías.');
+      }
+    };
+    cargarCategorias();
+  }, []);
 
   useEffect(() => {
     const cargar = async () => {
@@ -102,6 +128,58 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
       setInlineError(e.response?.data?.detail ?? 'No se pudo actualizar el monto.');
     } finally {
       setSavingId(null);
+    }
+  };
+
+  // ── Presupuestar una categoría de gastos sin comprometer ─────────
+  const iniciarPresupuestar = (categoria: string, importe: number) => {
+    setPresupuestandoCategoria(categoria);
+    setMontoPresupuestar(String(importe));
+    setErrorPresupuesto(null);
+  };
+
+  const cancelarPresupuestar = () => {
+    setPresupuestandoCategoria(null);
+    setMontoPresupuestar('');
+    setErrorPresupuesto(null);
+  };
+
+  const resolverCategoria = (nombre: string): Pick<PresupuestoItemCreate, 'categoria_id' | 'user_category_id'> => {
+    const key = nombre.trim().toLowerCase();
+    const userCat = userCategories.find(c => c.nombre.trim().toLowerCase() === key);
+    if (userCat) return { categoria_id: null, user_category_id: userCat.id };
+    const sysCat = categoriasSistema.find(c => c.nombre.trim().toLowerCase() === key);
+    if (sysCat) return { categoria_id: sysCat.id, user_category_id: null };
+    return { categoria_id: null, user_category_id: null };
+  };
+
+  const confirmarPresupuestar = async (categoria: string) => {
+    if (!selectedCiclo) return;
+    const monto = parseFloat(montoPresupuestar);
+    if (isNaN(monto) || monto < 0) {
+      setErrorPresupuesto('Ingresá un monto válido.');
+      return;
+    }
+    setGuardandoPresupuesto(true);
+    setErrorPresupuesto(null);
+    try {
+      const categoriaIds = resolverCategoria(categoria);
+      const payload: PresupuestoItemCreate = {
+        descripcion: categoria,
+        monto_estimado: monto,
+        confirmado: true,
+        ...categoriaIds,
+      };
+      // El POST devuelve el CicloRead actualizado → reemplazar selección sin re-fetch
+      const actualizado = await crearItemPresupuesto(selectedCiclo.id, payload);
+      setSelectedCiclo(actualizado);
+      setPresupuestandoCategoria(null);
+      setMontoPresupuestar('');
+    } catch (err) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setErrorPresupuesto(e.response?.data?.detail ?? 'No se pudo presupuestar la categoría.');
+    } finally {
+      setGuardandoPresupuesto(false);
     }
   };
 
@@ -212,7 +290,7 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
               <button
                 onClick={() => guardarEdicion(itemId)}
                 disabled={isSaving}
-                className="text-xs font-medium text-blue-300 hover:text-blue-200 disabled:opacity-50"
+                className="rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
               >
                 {isSaving ? '...' : 'OK'}
               </button>
@@ -226,10 +304,10 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
           ) : (
             <button
               onClick={() => iniciarEdicion(itemId, estimado)}
-              className="text-xs font-mono text-slate-500 hover:text-slate-300 flex-shrink-0"
-              aria-label={`Editar monto estimado de ${descripcion || 'item'}`}
+              className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700 flex-shrink-0"
+              aria-label={`Editar monto estimado de ${descripcion || 'categoría'}`}
             >
-              editar
+              Editar
             </button>
           )}
         </div>
@@ -254,7 +332,7 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
                 onClick={() => seleccionarCiclo(c.id)}
                 className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-mono transition-all duration-200 whitespace-nowrap ${
                   isSelected
-                    ? 'bg-blue-600/30 border border-blue-500/50 text-blue-200 shadow-lg'
+                    ? 'bg-blue-600 text-white shadow-lg'
                     : 'bg-slate-800/50 border border-slate-700/30 text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
                 }`}
               >
@@ -282,11 +360,19 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
             </span>
           )}
         </div>
-        <span className="text-slate-500 text-xs tabular-nums">
-          {selectedCiclo.activo
-            ? `${r.dias_restantes} día${r.dias_restantes !== 1 ? 's' : ''} restante${r.dias_restantes !== 1 ? 's' : ''}`
-            : 'Ciclo cerrado'}
-        </span>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <span className="text-slate-500 text-xs tabular-nums">
+            {selectedCiclo.activo
+              ? `${r.dias_restantes} día${r.dias_restantes !== 1 ? 's' : ''} restante${r.dias_restantes !== 1 ? 's' : ''}`
+              : 'Ciclo cerrado'}
+          </span>
+          <button
+            onClick={() => navigate('/account')}
+            className="border border-slate-600/60 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 hover:text-slate-100 text-xs font-medium px-3 py-1 rounded-lg transition-colors"
+          >
+            Categorías
+          </button>
+        </div>
       </div>
 
       {/* ── Resultado del ciclo (desde el resumen) ── */}
@@ -349,11 +435,15 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
                         {formatARS(totalSinPresupuesto)}
                       </span>
                     </div>
+                    {errorCategorias && (
+                      <p className="text-xs text-slate-500 mt-1 ml-1.5">{errorCategorias}</p>
+                    )}
                   </div>
                 )}
 
                 {sinPresupuesto.map((g) => {
                   const pct = r.total_gastos > 0 ? (g.importe / r.total_gastos) * 100 : 0;
+                  const isPresupuestando = presupuestandoCategoria === g.categoria;
                   return (
                     <div key={g.categoria} className="px-4 py-2.5">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -373,6 +463,46 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
                           className="h-full bg-slate-500 rounded-full transition-all duration-500"
                           style={{ width: `${pct}%` }}
                         />
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          {isPresupuestando && errorPresupuesto && (
+                            <p className="text-xs text-red-400">{errorPresupuesto}</p>
+                          )}
+                        </div>
+                        {isPresupuestando ? (
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <input
+                              type="number"
+                              min="0"
+                              value={montoPresupuestar}
+                              onChange={e => setMontoPresupuestar(e.target.value)}
+                              autoFocus
+                              className="w-28 bg-slate-800 border border-blue-500/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none tabular-nums"
+                            />
+                            <button
+                              onClick={() => confirmarPresupuestar(g.categoria)}
+                              disabled={guardandoPresupuesto}
+                              className="rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {guardandoPresupuesto ? '...' : 'Confirmar'}
+                            </button>
+                            <button
+                              onClick={cancelarPresupuestar}
+                              className="text-xs text-slate-400 hover:text-slate-200"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : selectedCiclo.activo ? (
+                          <button
+                            onClick={() => iniciarPresupuestar(g.categoria, g.importe)}
+                            className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700 flex-shrink-0"
+                            aria-label={`Presupuestar ${g.categoria}`}
+                          >
+                            Presupuestar
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   );

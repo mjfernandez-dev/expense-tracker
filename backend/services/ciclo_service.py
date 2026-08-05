@@ -11,6 +11,50 @@ from services.ciclo_commitment_service import calcular_progreso_presupuesto
 from services import ciclo_time_service
 
 
+_CICLO_LOAD_OPTIONS = (
+    joinedload(models.Ciclo.presupuesto_items).joinedload(
+        models.PresupuestoItem.movimientos
+    ),
+)
+
+
+def listar_ciclos(
+    db: Session,
+    user_id: int,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[models.Ciclo]:
+    """Lista los ciclos del usuario ordenados por fecha de inicio descendente."""
+    return (
+        db.query(models.Ciclo)
+        .filter(models.Ciclo.user_id == user_id)
+        .order_by(models.Ciclo.fecha_inicio.desc())
+        .limit(limit).offset(offset)
+        .all()
+    )
+
+
+def get_ciclo_activo(db: Session, user_id: int) -> Optional[models.Ciclo]:
+    """Devuelve el ciclo activo del usuario con sus items eager-loaded."""
+    return (
+        db.query(models.Ciclo)
+        .options(*_CICLO_LOAD_OPTIONS)
+        .filter(models.Ciclo.user_id == user_id, models.Ciclo.activo == True)
+        .first()
+    )
+
+
+def get_ultimo_ciclo(db: Session, user_id: int) -> Optional[models.Ciclo]:
+    """Devuelve el ciclo cerrado más reciente del usuario con sus items eager-loaded."""
+    return (
+        db.query(models.Ciclo)
+        .options(*_CICLO_LOAD_OPTIONS)
+        .filter(models.Ciclo.user_id == user_id, models.Ciclo.activo == False)
+        .order_by(models.Ciclo.fecha_inicio.desc())
+        .first()
+    )
+
+
 def crear_nuevo_ciclo(
     db: Session,
     user_id: int,
@@ -106,20 +150,37 @@ def actualizar_fechas_ciclo(
     db.refresh(ciclo)
 
 
-def cerrar_ciclo(ciclo: models.Ciclo, db: Session) -> None:
-    """Cierra (desactiva) un ciclo financiero."""
+def cerrar_ciclo(ciclo_id: int, user_id: int, db: Session) -> None:
+    """Cierra (desactiva) un ciclo financiero del usuario.
+    Raises ValueError("_not_found") si el ciclo no existe o no pertenece al usuario.
+    """
+    ciclo = (
+        db.query(models.Ciclo)
+        .filter(models.Ciclo.id == ciclo_id, models.Ciclo.user_id == user_id)
+        .first()
+    )
+    if not ciclo:
+        raise ValueError("_not_found")
     ciclo.activo = False
     db.commit()
 
 
-def reabrir_ciclo(ciclo: models.Ciclo, db: Session) -> None:
+def reabrir_ciclo(ciclo_id: int, user_id: int, db: Session) -> None:
     """
-    Reactiva un ciclo cerrado.
+    Reactiva un ciclo cerrado del usuario.
+    Raises ValueError("_not_found") si el ciclo no existe o no pertenece al usuario.
     Raises ValueError si ya existe otro ciclo activo para el mismo usuario.
     """
+    ciclo = (
+        db.query(models.Ciclo)
+        .filter(models.Ciclo.id == ciclo_id, models.Ciclo.user_id == user_id)
+        .first()
+    )
+    if not ciclo:
+        raise ValueError("_not_found")
     existe_activo = (
         db.query(models.Ciclo)
-        .filter(models.Ciclo.user_id == ciclo.user_id, models.Ciclo.activo == True)
+        .filter(models.Ciclo.user_id == user_id, models.Ciclo.activo == True)
         .first()
     )
     if existe_activo:

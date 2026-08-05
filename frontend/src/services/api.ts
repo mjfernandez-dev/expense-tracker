@@ -1,5 +1,6 @@
 // SERVICIO: Centraliza todas las llamadas HTTP al backend
 import axios from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import {
   getCachedMovimientos, saveMovimientos,
   getCachedCategories, saveCategories,
@@ -34,6 +35,13 @@ import type {
 // URL base del backend (FastAPI corriendo en puerto 8000)
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+// Extiende AxiosRequestConfig con la flag _retry usada por el interceptor de refresh
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    _retry?: boolean;
+  }
+}
+
 // Instancia configurada de axios con la URL base
 // withCredentials: true envía automáticamente la cookie httpOnly en cada request
 const api = axios.create({
@@ -58,13 +66,16 @@ function notifyRefreshDone() {
 
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest: InternalAxiosRequestConfig | undefined = error.config;
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
     const isAuthEndpoint =
-      originalRequest?.url?.includes('/auth/refresh') ||
-      originalRequest?.url?.includes('/auth/login');
+      originalRequest.url?.includes('/auth/refresh') ||
+      originalRequest.url?.includes('/auth/login');
 
-    if (error.response?.status === 401 && !originalRequest?._retry && !isAuthEndpoint) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         // Si ya hay un refresh en curso, encolar este request y esperar
         return new Promise((resolve, reject) => {
@@ -105,7 +116,7 @@ api.interceptors.response.use(
 // Registrar nuevo usuario
 // POST /auth/register
 export const registerUser = async (userData: UserCreate): Promise<User> => {
-  const response = await api.post('/auth/register', userData);
+  const response = await api.post<User>('/auth/register', userData);
   return response.data;
 };
 
@@ -203,7 +214,7 @@ export const refreshSession = async (): Promise<User> => {
 export const getCategories = async (): Promise<Category[]> => {
   if (!navigator.onLine) return getCachedCategories();
   try {
-    const response = await api.get('/categories/');
+    const response = await api.get<Category[]>('/categories/');
     await saveCategories(response.data);
     return response.data;
   } catch (error) {
@@ -218,7 +229,7 @@ export const getCategories = async (): Promise<Category[]> => {
 export const getUserCategories = async (): Promise<UserCategory[]> => {
   if (!navigator.onLine) return getCachedUserCategories();
   try {
-    const response = await api.get('/user-categories/');
+    const response = await api.get<UserCategory[]>('/user-categories/');
     await saveUserCategories(response.data);
     return response.data;
   } catch (error) {
@@ -230,7 +241,7 @@ export const getUserCategories = async (): Promise<UserCategory[]> => {
 
 // GET /user-categories/maximos-historicos → { user_category_id: monto_máximo_histórico }
 export const getMaximosHistoricos = async (): Promise<Record<number, number>> => {
-  const response = await api.get('/user-categories/maximos-historicos');
+  const response = await api.get<Record<string, number>>('/user-categories/maximos-historicos');
   // Las claves vienen como string desde JSON → parsear a número
   const data: Record<string, number> = response.data;
   const result: Record<number, number> = {};
@@ -246,7 +257,7 @@ export const getMovimientosByDateRange = async (
   fecha_desde: string,
   fecha_hasta: string,
 ): Promise<Movimiento[]> => {
-  const response = await api.get('/movimientos/', {
+  const response = await api.get<Movimiento[]>('/movimientos/', {
     params: { fecha_desde, fecha_hasta },
   });
   return response.data;
@@ -270,7 +281,7 @@ export const getMovimientos = async (tipo?: 'gasto' | 'ingreso'): Promise<Movimi
   }
   try {
     const params = tipo ? { tipo } : {};
-    const response = await api.get('/movimientos/', { params });
+    const response = await api.get<Movimiento[]>('/movimientos/', { params });
     if (!tipo) await saveMovimientos(response.data); // solo guardar snapshot completo
     return response.data;
   } catch (error) {
@@ -441,6 +452,16 @@ export const actualizarMontoPresupuestoItem = async (
   return response.data;
 };
 
+// POST /ciclos/{id}/presupuesto/items/ → crea (o actualiza) un item de presupuesto
+// para una categoría y vincula los gastos sin comprometer de esa categoría
+export const crearItemPresupuesto = async (
+  cicloId: number,
+  data: PresupuestoItemCreate,
+): Promise<Ciclo> => {
+  const response = await api.post(`/ciclos/${cicloId}/presupuesto/items/`, data);
+  return response.data;
+};
+
 // DELETE /ciclos/{id} → cierra el ciclo activo
 export const cerrarCiclo = async (id: number): Promise<void> => {
   await api.delete(`/ciclos/${id}`);
@@ -461,13 +482,13 @@ export const getUltimoCiclo = async (): Promise<Ciclo | null> => {
 
 // GET /ciclos/{id} → devuelve un ciclo específico con su resumen
 export const getCiclo = async (id: number): Promise<Ciclo> => {
-  const response = await api.get(`/ciclos/${id}`);
+  const response = await api.get<Ciclo>(`/ciclos/${id}`);
   return response.data;
 };
 
 // GET /ciclos/ → lista todos los ciclos del usuario (sin resumen)
 export const getCiclos = async (): Promise<Ciclo[]> => {
-  const response = await api.get('/ciclos/');
+  const response = await api.get<Ciclo[]>('/ciclos/');
   return response.data;
 };
 
