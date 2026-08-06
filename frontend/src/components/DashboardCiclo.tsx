@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Ciclo } from '../types';
-import { getCicloActivo, cerrarCiclo, getCiclos, exportarCiclo, reabrirCiclo } from '../services/api';
+import { getCicloActivo, cerrarCiclo, getCiclos, reabrirCiclo } from '../services/api';
 import EditCicloModal from './EditCicloModal';
 import ConfirmModal from './ConfirmModal';
 
@@ -36,10 +36,8 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
   const [showConfirmCerrar, setShowConfirmCerrar] = useState<boolean>(false);
   const [closingCiclo, setClosingCiclo] = useState<boolean>(false);
   const [reopeningId, setReopeningId] = useState<number | null>(null);
-  const [exporting, setExporting] = useState<boolean>(false);
   const [ciclosAnteriores, setCiclosAnteriores] = useState<Ciclo[]>([]);
   const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [exportingId, setExportingId] = useState<number | null>(null);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [errorCiclo, setErrorCiclo] = useState<string | null>(null);
 
@@ -114,17 +112,6 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
     }
   };
 
-  const handleExportar = async (id: number, fecha_inicio: string, setLoading: (v: boolean) => void) => {
-    setLoading(true);
-    try {
-      await exportarCiclo(id, fecha_inicio);
-    } catch {
-      setErrorCiclo('No se pudo exportar el ciclo. Intentá de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (loadingCiclo) {
     return <div className="bg-slate-700/50 border border-slate-600/60 rounded-2xl p-4 mb-6 animate-pulse h-28" />;
   }
@@ -150,29 +137,15 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
             return (
               <div key={c.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
                 <span className="text-slate-400 text-xs tabular-nums">{fi} → {ff}</span>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  {!hasCicloActivo && (
-                    <button
-                      onClick={() => handleReabrir(c.id)}
-                      disabled={reopeningId === c.id}
-                      className="text-emerald-400 hover:text-emerald-300 text-xs px-2 py-1 rounded hover:bg-slate-700/50 transition-colors disabled:opacity-50"
-                    >
-                      {reopeningId === c.id ? '...' : 'Reabrir'}
-                    </button>
-                  )}
+                {!hasCicloActivo && (
                   <button
-                    onClick={() => {
-                      setExportingId(c.id);
-                      exportarCiclo(c.id, c.fecha_inicio)
-                        .catch(() => setErrorCiclo('No se pudo exportar. Intentá de nuevo.'))
-                        .finally(() => setExportingId(null));
-                    }}
-                    disabled={exportingId === c.id}
-                    className="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded hover:bg-slate-700/50 transition-colors disabled:opacity-50"
+                    onClick={() => handleReabrir(c.id)}
+                    disabled={reopeningId === c.id}
+                    className="text-emerald-400 hover:text-emerald-300 text-xs px-2 py-1 rounded hover:bg-slate-700/50 transition-colors disabled:opacity-50 flex-shrink-0"
                   >
-                    {exportingId === c.id ? '...' : 'Exportar TXT'}
+                    {reopeningId === c.id ? '...' : 'Reabrir'}
                   </button>
-                </div>
+                )}
               </div>
             );
           })}
@@ -250,13 +223,6 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
               className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 rounded-lg hover:bg-slate-700/50 transition-colors"
             >
               Editar
-            </button>
-            <button
-              onClick={() => handleExportar(ciclo.id, ciclo.fecha_inicio, setExporting)}
-              disabled={exporting}
-              className="text-slate-400 hover:text-blue-300 text-xs px-2 py-1 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50"
-            >
-              {exporting ? '...' : 'Exportar'}
             </button>
             <span className="w-px h-4 bg-slate-600/50 mx-1" />
             <button
