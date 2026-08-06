@@ -229,6 +229,9 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
   const totalSinPresupuesto = sinPresupuesto.reduce((s, g) => s + g.importe, 0);
 
   const resultado = r.saldo_disponible_actual;
+  // Comprometido = presupuesto confirmado + ahorro a metas (derivado: el backend
+  // lo descuenta en saldo_disponible_total sin exponer ambos por separado).
+  const comprometido = Math.max(0, r.total_ingresos - r.ahorro_objetivo - r.saldo_disponible_total);
   const semaforoColor =
     r.semaforo === 'rojo' ? 'border-red-500/30' :
     r.semaforo === 'amarillo' ? 'border-amber-500/30' : 'border-emerald-500/30';
@@ -249,7 +252,7 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
 
     return (
       <div key={itemId} className="px-4 py-2.5">
-        <div className="flex items-center justify-between gap-2 mb-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-1.5">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-slate-200 text-xs font-medium truncate">
               {descripcion || 'Sin descripción'}
@@ -260,7 +263,7 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className={`text-xs font-mono ${pctColor}`}>{Math.round(pct)}%</span>
-            <span className="text-slate-400 text-xs tabular-nums">
+            <span className="text-slate-400 text-xs tabular-nums whitespace-nowrap">
               {formatARS(ejecutado)}<span className="text-slate-600"> / </span>{formatARS(estimado)}
             </span>
           </div>
@@ -351,18 +354,23 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
       </div>
 
       {/* ── Encabezado ──────────────────────────── */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 min-w-0">
           <h2 className="text-xs font-mono font-semibold text-slate-400 uppercase tracking-widest">
-            {formatFechaLargo(selectedCiclo.fecha_inicio)} → {formatFechaLargo(selectedCiclo.fecha_fin)}
+            <span className="sm:hidden">
+              {formatFecha(selectedCiclo.fecha_inicio)} → {formatFecha(selectedCiclo.fecha_fin)}
+            </span>
+            <span className="hidden sm:inline">
+              {formatFechaLargo(selectedCiclo.fecha_inicio)} → {formatFechaLargo(selectedCiclo.fecha_fin)}
+            </span>
           </h2>
           {selectedCiclo.activo && (
-            <span className="text-xs font-mono text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">
+            <span className="flex-shrink-0 text-xs font-mono text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">
               Activo
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-shrink-0">
           <span className="text-slate-500 text-xs tabular-nums">
             {selectedCiclo.activo
               ? `${r.dias_restantes} día${r.dias_restantes !== 1 ? 's' : ''} restante${r.dias_restantes !== 1 ? 's' : ''}`
@@ -385,29 +393,35 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
 
       {/* ── Resultado del ciclo (desde el resumen) ── */}
       <div className={`bg-slate-900/80 border backdrop-blur-2xl rounded-xl px-5 py-3 ${semaforoColor}`}>
-        <div className="flex items-center justify-between mb-2">
-          <div>
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="min-w-0">
             <p className="text-xs font-mono text-slate-400 uppercase tracking-widest">Disponible del ciclo</p>
-            <p className="text-xs text-slate-500 mt-0.5">Total disponible − gastos no planificados</p>
+            <p className="text-xs text-slate-500 mt-0.5">Lo que queda tras ahorro, presupuesto y gastos</p>
           </div>
-          <p className={`text-lg font-bold tabular-nums ${
+          <p className={`text-lg font-bold tabular-nums whitespace-nowrap ${
             resultado >= 0 ? 'text-emerald-300' : 'text-red-300'
           }`}>
             {resultado >= 0 ? '+' : ''}{formatARS(resultado)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs tabular-nums border-t border-slate-700/40 pt-2 mt-1">
-          <span className="text-emerald-400">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs tabular-nums border-t border-slate-700/40 pt-2 mt-1 md:flex md:flex-wrap md:gap-x-6 md:gap-y-1">
+          <span className="flex items-baseline gap-1.5 text-emerald-400">
             +{formatARS(r.total_ingresos)} <span className="text-slate-500 font-mono">ingresos</span>
           </span>
-          <span className="text-red-400">
-            −{formatARS(r.total_gastos)} <span className="text-slate-500 font-mono">gastos</span>
+          <span className="flex items-baseline gap-1.5 text-amber-400">
+            −{formatARS(r.ahorro_objetivo)} <span className="text-slate-500 font-mono">ahorro</span>
           </span>
-          <span className="text-amber-400">
-            −{formatARS(selectedCiclo.ahorro_objetivo)} <span className="text-slate-500 font-mono">ahorro</span>
+          <span className="flex items-baseline gap-1.5 text-blue-300">
+            −{formatARS(comprometido)} <span className="text-slate-500 font-mono">presupuesto + metas</span>
           </span>
-          <span className={resultado >= 0 ? 'text-emerald-400' : 'text-red-400'}>
-            = {formatARS(resultado)} <span className="text-slate-500 font-mono">resultado</span>
+          <span className="flex items-baseline gap-1.5 text-slate-300">
+            = {formatARS(r.saldo_disponible_total)} <span className="text-slate-500 font-mono">total disponible</span>
+          </span>
+          <span className="flex items-baseline gap-1.5 text-red-400">
+            −{formatARS(r.gastos_no_planificados)} <span className="text-slate-500 font-mono">gastos sin planificar</span>
+          </span>
+          <span className={`flex items-baseline gap-1.5 ${resultado >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            = {formatARS(resultado)} <span className="text-slate-500 font-mono">disponible del ciclo</span>
           </span>
         </div>
       </div>
@@ -454,7 +468,7 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
                   const isPresupuestando = presupuestandoCategoria === g.categoria;
                   return (
                     <div key={g.categoria} className="px-4 py-2.5">
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-1.5">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-slate-300 text-xs truncate">{g.categoria}</span>
                           <span className="text-xs font-mono text-red-400/80 bg-red-500/10 border border-red-500/20 px-1.5 py-px rounded flex-shrink-0">
@@ -463,7 +477,7 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <span className="text-xs font-mono text-slate-500">{pct.toFixed(0)}%</span>
-                          <span className="text-slate-300 text-xs tabular-nums font-medium">{formatARS(g.importe)}</span>
+                          <span className="text-slate-300 text-xs tabular-nums font-medium whitespace-nowrap">{formatARS(g.importe)}</span>
                         </div>
                       </div>
                       <div className="w-full h-1 bg-slate-700/80 rounded-full overflow-hidden">
