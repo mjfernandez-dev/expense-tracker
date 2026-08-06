@@ -29,6 +29,11 @@ body {
   top: 0;
 }
 
+/* Fuerza el color-scheme oscuro en select nativos (opciones del dropdown) */
+.scheme-dark {
+  color-scheme: dark;
+}
+
 /* Progress bars con ancho dinámico — width driven by --bar-w CSS custom property */
 .dyn-bar { width: var(--bar-w, 0%); }
 

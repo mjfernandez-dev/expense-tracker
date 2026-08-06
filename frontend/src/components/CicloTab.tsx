@@ -232,6 +232,17 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
   // Comprometido = presupuesto confirmado + ahorro a metas (derivado: el backend
   // lo descuenta en saldo_disponible_total sin exponer ambos por separado).
   const comprometido = Math.max(0, r.total_ingresos - r.ahorro_objetivo - r.saldo_disponible_total);
+  // Ciclos agrupados por año para el selector (el backend los trae por fecha desc)
+  const ciclosPorAño = ciclos.reduce<{ año: number; ciclos: Ciclo[] }[]>((acc, c) => {
+    const año = new Date(c.fecha_inicio).getFullYear();
+    const ultimo = acc[acc.length - 1];
+    if (ultimo && ultimo.año === año) {
+      ultimo.ciclos.push(c);
+    } else {
+      acc.push({ año, ciclos: [c] });
+    }
+    return acc;
+  }, []);
   const semaforoColor =
     r.semaforo === 'rojo' ? 'border-red-500/30' :
     r.semaforo === 'amarillo' ? 'border-amber-500/30' : 'border-emerald-500/30';
@@ -327,30 +338,33 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
     <div className="space-y-4 pb-4">
 
       {/* ── Selector de ciclos ──────────────────────── */}
-      <div className="relative bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-3">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {ciclos.map((c) => {
-            const isSelected = c.id === selectedCiclo.id;
-            return (
-              <button
-                key={c.id}
-                onClick={() => seleccionarCiclo(c.id)}
-                className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-mono transition-all duration-200 whitespace-nowrap ${
-                  isSelected
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'bg-slate-800/50 border border-slate-700/30 text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
-                }`}
-              >
-                {formatFecha(c.fecha_inicio)} → {formatFecha(c.fecha_fin)}
-                {c.activo && (
-                  <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-green-400 align-middle" title="Activo" />
-                )}
-              </button>
-            );
-          })}
+      <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-3">
+        <label htmlFor="selector-ciclo" className="sr-only">Seleccionar ciclo</label>
+        <div className="relative">
+          <select
+            id="selector-ciclo"
+            value={selectedCiclo.id}
+            onChange={(e) => seleccionarCiclo(Number(e.target.value))}
+            className="scheme-dark w-full appearance-none bg-slate-800/50 border border-slate-700/40 rounded-xl pl-3 pr-9 py-2.5 text-xs font-mono text-slate-200 cursor-pointer focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40"
+          >
+            {ciclosPorAño.map((grupo) => (
+              <optgroup key={grupo.año} label={String(grupo.año)}>
+                {grupo.ciclos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {formatFecha(c.fecha_inicio)} → {formatFecha(c.fecha_fin)}
+                    {c.activo ? ' · Activo' : ''}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <span
+            className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-500 text-xs"
+            aria-hidden="true"
+          >
+            ▼
+          </span>
         </div>
-        {/* Fade que indica scroll horizontal en mobile */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-900/80 to-transparent rounded-r-2xl md:hidden" />
       </div>
 
       {/* ── Encabezado ──────────────────────────── */}
