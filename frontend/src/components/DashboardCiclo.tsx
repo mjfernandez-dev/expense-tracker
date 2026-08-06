@@ -284,6 +284,17 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
               </p>
             </div>
 
+            {/* Disponible del ciclo — numerador del gasto diario */}
+            <div className="bg-slate-800/50 border border-slate-700/40 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-mono text-slate-400 uppercase tracking-widest font-semibold">Disponible del ciclo</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Dividido en {r.dias_restantes} día{r.dias_restantes !== 1 ? 's' : ''} restante{r.dias_restantes !== 1 ? 's' : ''} → gasto diario
+                </p>
+              </div>
+              <p className="text-xl font-bold text-emerald-300 tabular-nums whitespace-nowrap">{formatARS(r.saldo_disponible_actual)}</p>
+            </div>
+
             <div className="space-y-1.5">
               <div className="flex justify-between items-center text-xs font-mono">
                 <span className="text-slate-400">Gastaste hoy</span>
@@ -313,17 +324,6 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
               </div>
 
               <div className="p-5 space-y-4">
-                {/* Disponible — destacado */}
-                <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 rounded-xl px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-mono text-emerald-400 uppercase tracking-widest font-semibold">Disponible</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Ingresos − gastos − ahorro</p>
-                    </div>
-                    <p className="text-xl font-bold text-emerald-300 tabular-nums">{formatARS(r.saldo_disponible_actual)}</p>
-                  </div>
-                </div>
-
                 {/* ── Resumen ejecución del presupuesto ── */}
                 {(() => {
                   const items = r.presupuesto_items.filter(i => i.confirmado);
