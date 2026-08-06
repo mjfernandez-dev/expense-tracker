@@ -5,13 +5,6 @@ from sqlalchemy.orm import Session
 import models
 
 
-def desligar_movimientos(gasto_fijo_id: int, db: Session) -> None:
-    """Desvincula los movimientos de un gasto fijo antes de eliminarlo."""
-    db.query(models.Movimiento).filter(
-        models.Movimiento.gasto_fijo_id == gasto_fijo_id
-    ).update({"gasto_fijo_id": None, "is_auto_generated": False})
-
-
 def gasto_fijo_to_dict(gf, db: Session) -> dict:
     """Construye el dict con stats para GastoFijoRead."""
     stats = db.query(

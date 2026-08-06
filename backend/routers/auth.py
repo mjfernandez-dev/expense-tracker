@@ -225,12 +225,3 @@ def update_user_preferences(
     current_user: models.User = Depends(get_current_active_user),
 ):
     return auth_service.actualizar_preferencias(current_user, payload, db)
-
-
-@router.put("/payment-info", response_model=schemas.UserRead)
-def update_payment_info(
-    payload: schemas.PaymentInfoUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
-):
-    return auth_service.actualizar_info_pago(current_user, payload, db)

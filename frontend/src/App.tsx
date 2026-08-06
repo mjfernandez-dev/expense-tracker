@@ -7,13 +7,12 @@ import MovimientoList from './components/MovimientoList';
 import DashboardCiclo from './components/DashboardCiclo';
 import CicloTab from './components/CicloTab';
 import CicloWizard from './components/CicloWizard';
-import WishlistPage from './components/WishlistPage';
 import { OfflineIndicator } from './components/OfflineIndicator';
 
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
 
-type Tab = 'inicio' | 'movimientos' | 'ciclo' | 'metas';
+type Tab = 'inicio' | 'movimientos' | 'ciclo';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
 
 function App() {
@@ -114,14 +113,12 @@ function App() {
     inicio: 'Inicio',
     movimientos: 'Movimientos',
     ciclo: 'Presupuesto',
-    metas: 'Metas',
   };
 
   const tabIcon: Record<Tab, string> = {
     inicio: '⚡',
     movimientos: '📋',
     ciclo: '📊',
-    metas: '⭐',
   };
 
   return (
@@ -190,14 +187,12 @@ function App() {
           <CicloTab refreshKey={refreshKey} />
         )}
 
-        {tab === 'metas' && <WishlistPage />}
-
       </div>
 
       {/* BOTTOM TAB BAR */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/70 shadow-lg">
         <div className="max-w-6xl mx-auto flex">
-          {(['inicio', 'movimientos', 'ciclo', 'metas'] as Tab[]).map((t) => (
+          {(['inicio', 'movimientos', 'ciclo'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}

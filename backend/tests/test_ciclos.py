@@ -38,13 +38,12 @@ def test_gasto_vinculado_no_duplica_descuento_en_ciclo(logged_in_client, user_ca
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
 
-    r_confirm = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+    r_confirm = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/", json={
         "items": [
             {
-                "gasto_fijo_id": None,
-                "monto_confirmado": 200.0,
+                "monto_estimado": 200.0,
                 "confirmado": True,
-                "descripcion_override": "Alquiler",
+                "descripcion": "Alquiler",
             }
         ]
     })
@@ -74,13 +73,12 @@ def test_eliminar_movimiento_vinculado_revierte_compromiso(logged_in_client, use
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1200.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
 
-    confirmacion = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+    confirmacion = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/", json={
         "items": [
             {
-                "gasto_fijo_id": None,
-                "monto_confirmado": 300.0,
+                "monto_estimado": 300.0,
                 "confirmado": True,
-                "descripcion_override": "Seguro",
+                "descripcion": "Seguro",
             }
         ]
     }).json()
@@ -105,13 +103,12 @@ def test_compromiso_admite_ejecucion_parcial_y_multiples_gastos(logged_in_client
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1500.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
 
-    confirmacion = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+    confirmacion = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/", json={
         "items": [
             {
-                "gasto_fijo_id": None,
-                "monto_confirmado": 300.0,
+                "monto_estimado": 300.0,
                 "confirmado": True,
-                "descripcion_override": "Viandas",
+                "descripcion": "Viandas",
             }
         ]
     })
@@ -153,13 +150,12 @@ def test_gasto_vinculado_puede_superar_monto_comprometido(logged_in_client, user
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
 
-    confirmacion = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+    confirmacion = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/", json={
         "items": [
             {
-                "gasto_fijo_id": None,
-                "monto_confirmado": 150.0,
+                "monto_estimado": 150.0,
                 "confirmado": True,
-                "descripcion_override": "Nafta",
+                "descripcion": "Nafta",
             }
         ]
     }).json()
@@ -182,13 +178,12 @@ def test_gasto_no_planificado_sigue_bajando_disponible(logged_in_client, user_ca
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
 
-    logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+    logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/", json={
         "items": [
             {
-                "gasto_fijo_id": None,
-                "monto_confirmado": 250.0,
+                "monto_estimado": 250.0,
                 "confirmado": True,
-                "descripcion_override": "Luz",
+                "descripcion": "Luz",
             }
         ]
     })
@@ -286,13 +281,12 @@ def _crear_ciclo_con_item(logged_in_client, user_category_id, monto=200.0):
     """Crea un ciclo y confirma un item de presupuesto, devolviendo (ciclo, item_id)."""
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1200.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
-    confirm = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+    confirm = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/", json={
         "items": [
             {
-                "gasto_fijo_id": None,
-                "monto_confirmado": monto,
+                "monto_estimado": monto,
                 "confirmado": True,
-                "descripcion_override": "Alquiler",
+                "descripcion": "Alquiler",
             }
         ]
     })
@@ -372,12 +366,11 @@ def test_resumen_enriquecido_gastos_sin_presupuesto_y_clasificacion(logged_in_cl
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
 
     # Item comprometido 500
-    confirm = logged_in_client.post(f"/ciclos/{ciclo['id']}/gastos-fijos/", json={
+    confirm = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/", json={
         "items": [{
-            "gasto_fijo_id": None,
-            "monto_confirmado": 500.0,
+            "monto_estimado": 500.0,
             "confirmado": True,
-            "descripcion_override": "Alquiler",
+            "descripcion": "Alquiler",
         }]
     })
     assert confirm.status_code == 200, confirm.text

@@ -1,6 +1,6 @@
 // COMPONENTE: Tab único "Ciclo" — reemplaza Balance + edición de presupuesto del ciclo.
 // El backend (calcular_resumen) es la única fuente de verdad; NO se recalculan totales
-// desde movimientos ni se usa getMovimientosByDateRange para el reporte.
+// desde movimientos para el reporte.
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Ciclo, Category, UserCategory, PresupuestoItemCreate } from '../types';

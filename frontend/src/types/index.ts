@@ -19,11 +19,6 @@ export interface UserCreate {
   password: string;
 }
 
-export interface LoginData {
-  username: string;
-  password: string;
-}
-
 export interface AuthResponse {
   message: string;
   user: User;
@@ -199,81 +194,6 @@ export interface CicloCreate {
   fecha_inicio?: string;
   fecha_fin: string;
   ahorro_objetivo: number;
-}
-
-// ============== TIPOS DE WISHLIST ==============
-
-export type WishlistPriority = 'alta' | 'media' | 'baja';
-export type WishlistStatus = 'draft' | 'en-progreso' | 'completado' | 'cancelado';
-
-export interface WishlistItem {
-  id: number;
-  user_id: number;
-  name: string;
-  estimated_cost: number;
-  monto_ahorrado: number;
-  priority: WishlistPriority;
-  status: WishlistStatus;
-  category_id: number | null;
-  category: UserCategory | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WishlistItemCreate {
-  name: string;
-  estimated_cost: number;
-  priority: WishlistPriority;
-  status?: WishlistStatus;
-  category_id?: number | null;
-  category_name?: string | null;
-  notes?: string | null;
-  monto_ahorrado?: number;
-}
-
-export interface WishlistItemUpdate {
-  name?: string;
-  estimated_cost?: number;
-  priority?: WishlistPriority;
-  status?: WishlistStatus;
-  category_id?: number | null;
-  category_name?: string | null;
-  notes?: string | null;
-  monto_ahorrado?: number;
-}
-
-export interface WishlistListResponse {
-  items: WishlistItem[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
-// ============== TIPOS DE GOAL CONTRIBUTIONS ==============
-
-export interface GoalContributionSource {
-  source_type: 'disponible' | 'presupuesto';
-  presupuesto_item_id?: number | null;
-  amount: number;
-}
-
-export interface GoalContributeRequest {
-  sources: GoalContributionSource[];
-}
-
-export interface GoalWithdrawRequest {
-  amount: number;
-}
-
-export interface GoalContribution {
-  id: number;
-  goal_id: number;
-  ciclo_id: number;
-  amount: number;
-  source_type: string;
-  presupuesto_item_id: number | null;
-  created_at: string;
 }
 
 // ============== TIPOS DE CUENTA ==============

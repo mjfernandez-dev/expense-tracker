@@ -41,14 +41,3 @@ export async function subscribeToPush(): Promise<void> {
     auth: json.keys.auth,
   })
 }
-
-export async function unsubscribeFromPush(): Promise<void> {
-  const reg = await navigator.serviceWorker.ready
-  const sub = await reg.pushManager.getSubscription()
-  if (!sub) return
-  const json = sub.toJSON() as { endpoint: string }
-  await api.delete('/push/subscribe', {
-    data: { endpoint: json.endpoint, p256dh: '', auth: '' },
-  })
-  await sub.unsubscribe()
-}

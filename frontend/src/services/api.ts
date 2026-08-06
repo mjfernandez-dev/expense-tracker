@@ -23,13 +23,6 @@ import type {
   PresupuestoItemCreate,
   GastoFijo,
   GastoFijoUpdate,
-  WishlistItem,
-  WishlistItemCreate,
-  WishlistItemUpdate,
-  WishlistListResponse,
-  GoalContributeRequest,
-  GoalWithdrawRequest,
-  GoalContribution,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -251,18 +244,6 @@ export const getMaximosHistoricos = async (): Promise<Record<number, number>> =>
   return result;
 };
 
-// Obtener movimientos filtrados por rango de fechas
-// GET /movimientos/?fecha_desde=&fecha_hasta= → devuelve Movimiento[]
-export const getMovimientosByDateRange = async (
-  fecha_desde: string,
-  fecha_hasta: string,
-): Promise<Movimiento[]> => {
-  const response = await api.get<Movimiento[]>('/movimientos/', {
-    params: { fecha_desde, fecha_hasta },
-  });
-  return response.data;
-};
-
 // Crear una categoría personalizada
 // POST /user-categories/ → envía {nombre}, devuelve UserCategory
 export const createCategory = async (nombre: string): Promise<UserCategory> => {
@@ -329,13 +310,6 @@ export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Mo
     }
     throw error;
   }
-};
-
-// Obtener un movimiento específico por ID
-// GET /movimientos/{id} → devuelve Movimiento
-export const getMovimiento = async (id: number): Promise<Movimiento> => {
-  const response = await api.get(`/movimientos/${id}`);
-  return response.data;
 };
 
 // Eliminar un movimiento
@@ -516,51 +490,6 @@ export const getGastosFijos = async (): Promise<GastoFijo[]> => {
 // PUT /gastos-fijos/{id} → actualiza activo, dia_vencimiento y/o dias_anticipacion
 export const updateGastoFijo = async (id: number, patch: GastoFijoUpdate): Promise<GastoFijo> => {
   const response = await api.put(`/gastos-fijos/${id}`, patch);
-  return response.data;
-};
-
-// ============== WISHLIST ==============
-
-// GET /wishlist/ → lista items del usuario autenticado (paginado)
-export const getWishlistItems = async (limit: number = 50, offset: number = 0): Promise<WishlistListResponse> => {
-  const response = await api.get('/wishlist/', { params: { limit, offset } });
-  return response.data;
-};
-
-// POST /wishlist/ → crea un item
-export const createWishlistItem = async (data: WishlistItemCreate): Promise<WishlistItem> => {
-  const response = await api.post('/wishlist/', data);
-  return response.data;
-};
-
-// PATCH /wishlist/{id} → actualiza parcialmente un item
-export const updateWishlistItem = async (id: number, data: WishlistItemUpdate): Promise<WishlistItem> => {
-  const response = await api.patch(`/wishlist/${id}`, data);
-  return response.data;
-};
-
-// DELETE /wishlist/{id} → elimina un item
-export const deleteWishlistItem = async (id: number): Promise<void> => {
-  await api.delete(`/wishlist/${id}`);
-};
-
-// ============== GOAL CONTRIBUTIONS ==============
-
-// POST /wishlist/{id}/contribute → aporta fondos a una meta
-export const contributeToGoal = async (id: number, data: GoalContributeRequest): Promise<WishlistItem> => {
-  const response = await api.post(`/wishlist/${id}/contribute`, data);
-  return response.data;
-};
-
-// POST /wishlist/{id}/withdraw → retira fondos de una meta
-export const withdrawFromGoal = async (id: number, data: GoalWithdrawRequest): Promise<WishlistItem> => {
-  const response = await api.post(`/wishlist/${id}/withdraw`, data);
-  return response.data;
-};
-
-// GET /wishlist/{id}/contributions → lista contribuciones de una meta
-export const getGoalContributions = async (id: number): Promise<GoalContribution[]> => {
-  const response = await api.get(`/wishlist/${id}/contributions`);
   return response.data;
 };
 

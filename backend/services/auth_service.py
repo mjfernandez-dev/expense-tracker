@@ -45,14 +45,6 @@ def actualizar_preferencias(current_user: models.User, payload: schemas.UserPref
     return current_user
 
 
-def actualizar_info_pago(current_user: models.User, payload: schemas.PaymentInfoUpdate, db: Session) -> models.User:
-    current_user.alias_bancario = payload.alias_bancario
-    current_user.cvu = payload.cvu
-    db.commit()
-    db.refresh(current_user)
-    return current_user
-
-
 def crear_password_reset_token(user: models.User, db: Session) -> str:
     """Crea y persiste un token de reset de contraseña. Devuelve el token sin hashear."""
     raw_token = uuid4().hex

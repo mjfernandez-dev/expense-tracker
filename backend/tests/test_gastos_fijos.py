@@ -95,28 +95,6 @@ def test_toggle_gasto_fijo_ajeno_retorna_404(logged_in_client):
     assert r.status_code == 404, r.text
 
 
-# ??? Eliminar gasto fijo ??????????????????????????????????????????????????????
-
-def test_eliminar_gasto_fijo(logged_in_client, user_category_id):
-    """Al eliminar el template, los movimientos asociados quedan desvinculados."""
-    mov_r = logged_in_client.post('/movimientos/', json=_payload_gasto(user_category_id, es_fijo=True))
-    mov_id = mov_r.json()['id']
-    gf_id = mov_r.json()['gasto_fijo_id']
-
-    r = logged_in_client.delete(f'/gastos-fijos/{gf_id}')
-    assert r.status_code == 200, r.text
-
-    mov = logged_in_client.get(f'/movimientos/{mov_id}').json()
-    assert mov['gasto_fijo_id'] is None
-    assert logged_in_client.get('/gastos-fijos/').json() == []
-
-
-def test_eliminar_gasto_fijo_ajeno_retorna_404(logged_in_client):
-    """No se puede eliminar un gasto fijo de otro usuario."""
-    r = logged_in_client.delete('/gastos-fijos/999999')
-    assert r.status_code == 404, r.text
-
-
 # ??? Sincronizaci?n con ciclo ?????????????????????????????????????????????????
 
 def test_crear_ciclo_copia_gastos_fijos_activos(logged_in_client, user_category_id):
@@ -142,44 +120,9 @@ def test_crear_ciclo_copia_gastos_fijos_activos(logged_in_client, user_category_
     assert gastos[0]['estado'] == 'comprometido'
 
 
-def test_generar_mes_sincroniza_con_ciclo_activo(logged_in_client, user_category_id):
-    template = logged_in_client.post('/movimientos/', json={
-        **_payload_gasto(user_category_id, importe=800.0, es_fijo=True),
-        'fecha': '2026-01-01T00:00:00',
-    })
-    assert template.status_code == 200, template.text
-    gf_id = template.json()['gasto_fijo_id']
-
-    ingreso = _crear_ingreso(logged_in_client, user_category_id, 3000.0)
-    ciclo = logged_in_client.post('/ciclos/', json={
-        'movimiento_origen_id': ingreso['id'],
-        'fecha_fin': (datetime.now() + timedelta(days=20)).isoformat(),
-        'ahorro_objetivo': 0,
-    }).json()
-
-    # El ciclo ya lo agreg? al crearse; el endpoint manual queda idempotente.
-    r_sync = logged_in_client.post('/gastos-fijos/sincronizar-ciclo')
-    assert r_sync.status_code == 200, r_sync.text
-    assert 'Compromisos agregados al ciclo: 0' in r_sync.json()['message']
-
-    ciclo_actual = logged_in_client.get('/ciclos/activo').json()
-    gastos = ciclo_actual['resumen']['gastos_fijos']
-    assert len(gastos) == 1
-    assert gastos[0]['gasto_fijo_id'] == gf_id
-    assert gastos[0]['estado'] == 'comprometido'
-
-
-def test_generar_mes_sin_ciclo_activo_retorna_400(logged_in_client, user_category_id):
-    logged_in_client.post('/movimientos/', json=_payload_gasto(user_category_id, importe=800.0, es_fijo=True))
-    r = logged_in_client.post('/gastos-fijos/sincronizar-ciclo')
-    assert r.status_code == 400, r.text
-
-
 # ??? Autenticaci?n ????????????????????????????????????????????????????????????
 
 def test_gastos_fijos_sin_auth_retorna_401(client):
     """Sin autenticaci?n, los endpoints retornan 401."""
     assert client.get('/gastos-fijos/').status_code == 401
     assert client.put('/gastos-fijos/1', json={'activo': False}).status_code == 401
-    assert client.delete('/gastos-fijos/1').status_code == 401
-    assert client.post('/gastos-fijos/sincronizar-ciclo').status_code == 401

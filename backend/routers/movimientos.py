@@ -225,23 +225,3 @@ def list_movimientos(
     if fecha_hasta:
         query = query.filter(models.Movimiento.fecha <= fecha_hasta)
     return query.order_by(models.Movimiento.fecha.desc(), models.Movimiento.id.desc()).limit(limit).offset(offset).all()
-
-
-@router.get("/{movimiento_id}", response_model=schemas.MovimientoRead)
-def get_movimiento(
-    movimiento_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
-):
-    movimiento = db.query(models.Movimiento).options(
-        joinedload(models.Movimiento.categoria),
-        joinedload(models.Movimiento.user_category),
-    ).filter(
-        models.Movimiento.id == movimiento_id,
-        models.Movimiento.user_id == current_user.id,
-    ).first()
-
-    if not movimiento:
-        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
-
-    return movimiento

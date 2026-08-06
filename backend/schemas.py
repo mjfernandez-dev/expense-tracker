@@ -51,11 +51,6 @@ class UserRead(UserBase):
         from_attributes = True
 
 
-class PaymentInfoUpdate(BaseModel):
-    alias_bancario: Optional[str] = None
-    cvu: Optional[str] = None
-
-
 class UserPreferencesUpdate(BaseModel):
     ahorro_objetivo_default: Optional[MoneyDecimal] = None
     porcentaje_ahorro_default: Optional[float] = None
@@ -301,19 +296,6 @@ class GastoFijoCompromiso(BaseModel):
     estado: str = "comprometido"
 
 
-class GastoFijoConfirmItem(BaseModel):
-    """Item individual para confirmar un gasto fijo en un ciclo."""
-    gasto_fijo_id: Optional[int] = None
-    monto_confirmado: MoneyDecimal
-    confirmado: bool = True
-    descripcion_override: Optional[str] = None
-
-
-class GastoFijoConfirmBulk(BaseModel):
-    """Lista de gastos fijos a confirmar en un ciclo."""
-    items: List[GastoFijoConfirmItem]
-
-
 class CicloCreate(BaseModel):
     movimiento_origen_id: Optional[int] = None
     fecha_fin: datetime
@@ -373,138 +355,6 @@ class CicloRead(BaseModel):
     activo: bool
     created_at: datetime
     resumen: Optional[CicloResumen] = None
-
-    class Config:
-        from_attributes = True
-
-
-# ============== SCHEMAS PARA WISHLIST ==============
-
-VALID_PRIORITIES = {"alta", "media", "baja"}
-VALID_STATUSES = {"draft", "en-progreso", "completado", "cancelado"}
-STATUS_TRANSITIONS = {
-    "draft": {"en-progreso", "cancelado"},
-    "en-progreso": {"completado", "cancelado"},
-    "completado": set(),
-    "cancelado": set(),
-}
-
-class WishlistItemCreate(BaseModel):
-    name: str
-    estimated_cost: MoneyDecimal
-    priority: str = "media"
-    status: str = "draft"
-    category_id: Optional[int] = None
-    category_name: Optional[str] = None
-    notes: Optional[str] = None
-    monto_ahorrado: MoneyDecimal = Decimal('0')
-
-    @field_validator('estimated_cost')
-    @classmethod
-    def cost_must_be_positive(cls, v):
-        if v <= 0:
-            raise ValueError('El costo estimado debe ser positivo')
-        return v
-
-    @field_validator('priority')
-    @classmethod
-    def priority_valid(cls, v):
-        if v not in VALID_PRIORITIES:
-            raise ValueError(f'Prioridad inválida. Debe ser una de: {", ".join(sorted(VALID_PRIORITIES))}')
-        return v
-
-    @field_validator('status')
-    @classmethod
-    def status_valid(cls, v):
-        if v not in VALID_STATUSES:
-            raise ValueError(f'Estado inválido. Debe ser una de: {", ".join(sorted(VALID_STATUSES))}')
-        return v
-
-
-class WishlistItemUpdate(BaseModel):
-    name: Optional[str] = None
-    estimated_cost: Optional[MoneyDecimal] = None
-    priority: Optional[str] = None
-    status: Optional[str] = None
-    category_id: Optional[int] = None
-    category_name: Optional[str] = None
-    notes: Optional[str] = None
-    monto_ahorrado: Optional[MoneyDecimal] = None
-
-    @field_validator('priority')
-    @classmethod
-    def priority_valid(cls, v):
-        if v is not None and v not in VALID_PRIORITIES:
-            raise ValueError(f'Prioridad inválida. Debe ser una de: {", ".join(sorted(VALID_PRIORITIES))}')
-        return v
-
-    @field_validator('status')
-    @classmethod
-    def status_valid(cls, v):
-        if v is not None and v not in VALID_STATUSES:
-            raise ValueError(f'Estado inválido. Debe ser una de: {", ".join(sorted(VALID_STATUSES))}')
-        return v
-
-
-class WishlistItemRead(BaseModel):
-    id: int
-    user_id: int
-    name: str
-    estimated_cost: MoneyDecimal
-    monto_ahorrado: MoneyDecimal = Decimal('0')
-    priority: str
-    status: str
-    category_id: Optional[int] = None
-    category: Optional[UserCategoryRead] = None
-    notes: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-# ============== SCHEMAS PARA GOAL CONTRIBUTIONS ==============
-
-class GoalContributionSource(BaseModel):
-    """A single source for contributing to a goal."""
-    source_type: str  # "disponible" | "presupuesto"
-    presupuesto_item_id: Optional[int] = None
-    amount: MoneyDecimal
-
-    @field_validator('source_type')
-    @classmethod
-    def validate_source_type(cls, v):
-        if v not in ("disponible", "presupuesto"):
-            raise ValueError("source_type debe ser 'disponible' o 'presupuesto'")
-        return v
-
-
-class GoalContributeRequest(BaseModel):
-    """Request body for contributing to a goal from one or more sources."""
-    sources: List[GoalContributionSource]
-
-
-class GoalContributeResponse(BaseModel):
-    """Response after a contribution or withdrawal."""
-    id: int
-    monto_ahorrado: MoneyDecimal
-    message: str
-
-
-class GoalWithdrawRequest(BaseModel):
-    """Request body for withdrawing from a goal."""
-    amount: MoneyDecimal
-
-
-class GoalContributionRead(BaseModel):
-    """Read schema for a contribution record."""
-    id: int
-    goal_id: int
-    ciclo_id: int
-    amount: MoneyDecimal
-    source_type: str
-    presupuesto_item_id: Optional[int] = None
-    created_at: datetime
 
     class Config:
         from_attributes = True

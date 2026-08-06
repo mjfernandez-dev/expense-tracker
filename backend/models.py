@@ -226,48 +226,6 @@ class Ciclo(Base):
     presupuesto_items = relationship("PresupuestoItem", back_populates="ciclo", cascade="all, delete-orphan")
 
 
-# ============== WISHLIST (LISTA DE DESEOS) ==============
-
-class WishlistItem(Base):
-    """Item de wishlist con wish farm y prioridades."""
-    __tablename__ = "wishlist_items"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    name = Column(EncryptedString, nullable=False)
-    estimated_cost = Column(Numeric(10, 2), nullable=False)
-    monto_ahorrado = Column(Numeric(10, 2), nullable=False, default=Decimal('0'))
-    priority = Column(String, nullable=False, default="media")
-    status = Column(String, nullable=False, default="draft")
-    category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
-    notes = Column(EncryptedString, nullable=True)
-    created_at = Column(DateTime, default=ahora_buenos_aires)
-    updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
-
-    usuario = relationship("User", backref="wishlist_items")
-    category = relationship("UserCategory", backref="wishlist_items")
-    contributions = relationship("GoalContribution", back_populates="goal", cascade="all, delete-orphan")
-
-
-# ============== GOAL CONTRIBUTIONS ==============
-
-class GoalContribution(Base):
-    """Track per-source money movements to/from a wishlist goal."""
-    __tablename__ = "goal_contributions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    goal_id = Column(Integer, ForeignKey("wishlist_items.id"), nullable=False, index=True)
-    ciclo_id = Column(Integer, ForeignKey("ciclos.id"), nullable=False, index=True)
-    amount = Column(Numeric(10, 2), nullable=False)  # positive=contribute, negative=withdraw
-    source_type = Column(String, nullable=False)  # "disponible" | "presupuesto"
-    presupuesto_item_id = Column(Integer, ForeignKey("presupuesto_items.id"), nullable=True, index=True)
-    created_at = Column(DateTime, default=ahora_buenos_aires)
-
-    goal = relationship("WishlistItem", back_populates="contributions")
-    ciclo = relationship("Ciclo", backref="goal_contributions")
-    presupuesto_item = relationship("PresupuestoItem", backref="goal_contributions")
-
-
 # ============== PUSH NOTIFICATIONS ==============
 
 class PushSubscription(Base):

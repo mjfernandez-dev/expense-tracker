@@ -275,21 +275,3 @@ def reabrir_ciclo(
         raise HTTPException(status_code=400, detail=str(exc))
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)
-
-
-@router.post("/{ciclo_id}/gastos-fijos/", response_model=schemas.CicloRead)
-def confirmar_gastos_fijos(
-    ciclo_id: int,
-    data: schemas.GastoFijoConfirmBulk,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
-):
-    """Confirma (o reemplaza) la lista de gastos fijos comprometidos en un ciclo."""
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-    try:
-        ciclo_commitment_service.confirmar_gastos_fijos_bulk(ciclo, data.items, db)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    db.commit()
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-    return _ciclo_to_read(ciclo, db, current_user.id)
