@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Ciclo, Category, UserCategory, PresupuestoItemCreate } from '../types';
 import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, crearItemPresupuesto, getUserCategories, getCategories } from '../services/api';
 import ClasificacionPie from './ClasificacionPie';
+import AhorroModal from './AhorroModal';
 
 interface CicloTabProps {
   refreshKey: number;
@@ -40,6 +41,7 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
   const [userCategories, setUserCategories] = useState<UserCategory[]>([]);
   const [categoriasSistema, setCategoriasSistema] = useState<Category[]>([]);
   const [errorCategorias, setErrorCategorias] = useState<string | null>(null);
+  const [mostrarAhorroModal, setMostrarAhorroModal] = useState<boolean>(false);
 
   const navigate = useNavigate();
 
@@ -367,6 +369,12 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
               : 'Ciclo cerrado'}
           </span>
           <button
+            onClick={() => setMostrarAhorroModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1 rounded-md transition-colors"
+          >
+            Ahorro
+          </button>
+          <button
             onClick={() => navigate('/account')}
             className="border border-slate-600/60 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 hover:text-slate-100 text-xs font-medium px-3 py-1 rounded-lg transition-colors"
           >
@@ -556,6 +564,17 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
         </section>
 
       </div>
+
+      {mostrarAhorroModal && selectedCiclo && (
+        <AhorroModal
+          ciclo={selectedCiclo}
+          onClose={() => setMostrarAhorroModal(false)}
+          onSaved={(actualizado) => {
+            setSelectedCiclo(actualizado);
+            setMostrarAhorroModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }
