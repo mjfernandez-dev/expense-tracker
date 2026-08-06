@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Ciclo, Category, UserCategory, PresupuestoItemCreate } from '../types';
-import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, crearItemPresupuesto, getUserCategories, getCategories, exportarCiclo } from '../services/api';
+import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, crearItemPresupuesto, getUserCategories, getCategories } from '../services/api';
 import ClasificacionPie from './ClasificacionPie';
 import AhorroModal from './AhorroModal';
 
@@ -42,8 +42,6 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
   const [categoriasSistema, setCategoriasSistema] = useState<Category[]>([]);
   const [errorCategorias, setErrorCategorias] = useState<string | null>(null);
   const [mostrarAhorroModal, setMostrarAhorroModal] = useState<boolean>(false);
-  const [exportandoCiclo, setExportandoCiclo] = useState<boolean>(false);
-  const [exportError, setExportError] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -132,20 +130,6 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
       setInlineError(e.response?.data?.detail ?? 'No se pudo actualizar el monto.');
     } finally {
       setSavingId(null);
-    }
-  };
-
-  // ── Exportar el ciclo seleccionado ──────────────────────────────
-  const manejarExportar = async () => {
-    if (!selectedCiclo) return;
-    setExportandoCiclo(true);
-    setExportError(null);
-    try {
-      await exportarCiclo(selectedCiclo.id, selectedCiclo.fecha_inicio);
-    } catch {
-      setExportError('No se pudo exportar el ciclo. Intentá de nuevo.');
-    } finally {
-      setExportandoCiclo(false);
     }
   };
 
@@ -413,13 +397,6 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
             Ahorro
           </button>
           <button
-            onClick={manejarExportar}
-            disabled={exportandoCiclo}
-            className="border border-slate-600/60 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 hover:text-slate-100 text-xs font-medium px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {exportandoCiclo ? '...' : 'Exportar'}
-          </button>
-          <button
             onClick={() => navigate('/account')}
             className="border border-slate-600/60 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 hover:text-slate-100 text-xs font-medium px-3 py-1 rounded-lg transition-colors"
           >
@@ -427,10 +404,6 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
           </button>
         </div>
       </div>
-
-      {exportError && (
-        <p className="text-xs text-red-400 px-1">{exportError}</p>
-      )}
 
       {/* ── Resultado del ciclo (desde el resumen) ── */}
       <div className={`bg-slate-900/80 border backdrop-blur-2xl rounded-xl px-5 py-3 ${semaforoColor}`}>

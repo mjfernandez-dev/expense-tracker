@@ -1,16 +1,14 @@
 """Router de ciclos financieros (Daily Solvency): /ciclos/"""
-import io
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
-from services import ciclo_commitment_service, ciclo_export_service, ciclo_service
+from services import ciclo_commitment_service, ciclo_service
 from services.ciclo_service import calcular_resumen
 
 router = APIRouter(prefix="/ciclos", tags=["ciclos"])
@@ -222,26 +220,6 @@ def crear_o_vincular_presupuesto_item(
         raise HTTPException(status_code=400, detail=str(exc))
     ciclo = _load_ciclo(ciclo_id, current_user.id, db)
     return _ciclo_to_read(ciclo, db, current_user.id)
-
-
-@router.get("/{ciclo_id}/exportar")
-def exportar_ciclo(
-    ciclo_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user),
-):
-    """Exporta el ciclo completo como archivo TXT legible."""
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-    resumen = calcular_resumen(ciclo, db, current_user.id)
-    movimientos = ciclo_export_service.obtener_movimientos_ciclo(ciclo, db, current_user.id)
-    content = ciclo_export_service.generar_txt(ciclo, resumen, movimientos)
-    filename = f"ciclo_{ciclo.fecha_inicio.strftime('%Y-%m-%d')}.txt"
-
-    return StreamingResponse(
-        io.StringIO(content),
-        media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
 
 
 @router.delete("/{ciclo_id}", status_code=200)

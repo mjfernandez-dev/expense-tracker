@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Ciclo } from '../types';
-import { getCicloActivo, cerrarCiclo, getCiclos, reabrirCiclo } from '../services/api';
+import { getCicloActivo, cerrarCiclo } from '../services/api';
 import EditCicloModal from './EditCicloModal';
 import ConfirmModal from './ConfirmModal';
 
@@ -35,10 +35,6 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
   const [showEdit, setShowEdit] = useState<boolean>(false);
   const [showConfirmCerrar, setShowConfirmCerrar] = useState<boolean>(false);
   const [closingCiclo, setClosingCiclo] = useState<boolean>(false);
-  const [reopeningId, setReopeningId] = useState<number | null>(null);
-  const [ciclosAnteriores, setCiclosAnteriores] = useState<Ciclo[]>([]);
-  const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [errorCiclo, setErrorCiclo] = useState<string | null>(null);
 
   const fetchCiclo = useCallback(async () => {
@@ -54,26 +50,9 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
     }
   }, []);
 
-  const fetchHistorial = useCallback(async () => {
-    setLoadingHistory(true);
-    try {
-      const todos = await getCiclos();
-      setCiclosAnteriores(todos.filter((c) => !c.activo));
-    } catch {
-      setCiclosAnteriores([]);
-      setErrorCiclo('No se pudieron cargar los ciclos anteriores.');
-    } finally {
-      setLoadingHistory(false);
-    }
-  }, []);
-
   useEffect(() => {
     fetchCiclo();
   }, [fetchCiclo, refreshKey]);
-
-  useEffect(() => {
-    fetchHistorial();
-  }, [fetchHistorial, refreshKey]);
 
   const handleCerrarClick = () => {
     if (!ciclo) return;
@@ -87,28 +66,10 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
       await cerrarCiclo(ciclo.id);
       setCiclo(null);
       setShowConfirmCerrar(false);
-      await fetchHistorial();
     } catch {
       setErrorCiclo('No se pudo cerrar el ciclo. Intentá de nuevo.');
     } finally {
       setClosingCiclo(false);
-    }
-  };
-
-  const handleReabrir = async (id: number) => {
-    setReopeningId(id);
-    setErrorCiclo(null);
-    try {
-      await reabrirCiclo(id);
-      await Promise.all([fetchCiclo(), fetchHistorial()]);
-    } catch (err) {
-      const detail =
-        typeof err === 'object' && err !== null && 'response' in err
-          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : undefined;
-      setErrorCiclo(detail || 'No se pudo reabrir el ciclo.');
-    } finally {
-      setReopeningId(null);
     }
   };
 
@@ -117,42 +78,6 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
   }
 
   const hasCicloActivo = ciclo && ciclo.resumen;
-
-  const historialSection = (loadingHistory || ciclosAnteriores.length > 0) && (
-    <div className="mt-2">
-      <button
-        onClick={() => setShowHistory((v) => !v)}
-        disabled={loadingHistory}
-        className="w-full flex items-center justify-between px-3 py-2 text-slate-500 hover:text-slate-300 text-xs font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
-      >
-        <span>{loadingHistory ? 'Cargando historial...' : `Ciclos anteriores (${ciclosAnteriores.length})`}</span>
-        <span>{showHistory ? '▲' : '▼'}</span>
-      </button>
-
-      {showHistory && (
-        <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl overflow-hidden divide-y divide-slate-700/40">
-          {ciclosAnteriores.map((c) => {
-            const fi = new Date(c.fecha_inicio).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
-            const ff = new Date(c.fecha_fin).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
-            return (
-              <div key={c.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
-                <span className="text-slate-400 text-xs tabular-nums">{fi} → {ff}</span>
-                {!hasCicloActivo && (
-                  <button
-                    onClick={() => handleReabrir(c.id)}
-                    disabled={reopeningId === c.id}
-                    className="text-emerald-400 hover:text-emerald-300 text-xs px-2 py-1 rounded hover:bg-slate-700/50 transition-colors disabled:opacity-50 flex-shrink-0"
-                  >
-                    {reopeningId === c.id ? '...' : 'Reabrir'}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
 
   if (!hasCicloActivo || !ciclo?.resumen) {
     return (
@@ -171,7 +96,6 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
             </div>
           </div>
         </div>
-        {historialSection}
       </>
     );
   }
@@ -334,7 +258,6 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
       </div>
 
       {errorCiclo && <p className="text-red-400 text-xs mb-2">{errorCiclo}</p>}
-      {historialSection}
     </>
   );
 }

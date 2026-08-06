@@ -244,17 +244,6 @@ def test_actualizar_ciclo_modifica_fecha_y_ahorro(logged_in_client, user_categor
     assert r.json()["ahorro_objetivo"] == 150.0
 
 
-def test_exportar_ciclo_devuelve_txt(logged_in_client, user_category_id):
-    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
-    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
-
-    r = logged_in_client.get(f"/ciclos/{ciclo['id']}/exportar")
-    assert r.status_code == 200, r.text
-    assert "text/plain" in r.headers["content-type"]
-    assert "CICLO FINANCIERO" in r.text
-    assert "MOVIMIENTOS" in r.text
-
-
 def test_dias_restantes_usa_fecha_de_buenos_aires(logged_in_client, user_category_id, monkeypatch):
     ahora_fijo = datetime(2026, 4, 13, 23, 30, 0)
     monkeypatch.setattr(ciclo_time_service, "ahora_buenos_aires", lambda: ahora_fijo)

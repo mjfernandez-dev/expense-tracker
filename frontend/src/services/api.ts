@@ -452,12 +452,6 @@ export const cerrarCiclo = async (id: number): Promise<void> => {
   await api.delete(`/ciclos/${id}`);
 };
 
-// PATCH /ciclos/{id}/reabrir → reactiva un ciclo cerrado
-export const reabrirCiclo = async (id: number): Promise<Ciclo> => {
-  const response = await api.patch(`/ciclos/${id}/reabrir`);
-  return response.data;
-};
-
 // GET /ciclos/ultimo → último ciclo cerrado con resumen (para sugerencias de presupuesto)
 export const getUltimoCiclo = async (): Promise<Ciclo | null> => {
   const response = await api.get('/ciclos/ultimo');
@@ -475,19 +469,6 @@ export const getCiclo = async (id: number): Promise<Ciclo> => {
 export const getCiclos = async (): Promise<Ciclo[]> => {
   const response = await api.get<Ciclo[]>('/ciclos/');
   return response.data;
-};
-
-// GET /ciclos/{id}/exportar → descarga TXT del ciclo
-export const exportarCiclo = async (cicloId: number, fecha_inicio: string): Promise<void> => {
-  const response = await api.get(`/ciclos/${cicloId}/exportar`, { responseType: 'blob' });
-  const url = URL.createObjectURL(new Blob([response.data], { type: 'text/plain' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `ciclo-${fecha_inicio.split('T')[0]}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 };
 
 // ============== GASTOS FIJOS ==============
