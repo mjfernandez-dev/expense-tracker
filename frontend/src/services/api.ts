@@ -50,10 +50,17 @@ const api = axios.create({
 // la respuesta de refresh para evitar una segunda llamada innecesaria.
 
 let isRefreshing = false;
-let refreshSubscribers: Array<() => void> = [];
+let refreshSubscribers: Array<(refreshFailed: boolean) => void> = [];
 
 function notifyRefreshDone() {
-  refreshSubscribers.forEach((cb) => cb());
+  refreshSubscribers.forEach((cb) => cb(false));
+  refreshSubscribers = [];
+}
+
+function notifyRefreshFailed() {
+  // El refresh falló: rechazar a TODOS los suscriptores en cola con su propio
+  // error 401 para que ninguno de sus requests quede colgado (spinner infinito).
+  refreshSubscribers.forEach((cb) => cb(true));
   refreshSubscribers = [];
 }
 
@@ -72,7 +79,11 @@ api.interceptors.response.use(
       if (isRefreshing) {
         // Si ya hay un refresh en curso, encolar este request y esperar
         return new Promise((resolve, reject) => {
-          refreshSubscribers.push(() => {
+          refreshSubscribers.push((refreshFailed: boolean) => {
+            if (refreshFailed) {
+              reject(error);
+              return;
+            }
             api(originalRequest).then(resolve).catch(reject);
           });
         });
@@ -93,7 +104,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch {
         isRefreshing = false;
-        refreshSubscribers = [];
+        notifyRefreshFailed();
         // No redirigir desde aquí — AuthProvider maneja el estado de sesión
         // expirada vía React Router. window.location.href cancela requests en vuelo.
         return Promise.reject(error);

@@ -105,13 +105,24 @@ def crear_nuevo_ciclo(
         .filter(models.GastoFijo.user_id == user_id, models.GastoFijo.activo == True)
         .all()
     )
-    for gf in gastos_fijos_activos:
-        ultimo = (
-            db.query(func.max(models.Movimiento.importe))
-            .filter(models.Movimiento.gasto_fijo_id == gf.id)
-            .scalar()
+
+    # Último importe por gasto fijo activo: una sola query agregada (sin N+1)
+    ids_gastos_fijos = [gf.id for gf in gastos_fijos_activos]
+    ultimos_por_gasto_fijo: dict[int, Decimal] = {}
+    if ids_gastos_fijos:
+        filas = (
+            db.query(
+                models.Movimiento.gasto_fijo_id,
+                func.max(models.Movimiento.importe),
+            )
+            .filter(models.Movimiento.gasto_fijo_id.in_(ids_gastos_fijos))
+            .group_by(models.Movimiento.gasto_fijo_id)
+            .all()
         )
-        monto = ultimo or Decimal("0")
+        ultimos_por_gasto_fijo = dict(filas)
+
+    for gf in gastos_fijos_activos:
+        monto = ultimos_por_gasto_fijo.get(gf.id) or Decimal("0")
         db.add(models.PresupuestoItem(
             ciclo_id=ciclo.id,
             user_category_id=gf.user_category_id,

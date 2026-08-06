@@ -44,9 +44,11 @@ from services.scheduler_service import create_scheduler
 from routers import auth, categorias, movimientos, gastos_fijos, ciclos, push
 from routers.categorias import categories_router
 
-# Crear todas las tablas en la base de datos si no existen
-# ⚠️ Las migraciones de esquema se manejan con Alembic (ver carpeta alembic/).
-Base.metadata.create_all(bind=engine)
+# Crear las tablas SOLO en desarrollo (APP_ENV distinto de production) para
+# agilizar el setup local. En PRODUCCIÓN el esquema se gestiona con migraciones
+# Alembic (carpeta alembic/): acá nunca se ejecuta create_all.
+if not config.IS_PRODUCTION:
+    Base.metadata.create_all(bind=engine)
 
 
 @asynccontextmanager

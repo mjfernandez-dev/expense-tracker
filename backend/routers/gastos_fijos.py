@@ -8,7 +8,7 @@ import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
-from services.gastos_fijos_service import gasto_fijo_to_dict
+from services.gastos_fijos_service import gasto_fijo_to_dict, gastos_fijos_to_dicts
 
 router = APIRouter(prefix="/gastos-fijos", tags=["gastos-fijos"])
 
@@ -27,7 +27,7 @@ def list_gastos_fijos(
         .limit(limit).offset(offset)
         .all()
     )
-    return [gasto_fijo_to_dict(gf, db) for gf in gastos_fijos]
+    return gastos_fijos_to_dicts(gastos_fijos, db)
 
 
 @router.put("/{gasto_fijo_id}", response_model=schemas.GastoFijoRead)
