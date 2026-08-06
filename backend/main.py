@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown()
 
 
-# Crear la aplicaci?n FastAPI
+# Crear la aplicación FastAPI
 if config.IS_PRODUCTION:
     app = FastAPI(title="FinanzaApp API", docs_url=None, redoc_url=None, lifespan=lifespan)
 else:

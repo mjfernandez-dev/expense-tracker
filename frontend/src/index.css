@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Glows del design system BlueGlass (evitan clases arbitrarias shadow-[...]) */
+@theme {
+  --shadow-glow-red: 0 0 15px rgba(239, 68, 68, 0.5);
+  --shadow-glow-green: 0 0 15px rgba(34, 197, 94, 0.5);
+  --shadow-glow-red-lg: 0 0 25px rgba(239, 68, 68, 0.5);
+  --shadow-glow-green-lg: 0 0 25px rgba(34, 197, 94, 0.5);
+}
+
 html {
   background-color: #0f172a !important;
 }

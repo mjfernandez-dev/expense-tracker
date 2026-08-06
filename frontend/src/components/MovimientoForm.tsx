@@ -36,6 +36,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [suggestions, setSuggestions] = useState<DescripcionSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<number>(-1);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const suggestionTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
   const descRef = useRef<HTMLInputElement>(null);
   const suggestionListRef = useRef<HTMLUListElement>(null);
@@ -49,7 +50,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         if (data.length > 0 && !movimientoToEdit) {
           setCategoriaId(data[0].id.toString());
         }
-      } catch (err) {
+      } catch {
         setError('Error al cargar categorías');
       }
     };
@@ -82,8 +83,13 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         setSuggestions(results);
         setShowSuggestions(results.length > 0);
         setSelectedSuggestionIndex(-1);
+        setSuggestionsError(null);
       } catch {
-        // fallo silencioso — no romper el form por sugerencias
+        // El autocomplete es opcional: no romper el form, pero sí reportar
+        // el fallo de forma visible (sin ocultarlo silenciosamente).
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setSuggestionsError('No se pudieron cargar las sugerencias');
       }
     }, 300);
 
@@ -134,7 +140,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setCategoriaId(nueva.id.toString());
       setNewCatNombre('');
       setShowNewCat(false);
-    } catch (err) {
+    } catch {
       setError('Error al crear la categoría');
     } finally {
       setSavingCat(false);
@@ -219,7 +225,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error desconocido';
-      const detail = (err as any)?.response?.data?.detail;
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(detail || msg);
     } finally {
       setLoading(false);
@@ -243,7 +249,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             onClick={() => setTipo('gasto')}
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
               tipo === 'gasto'
-                ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+                ? 'bg-red-600 text-white shadow-glow-red'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -254,7 +260,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             onClick={() => setTipo('ingreso')}
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
               tipo === 'ingreso'
-                ? 'bg-green-600 text-white shadow-[0_0_15px_rgba(34,197,94,0.5)]'
+                ? 'bg-green-600 text-white shadow-glow-green'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -334,6 +340,11 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             autoComplete="off"
             className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
           />
+          {suggestionsError && (
+            <p role="alert" className="mt-1 text-xs text-red-400">
+              {suggestionsError}
+            </p>
+          )}
           {showSuggestions && (
             <ul
               ref={suggestionListRef}
@@ -531,8 +542,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             disabled={loading}
             className={`${
               isIngreso
-                ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 shadow-[0_0_25px_rgba(34,197,94,0.5)] border-green-300/70'
-                : 'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 shadow-[0_0_25px_rgba(239,68,68,0.5)] border-red-300/70'
+                ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 shadow-glow-green-lg border-green-300/70'
+                : 'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 shadow-glow-red-lg border-red-300/70'
             } disabled:from-slate-700 disabled:to-slate-700 text-white font-semibold px-6 py-2 rounded-full border tracking-wide uppercase text-sm transition-all duration-200`}
           >
             {loading ? 'Guardando...' : movimientoToEdit

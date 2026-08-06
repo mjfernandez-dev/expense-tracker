@@ -13,7 +13,9 @@ export function useOnline() {
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    refreshPendingCount();
+    // Contador inicial: se setea en el callback de la promesa, no de forma
+    // síncrona en el effect (evita render en cascada).
+    getPendingCount().then(setPendingCount).catch(() => setPendingCount(0));
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
