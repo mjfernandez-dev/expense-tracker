@@ -328,7 +328,7 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
 
       {/* ── Selector de ciclos ──────────────────────── */}
       <div className="relative bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-3">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+        <div className="flex gap-2 overflow-x-auto pb-1">
           {ciclos.map((c) => {
             const isSelected = c.id === selectedCiclo.id;
             return (
@@ -371,11 +371,11 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-shrink-0">
-          <span className="text-slate-500 text-xs tabular-nums">
-            {selectedCiclo.activo
-              ? `${r.dias_restantes} día${r.dias_restantes !== 1 ? 's' : ''} restante${r.dias_restantes !== 1 ? 's' : ''}`
-              : 'Ciclo cerrado'}
-          </span>
+          {!selectedCiclo.activo && (
+            <span className="text-xs font-mono text-slate-400 bg-slate-700/40 border border-slate-600/50 px-2 py-0.5 rounded-full">
+              Cerrado
+            </span>
+          )}
           <button
             onClick={() => setMostrarAhorroModal(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1 rounded-md transition-colors"

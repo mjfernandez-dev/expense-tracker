@@ -32,6 +32,36 @@ body {
 /* Progress bars con ancho dinámico — width driven by --bar-w CSS custom property */
 .dyn-bar { width: var(--bar-w, 0%); }
 
+/* Scrollbars personalizados — reemplazan el scrollbar nativo de Windows en todo el app */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(51 65 85 / 0.9) transparent; /* slate-700, Firefox */
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgb(51 65 85 / 0.9); /* slate-700 */
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(71 85 105 / 0.9); /* slate-600 */
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Respetar preferencia de reducción de movimiento */
 @media (prefers-reduced-motion: reduce) {
   *,
