@@ -288,9 +288,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
             <div className="bg-slate-800/50 border border-slate-700/40 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-mono text-slate-400 uppercase tracking-widest font-semibold">Disponible del ciclo</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Dividido en {r.dias_restantes} día{r.dias_restantes !== 1 ? 's' : ''} restante{r.dias_restantes !== 1 ? 's' : ''} → gasto diario
-                </p>
+                <p className="text-xs text-slate-500 mt-0.5">Base del gasto diario</p>
               </div>
               <p className="text-xl font-bold text-emerald-300 tabular-nums whitespace-nowrap">{formatARS(r.saldo_disponible_actual)}</p>
             </div>
@@ -305,7 +303,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
               </div>
               <div className="flex justify-between text-xs font-mono text-slate-500">
                 <span>$0</span>
-                <span>Límite diario: {formatARS(r.daily_cap)}</span>
+                <span>{Math.round(pct)}% del límite</span>
               </div>
             </div>
           </div>
