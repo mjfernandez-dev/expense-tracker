@@ -67,6 +67,26 @@ def test_listar_despues_de_crear(logged_in_client, user_category_id):
     assert len(r.json()) == 2
 
 
+def test_filtro_fecha_hasta_incluye_mismo_dia(logged_in_client, user_category_id):
+    """Un movimiento del día con hora != medianoche debe aparecer en fecha_hasta (día-inclusivo)."""
+    payload = {
+        **_gasto(user_category_id),
+        "fecha": "2026-01-15T14:30:00",
+    }
+    r = logged_in_client.post("/movimientos/", json=payload)
+    assert r.status_code == 200
+
+    r = logged_in_client.get("/movimientos/", params={"fecha_hasta": "2026-01-15"})
+    assert r.status_code == 200
+    ids = [m["id"] for m in r.json()]
+    assert r.json()[0]["id"] in ids
+
+    # El día siguiente queda afuera: mismo movimiento excluido
+    r = logged_in_client.get("/movimientos/", params={"fecha_hasta": "2026-01-14"})
+    assert r.status_code == 200
+    assert r.json() == []
+
+
 def test_actualizar_movimiento(logged_in_client, user_category_id):
     r = logged_in_client.post("/movimientos/", json=_gasto(user_category_id))
     mov_id = r.json()["id"]

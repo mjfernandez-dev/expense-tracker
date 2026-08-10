@@ -1,5 +1,5 @@
 """Lógica de negocio para movimientos: auto-detección y vinculación de presupuesto."""
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Optional
 
@@ -290,7 +290,9 @@ def listar_movimientos(
     if fecha_desde:
         query = query.filter(models.Movimiento.fecha >= fecha_desde)
     if fecha_hasta:
-        query = query.filter(models.Movimiento.fecha <= fecha_hasta)
+        # fecha es DateTime: comparar contra el inicio del día siguiente hace el
+        # filtro inclusivo para movimientos del mismo día con hora != medianoche.
+        query = query.filter(models.Movimiento.fecha < fecha_hasta + timedelta(days=1))
     return query.order_by(
         models.Movimiento.fecha.desc(),
         models.Movimiento.id.desc(),
