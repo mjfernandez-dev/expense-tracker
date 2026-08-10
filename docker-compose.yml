@@ -41,6 +41,7 @@ services:
     environment:
       # Variables de entorno REQUERIDAS
       - PYTHONUNBUFFERED=1
+      - APP_ENV=${APP_ENV:-production}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - SECRET_KEY=${SECRET_KEY}  # REQUERIDA - sin fallback
 
