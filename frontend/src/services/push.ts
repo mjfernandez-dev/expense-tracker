@@ -8,7 +8,7 @@ export function isPushSupported(): boolean {
   )
 }
 
-export async function getVapidPublicKey(): Promise<string> {
+async function getVapidPublicKey(): Promise<string> {
   const response = await api.get('/push/vapid-public-key')
   return response.data.public_key
 }

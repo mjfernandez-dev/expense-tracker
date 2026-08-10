@@ -96,7 +96,6 @@ def client(db_session):
     def override_get_db():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db
-    main.ejecutar_generacion_mensual = lambda db: 0
     class _DummyScheduler:
         def start(self):
             return None
