@@ -55,6 +55,42 @@ def get_ultimo_ciclo(db: Session, user_id: int) -> Optional[models.Ciclo]:
     )
 
 
+def cargar_ciclo(db: Session, ciclo_id: int, user_id: int) -> models.Ciclo:
+    """Carga un ciclo por ID validando propiedad del usuario.
+    Raises ValueError("_not_found") si el ciclo no existe o no pertenece al usuario.
+    """
+    ciclo = (
+        db.query(models.Ciclo)
+        .options(*_CICLO_LOAD_OPTIONS)
+        .filter(models.Ciclo.id == ciclo_id, models.Ciclo.user_id == user_id)
+        .first()
+    )
+    if not ciclo:
+        raise ValueError("_not_found")
+    return ciclo
+
+
+def ciclo_a_read(
+    ciclo: models.Ciclo,
+    db: Session,
+    user_id: int,
+    con_resumen: bool = True,
+) -> schemas.CicloRead:
+    """Construye CicloRead; con resumen calculado (default) o sin él."""
+    resumen = calcular_resumen(ciclo, db, user_id) if con_resumen else None
+    return schemas.CicloRead(
+        id=ciclo.id,
+        user_id=ciclo.user_id,
+        movimiento_origen_id=ciclo.movimiento_origen_id,
+        fecha_inicio=ciclo.fecha_inicio,
+        fecha_fin=ciclo.fecha_fin,
+        ahorro_objetivo=ciclo.ahorro_objetivo,
+        activo=ciclo.activo,
+        created_at=ciclo.created_at,
+        resumen=resumen,
+    )
+
+
 def crear_nuevo_ciclo(
     db: Session,
     user_id: int,

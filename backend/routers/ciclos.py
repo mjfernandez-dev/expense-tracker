@@ -2,50 +2,25 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 import models
 import schemas
 from auth import get_current_active_user
 from database import get_db
 from services import ciclo_commitment_service, ciclo_service
-from services.ciclo_service import calcular_resumen
 
 router = APIRouter(prefix="/ciclos", tags=["ciclos"])
 
 
-def _load_ciclo(ciclo_id: int, user_id: int, db: Session) -> models.Ciclo:
-    """Carga un ciclo por ID validando propiedad del usuario."""
-    ciclo = (
-        db.query(models.Ciclo)
-        .options(
-            joinedload(models.Ciclo.presupuesto_items).joinedload(
-                models.PresupuestoItem.movimientos
-            ),
-        )
-        .filter(models.Ciclo.id == ciclo_id, models.Ciclo.user_id == user_id)
-        .first()
-    )
-    if not ciclo:
-        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
-    return ciclo
-
-
-def _ciclo_to_read(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.CicloRead:
-    """Construye CicloRead con resumen calculado."""
-    resumen = calcular_resumen(ciclo, db, user_id)
-    return schemas.CicloRead(
-        id=ciclo.id,
-        user_id=ciclo.user_id,
-        movimiento_origen_id=ciclo.movimiento_origen_id,
-        fecha_inicio=ciclo.fecha_inicio,
-        fecha_fin=ciclo.fecha_fin,
-        ahorro_objetivo=ciclo.ahorro_objetivo,
-        activo=ciclo.activo,
-        created_at=ciclo.created_at,
-        resumen=resumen,
-    )
-
+def _cargar_ciclo_o_404(ciclo_id: int, user_id: int, db: Session) -> models.Ciclo:
+    """Carga un ciclo validando propiedad; mapea recursos inexistentes a 404."""
+    try:
+        return ciclo_service.cargar_ciclo(db, ciclo_id, user_id)
+    except ValueError as exc:
+        if str(exc) == "_not_found":
+            raise HTTPException(status_code=404, detail="Ciclo no encontrado")
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/", response_model=list[schemas.CicloRead])
@@ -58,17 +33,7 @@ def listar_ciclos(
     """Lista todos los ciclos del usuario, sin resumen calculado."""
     ciclos = ciclo_service.listar_ciclos(db, current_user.id, limit=limit, offset=offset)
     return [
-        schemas.CicloRead(
-            id=c.id,
-            user_id=c.user_id,
-            movimiento_origen_id=c.movimiento_origen_id,
-            fecha_inicio=c.fecha_inicio,
-            fecha_fin=c.fecha_fin,
-            ahorro_objetivo=c.ahorro_objetivo,
-            activo=c.activo,
-            created_at=c.created_at,
-            resumen=None,
-        )
+        ciclo_service.ciclo_a_read(c, db, current_user.id, con_resumen=False)
         for c in ciclos
     ]
 
@@ -87,8 +52,8 @@ def crear_ciclo(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    ciclo = _load_ciclo(ciclo.id, current_user.id, db)
-    return _ciclo_to_read(ciclo, db, current_user.id)
+    ciclo = _cargar_ciclo_o_404(ciclo.id, current_user.id, db)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
 
 
 @router.get("/activo", response_model=Optional[schemas.CicloRead])
@@ -106,7 +71,7 @@ def get_ciclo_activo(
         response.status_code = 204
         return None
 
-    return _ciclo_to_read(ciclo, db, current_user.id)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
 
 
 @router.get("/ultimo", response_model=Optional[schemas.CicloRead])
@@ -125,7 +90,7 @@ def get_ultimo_ciclo(
         response.status_code = 204
         return None
 
-    return _ciclo_to_read(ciclo, db, current_user.id)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
 
 
 @router.get("/{ciclo_id}", response_model=schemas.CicloRead)
@@ -135,8 +100,8 @@ def get_ciclo(
     current_user: models.User = Depends(get_current_active_user),
 ):
     """Devuelve un ciclo específico con su resumen calculado en tiempo real."""
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-    return _ciclo_to_read(ciclo, db, current_user.id)
+    ciclo = _cargar_ciclo_o_404(ciclo_id, current_user.id, db)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
 
 
 @router.patch("/{ciclo_id}", response_model=schemas.CicloRead)
@@ -147,13 +112,12 @@ def actualizar_ciclo(
     current_user: models.User = Depends(get_current_active_user),
 ):
     """Actualiza fecha_fin y/o ahorro_objetivo del ciclo."""
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    ciclo = _cargar_ciclo_o_404(ciclo_id, current_user.id, db)
     try:
         ciclo_service.actualizar_fechas_ciclo(ciclo, data.fecha_inicio, data.fecha_fin, data.ahorro_objetivo, db)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-    return _ciclo_to_read(ciclo, db, current_user.id)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
 
 
 @router.post("/{ciclo_id}/presupuesto/", response_model=schemas.CicloRead)
@@ -164,14 +128,13 @@ def confirmar_presupuesto(
     current_user: models.User = Depends(get_current_active_user),
 ):
     """Confirma (o reemplaza) el presupuesto para este ciclo."""
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    ciclo = _cargar_ciclo_o_404(ciclo_id, current_user.id, db)
     try:
         ciclo_commitment_service.aplicar_presupuesto_bulk(ciclo, data.items, db)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    db.commit()
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-    return _ciclo_to_read(ciclo, db, current_user.id)
+    ciclo = ciclo_service.cargar_ciclo(db, ciclo_id, current_user.id)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
 
 
 @router.patch("/{ciclo_id}/presupuesto/items/{item_id}", response_model=schemas.CicloRead)
@@ -186,7 +149,7 @@ def actualizar_monto_presupuesto_item(
     Actualiza el monto_estimado de un item de presupuesto (PATCH granular).
     Alternativa al bulk replace: no elimina items ad-hoc.
     """
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    ciclo = _cargar_ciclo_o_404(ciclo_id, current_user.id, db)
     try:
         ciclo_commitment_service.actualizar_monto_presupuesto_item(
             ciclo, item_id, data.monto_estimado, db
@@ -195,8 +158,7 @@ def actualizar_monto_presupuesto_item(
         if str(exc) == "_not_found":
             raise HTTPException(status_code=404, detail="Item de presupuesto no encontrado")
         raise HTTPException(status_code=400, detail=str(exc))
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-    return _ciclo_to_read(ciclo, db, current_user.id)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
 
 
 @router.post("/{ciclo_id}/presupuesto/items/", response_model=schemas.CicloRead, status_code=201)
@@ -211,15 +173,15 @@ def crear_o_vincular_presupuesto_item(
     gastos del ciclo sin comprometer que coinciden con esa categoría.
     Alternativa granular al bulk replace: no elimina items ad-hoc.
     """
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
+    ciclo = _cargar_ciclo_o_404(ciclo_id, current_user.id, db)
     try:
         ciclo_commitment_service.crear_o_vincular_presupuesto_item(
             ciclo, data, db, current_user.id
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-    return _ciclo_to_read(ciclo, db, current_user.id)
+    ciclo = ciclo_service.cargar_ciclo(db, ciclo_id, current_user.id)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
 
 
 @router.delete("/{ciclo_id}", status_code=200)
@@ -251,5 +213,5 @@ def reabrir_ciclo(
         if str(exc) == "_not_found":
             raise HTTPException(status_code=404, detail="Ciclo no encontrado")
         raise HTTPException(status_code=400, detail=str(exc))
-    ciclo = _load_ciclo(ciclo_id, current_user.id, db)
-    return _ciclo_to_read(ciclo, db, current_user.id)
+    ciclo = _cargar_ciclo_o_404(ciclo_id, current_user.id, db)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)

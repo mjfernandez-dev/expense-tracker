@@ -2,9 +2,57 @@
 from decimal import Decimal
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 import models
+import schemas
+
+
+def listar_gastos_fijos(
+    db: Session,
+    user_id: int,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[models.GastoFijo]:
+    """Lista los gastos fijos del usuario con sus categorías eager-loaded."""
+    return (
+        db.query(models.GastoFijo)
+        .filter(models.GastoFijo.user_id == user_id)
+        .options(
+            joinedload(models.GastoFijo.categoria),
+            joinedload(models.GastoFijo.user_category),
+        )
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+
+
+def actualizar_gasto_fijo(
+    db: Session,
+    gasto_fijo_id: int,
+    user_id: int,
+    update: schemas.GastoFijoUpdate,
+) -> models.GastoFijo:
+    """Actualiza los campos provistos de un gasto fijo del usuario.
+    Raises ValueError("_not_found") si el gasto fijo no existe o no pertenece al usuario.
+    """
+    gf = (
+        db.query(models.GastoFijo)
+        .filter(
+            models.GastoFijo.id == gasto_fijo_id,
+            models.GastoFijo.user_id == user_id,
+        )
+        .first()
+    )
+    if not gf:
+        raise ValueError("_not_found")
+
+    for field, value in update.model_dump(exclude_unset=True).items():
+        setattr(gf, field, value)
+    db.commit()
+    db.refresh(gf)
+    return gf
 
 
 def gastos_fijos_to_dicts(gastos_fijos, db: Session) -> list[dict]:

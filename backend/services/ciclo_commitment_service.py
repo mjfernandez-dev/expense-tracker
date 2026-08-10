@@ -125,6 +125,8 @@ def aplicar_presupuesto_bulk(
             continue
         db.delete(existente)
 
+    db.commit()
+
 
 def actualizar_monto_presupuesto_item(
     ciclo: models.Ciclo,
