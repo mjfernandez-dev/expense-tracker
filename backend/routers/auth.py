@@ -25,7 +25,7 @@ from auth import (
 )
 from database import get_db
 from dependencies import limiter
-from email_service import send_password_reset_email
+from services.email_service import send_password_reset_email
 from services import auth_service
 
 logger = logging.getLogger("finanzaapp")

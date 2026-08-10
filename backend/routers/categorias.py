@@ -1,5 +1,5 @@
 """Routers de categorías: /categories/ y /user-categories/"""
-from typing import Dict, List
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -73,10 +73,6 @@ def update_user_category(
     current_user: models.User = Depends(get_current_active_user),
 ):
     category = user_category_service.obtener_categoria_usuario(category_id, current_user.id, db)
-
-    if category_update.nombre and category_update.nombre != category.nombre:
-        user_category_service.verificar_nombre_unico(current_user.id, category_update.nombre, db, exclude_id=category_id)
-
     return user_category_service.actualizar_user_category(category, category_update, db)
 
 

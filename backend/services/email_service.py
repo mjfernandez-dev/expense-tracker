@@ -5,13 +5,14 @@ Soporta SMTP real (producción) y modo desarrollo (consola).
 
 import logging
 import os
-from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from urllib.parse import quote
 
 import aiosmtplib
 import jinja2
+
+from services.ciclo_time_service import ahora_buenos_aires
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,9 @@ SENDER_EMAIL = os.getenv("SENDER_EMAIL", "noreply@finanzaapp.local")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
-# Template engine
-template_loader = jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), "templates"))
+# Template engine (los templates viven en backend/templates/)
+_BACKEND_DIR = os.path.dirname(os.path.dirname(__file__))
+template_loader = jinja2.FileSystemLoader(os.path.join(_BACKEND_DIR, "templates"))
 template_env = jinja2.Environment(loader=template_loader, autoescape=True)
 
 
@@ -114,7 +116,7 @@ async def send_password_reset_email(
         "username": username,
         "reset_url": reset_url,
         "expires_in_hours": expires_in_hours,
-        "current_year": datetime.now().year,
+        "current_year": ahora_buenos_aires().year,
     }
 
     text_body = f"""
@@ -137,94 +139,6 @@ FinanzaApp
         to_email=email,
         subject="Restablece tu contraseña - FinanzaApp",
         template_name="password_reset.html",
-        context=context,
-        text_body=text_body,
-    )
-
-
-async def send_two_factor_code(
-    email: str,
-    username: str,
-    code: str,
-    expires_in_minutes: int = 10,
-) -> bool:
-    """
-    Envía código de autenticación de dos factores.
-    Útil para implementación futura.
-
-    Args:
-        email: Email del usuario
-        username: Nombre de usuario
-        code: Código de 6 dígitos
-        expires_in_minutes: Minutos de validez del código
-
-    Returns:
-        True si se envió correctamente
-    """
-    context = {
-        "username": username,
-        "code": code,
-        "expires_in_minutes": expires_in_minutes,
-        "current_year": datetime.now().year,
-    }
-
-    text_body = f"""
-Hola {username},
-
-Tu código de verificación es: {code}
-
-Este código expirará en {expires_in_minutes} minutos.
-
-Si no solicitaste este código, ignora este email.
-
----
-FinanzaApp
-    """.strip()
-
-    return await _send_email(
-        to_email=email,
-        subject="Tu código de verificación - FinanzaApp",
-        template_name="two_factor_code.html",
-        context=context,
-        text_body=text_body,
-    )
-
-
-async def send_welcome_email(
-    email: str,
-    username: str,
-) -> bool:
-    """
-    Envía email de bienvenida cuando se registra un usuario.
-
-    Args:
-        email: Email del nuevo usuario
-        username: Nombre de usuario
-
-    Returns:
-        True si se envió correctamente
-    """
-    context = {
-        "username": username,
-        "app_url": FRONTEND_URL,
-        "current_year": datetime.now().year,
-    }
-
-    text_body = f"""
-¡Bienvenido {username}!
-
-Tu cuenta en FinanzaApp ha sido creada exitosamente.
-
-Accede a la aplicación aquí: {FRONTEND_URL}
-
----
-FinanzaApp
-    """.strip()
-
-    return await _send_email(
-        to_email=email,
-        subject="¡Bienvenido a FinanzaApp!",
-        template_name="welcome.html",
         context=context,
         text_body=text_body,
     )

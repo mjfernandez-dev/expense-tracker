@@ -70,12 +70,6 @@ class UserPreferencesUpdate(BaseModel):
         return v
 
 
-# Schema para el token JWT
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-
 class TokenData(BaseModel):
     username: Optional[str] = None
 
@@ -117,10 +111,6 @@ class PasswordChange(BaseModel):
 class CategoryBase(BaseModel):
     nombre: str  # Nombre de la categoría (obligatorio)
     descripcion: Optional[str] = None
-
-# Schema para CREAR una categoría del sistema (solo admin)
-class CategoryCreate(CategoryBase):
-    pass
 
 # Schema para LEER una categoría del sistema
 class CategoryRead(CategoryBase):

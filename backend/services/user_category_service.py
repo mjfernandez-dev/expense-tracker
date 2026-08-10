@@ -138,6 +138,7 @@ def actualizar_user_category(
     update_data = update.model_dump(exclude_unset=True)
 
     if update.nombre is not None and update.nombre != category.nombre:
+        verificar_nombre_unico(category.user_id, update.nombre, db, exclude_id=category.id)
         category.nombre = update.nombre
 
     if "descripcion" in update_data:

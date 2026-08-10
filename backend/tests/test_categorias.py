@@ -2,8 +2,21 @@
 Tests de integración para categorías personalizadas del usuario (user-categories).
 Cubre: CRUD completo, unicidad por usuario, aislamiento entre usuarios,
 y bloqueo de eliminación cuando hay movimientos asociados.
+Tests de servicio para user_category_service: unicidad de nombre en actualización.
 """
 from datetime import datetime
+
+import pytest
+from fastapi import HTTPException
+
+
+def _crear_user(db_session, username: str = "svc_cat") -> object:
+    import models
+    from auth import get_password_hash
+    user = models.User(username=username, email=f"{username}@test.com", hashed_password=get_password_hash("Test123!"))
+    db_session.add(user)
+    db_session.flush()
+    return user
 
 
 # ============== HELPERS ==============
@@ -152,3 +165,24 @@ def test_eliminar_categoria_de_otro_usuario(client):
 def test_eliminar_categoria_inexistente(logged_in_client):
     r = logged_in_client.delete("/user-categories/99999")
     assert r.status_code == 404
+
+
+# ============== user_category_service — service-level tests ==============
+
+def test_service_actualizar_categoria_nombre_duplicado_400(db_session):
+    from services import user_category_service
+    import schemas
+
+    user = _crear_user(db_session, "u_dup")
+    cat1 = user_category_service.crear_user_category(
+        user.id, schemas.UserCategoryCreate(nombre="Original"), db_session
+    )
+    user_category_service.crear_user_category(
+        user.id, schemas.UserCategoryCreate(nombre="Existente"), db_session
+    )
+    with pytest.raises(HTTPException) as exc:
+        user_category_service.actualizar_user_category(
+            cat1, schemas.UserCategoryUpdate(nombre="Existente"), db_session
+        )
+    assert exc.value.status_code == 400
+    assert cat1.nombre == "Original"  # no persistió el cambio
