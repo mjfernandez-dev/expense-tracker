@@ -130,7 +130,6 @@ docker compose up -d
 | `ENCRYPTION_KEY` | Clave Fernet base64 para datos sensibles |
 | `DATABASE_URL` | URL de PostgreSQL |
 | `SMTP_USER` / `SMTP_PASSWORD` | Credenciales de email |
-| `MP_ACCESS_TOKEN` | Token de Mercado Pago |
 | `ALLOWED_ORIGINS` | Orígenes CORS permitidos (separados por coma) |
 
 Ver `.env.example` para la lista completa con documentación.
