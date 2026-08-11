@@ -69,6 +69,8 @@ function App() {
     setWizardImporte(0);
   };
 
+  const handleRefresh = useCallback(() => setRefreshKey(prev => prev + 1), []);
+
   const syncingRef = useRef<boolean>(false);
 
   const syncPendingQueue = useCallback(async () => {
@@ -170,7 +172,7 @@ function App() {
             <div className="mt-6 flex justify-center">
               <button
                 onClick={() => setShowModal(true)}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold px-8 py-3 rounded-full shadow-lg shadow-blue-500/60 border border-blue-300/70 tracking-wide uppercase text-sm transition-all duration-200 active:scale-95"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-full shadow-lg shadow-blue-500/60 border border-blue-300/70 tracking-wide uppercase text-sm transition-all duration-200 active:scale-95"
               >
                 <span className="text-lg leading-none font-light">+</span>
                 Registrar movimiento
@@ -184,7 +186,7 @@ function App() {
         )}
 
         {tab === 'ciclo' && (
-          <CicloTab refreshKey={refreshKey} />
+          <CicloTab refreshKey={refreshKey} onRefresh={handleRefresh} />
         )}
 
       </div>
@@ -213,7 +215,7 @@ function App() {
       {tab === 'movimientos' && (
         <button
           onClick={() => setShowModal(true)}
-          className="fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/50 border border-blue-300/30 active:scale-95 transition-all duration-150 flex items-center justify-center"
+          className="fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/50 border border-blue-300/30 active:scale-95 transition-all duration-150 flex items-center justify-center"
           aria-label="Registrar movimiento"
         >
           <span className="text-2xl leading-none font-light -mt-0.5">+</span>

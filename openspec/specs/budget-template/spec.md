@@ -2,20 +2,27 @@
 
 ## Purpose
 
-La plantilla de presupuesto (PresupuestoManager) pasa a ser configuración de la cuenta: vive en Configuración/Cuenta, no en el tab Ciclo, y define los defaults que el wizard y el ciclo consumen.
+La plantilla de presupuesto (PresupuestoManager) vive en el sub-tab Plantilla del tab Presupuesto y define los defaults que el wizard y el ciclo consumen.
 
 ## Requirements
 
 ### Requirement: Plantilla en Configuración/Cuenta
 
-La plantilla MUST renderizarse desde Configuración/Cuenta (AccountPage) y MUST estar ausente del tab Ciclo.
+La plantilla MUST renderizarse en el tab Presupuesto como sub-tab `Plantilla` y MUST estar ausente de Configuración/Cuenta (AccountPage).
+(Previously: la plantilla vivía en Configuración/Cuenta y debía estar ausente del tab Ciclo.)
 
-#### Scenario: Acceso desde Cuenta
+#### Scenario: Acceso desde el tab Presupuesto
+
+- GIVEN un usuario en el tab Presupuesto
+- WHEN selecciona el sub-tab Plantilla
+- THEN MUST poder editar categorías, % de ahorro default y gastos fijos
+- AND la plantilla MUST NO aparecer en Configuración/Cuenta
+
+#### Scenario: Ausencia en Cuenta
 
 - GIVEN un usuario en Configuración/Cuenta
-- WHEN navega a la sección de plantilla
-- THEN MUST poder editar categorías, % de ahorro default y gastos fijos
-- AND la plantilla MUST NO aparecer en el tab Ciclo
+- WHEN se renderiza la página
+- THEN MUST NO mostrarse la card de plantilla ni su estado/lógica de refresco
 
 ### Requirement: Contenido de la plantilla
 
@@ -30,14 +37,17 @@ La plantilla MUST conservar: categorías con `monto_default` y toggle `tiene_mon
 
 ### Requirement: Refresco de la plantilla
 
-La plantilla MUST recibir y respetar el mecanismo de refresco (refreshKey) de la app: al navegar de vuelta o tras cambios de datos, MUST mostrar datos actualizados sin cache obsoleto. (Previously: PresupuestoManager no recibía refreshKey → datos viejos tras cambios.)
+La plantilla MUST recibir y respetar el mecanismo de refresco (refreshKey) de la app. El listener `visibilitychange` que incrementa `refreshKey` MUST residir en el contenedor del sub-tab Plantilla (CicloTab), reutilizando el prop `refreshKey` que App ya inyecta en CicloTab; al volver a la pestaña o tras cambios de datos MUST mostrarse datos actualizados sin cache obsoleto.
+(Previously: el listener vivía en AccountPage y PresupuestoManager lo recibía desde allí.)
 
-#### Scenario: Navegación y refresco
+#### Scenario: Regreso al sub-tab Plantilla
 
 - GIVEN la plantilla con datos modificados en otro flujo
-- WHEN se regresa a Configuración/Cuenta
+- WHEN se regresa al sub-tab Plantilla del tab Presupuesto
 - THEN MUST mostrarse el estado actualizado vía refreshKey
 
-## Open Decisions (para design)
+#### Scenario: Visibilidad de la pestaña
 
-- Ubicación exacta dentro de Cuenta: card propia vs ruta `/account/presupuesto-template` (depende de la navegación existente).
+- GIVEN la app en segundo plano con la plantilla abierta
+- WHEN el documento vuelve a ser visible
+- THEN MUST incrementarse refreshKey y refrescarse la plantilla

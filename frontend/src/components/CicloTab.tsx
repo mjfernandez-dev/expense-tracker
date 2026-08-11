@@ -2,14 +2,17 @@
 // El backend (calcular_resumen) es la única fuente de verdad; NO se recalculan totales
 // desde movimientos para el reporte.
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { Ciclo, Category, UserCategory, PresupuestoItemCreate } from '../types';
 import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, crearItemPresupuesto, getUserCategories, getCategories } from '../services/api';
 import ClasificacionPie from './ClasificacionPie';
 import AhorroModal from './AhorroModal';
+import PresupuestoManager from './PresupuestoManager';
+
+type SubTab = 'ciclo' | 'plantilla';
 
 interface CicloTabProps {
   refreshKey: number;
+  onRefresh: () => void;
 }
 
 const formatARS = (n: number) =>
@@ -21,11 +24,33 @@ const formatFecha = (s: string) =>
 const formatFechaLargo = (s: string) =>
   new Date(s).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-export default function CicloTab({ refreshKey }: CicloTabProps) {
+const SUBTABS: { key: SubTab; label: string }[] = [
+  { key: 'ciclo', label: 'Ciclo actual' },
+  { key: 'plantilla', label: 'Plantilla' },
+];
+
+const renderSubTabSelector = (subTab: SubTab, onSelect: (subTab: SubTab) => void) => (
+    <div className="flex gap-1 p-1 bg-slate-700/50 rounded-xl w-fit">
+      {SUBTABS.map(({ key, label }) => (
+        <button
+          key={key}
+          onClick={() => onSelect(key)}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            subTab === key ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
   const [ciclos, setCiclos] = useState<Ciclo[]>([]);
   const [selectedCiclo, setSelectedCiclo] = useState<Ciclo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [subTab, setSubTab] = useState<SubTab>('ciclo');
 
   // ── Edición inline del monto estimado ─────────────────────────────
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -41,23 +66,36 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
   const [userCategories, setUserCategories] = useState<UserCategory[]>([]);
   const [categoriasSistema, setCategoriasSistema] = useState<Category[]>([]);
   const [errorCategorias, setErrorCategorias] = useState<string | null>(null);
+  const [loadingCategorias, setLoadingCategorias] = useState<boolean>(true);
   const [mostrarAhorroModal, setMostrarAhorroModal] = useState<boolean>(false);
-
-  const navigate = useNavigate();
 
   // Carga best-effort de categorías para resolver el nombre del grupo a un id
   useEffect(() => {
     const cargarCategorias = async () => {
+      setLoadingCategorias(true);
       try {
         const [userCats, sysCats] = await Promise.all([getUserCategories(), getCategories()]);
         setUserCategories(userCats);
         setCategoriasSistema(sysCats);
       } catch {
         setErrorCategorias('No se pudieron cargar las categorías.');
+      } finally {
+        setLoadingCategorias(false);
       }
     };
     cargarCategorias();
   }, []);
+
+  // Refrescar la plantilla al volver a la pestaña (datos sin cache obsoleto)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        onRefresh();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [onRefresh]);
 
   useEffect(() => {
     const cargar = async () => {
@@ -185,39 +223,66 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
     }
   };
 
+  // ── Sub-tab Plantilla (accesible sin ciclos) ──
+  if (subTab === 'plantilla') {
+    return (
+      <div className="space-y-4 pb-4">
+        {renderSubTabSelector(subTab, setSubTab)}
+        <div className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6">
+          <p className="text-sm text-slate-400 mb-4">
+            Defaults que el asistente y el ciclo consumen.
+          </p>
+          <PresupuestoManager refreshKey={refreshKey} />
+        </div>
+      </div>
+    );
+  }
+
   // ── Loading ──
   if (loading) {
     return (
-      <div className="space-y-3 animate-pulse">
-        <div className="h-12 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
-        <div className="h-20 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
-        <div className="h-40 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
-        <div className="h-40 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
+      <div className="space-y-4 pb-4">
+        {renderSubTabSelector(subTab, setSubTab)}
+        <div className="space-y-3 animate-pulse">
+          <div className="h-12 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
+          <div className="h-20 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
+          <div className="h-40 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
+          <div className="h-40 bg-slate-900/80 border border-slate-700/70 rounded-2xl" />
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-slate-900/80 border border-red-500/20 backdrop-blur-2xl rounded-2xl p-8 text-center">
-        <p className="text-red-400 text-sm">{error}</p>
+      <div className="space-y-4 pb-4">
+        {renderSubTabSelector(subTab, setSubTab)}
+        <div className="bg-slate-900/80 border border-red-500/20 backdrop-blur-2xl rounded-2xl p-8 text-center">
+          <p className="text-red-400 text-sm">{error}</p>
+        </div>
       </div>
     );
   }
 
   if (ciclos.length === 0) {
     return (
-      <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-8 text-center">
-        <p className="text-slate-300 text-base font-medium">Sin ciclos</p>
-        <p className="text-slate-400 text-sm mt-2">Registrá un ingreso e iniciá un ciclo para ver el balance.</p>
+      <div className="space-y-4 pb-4">
+        {renderSubTabSelector(subTab, setSubTab)}
+        <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-8 text-center">
+          <p className="text-slate-300 text-base font-medium">Sin ciclos</p>
+          <p className="text-slate-400 text-sm mt-2">Registrá un ingreso e iniciá un ciclo para ver el balance.</p>
+        </div>
       </div>
     );
   }
 
   if (!selectedCiclo || !selectedCiclo.resumen) {
     return (
-      <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-8 text-center">
-        <p className="text-slate-300 text-base font-medium">Seleccioná un ciclo</p>
+      <div className="space-y-4 pb-4">
+        {renderSubTabSelector(subTab, setSubTab)}
+        <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-8 text-center">
+          <p className="text-slate-300 text-base font-medium">Seleccioná un ciclo</p>
+        </div>
       </div>
     );
   }
@@ -337,6 +402,9 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
   return (
     <div className="space-y-4 pb-4">
 
+      {/* ── Sub-tabs ─────────────────────────────── */}
+      {renderSubTabSelector(subTab, setSubTab)}
+
       {/* ── Selector de ciclos ──────────────────────── */}
       <div className="bg-slate-900/80 border border-slate-700/70 backdrop-blur-2xl rounded-2xl p-3">
         <label htmlFor="selector-ciclo" className="sr-only">Seleccionar ciclo</label>
@@ -397,7 +465,7 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
             Ahorro
           </button>
           <button
-            onClick={() => navigate('/account')}
+            onClick={() => setSubTab('plantilla')}
             className="border border-slate-600/60 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 hover:text-slate-100 text-xs font-medium px-3 py-1 rounded-lg transition-colors"
           >
             Categorías
@@ -518,10 +586,10 @@ export default function CicloTab({ refreshKey }: CicloTabProps) {
                             />
                             <button
                               onClick={() => confirmarPresupuestar(g.categoria)}
-                              disabled={guardandoPresupuesto}
+                              disabled={guardandoPresupuesto || loadingCategorias}
                               className="rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
                             >
-                              {guardandoPresupuesto ? '...' : 'Confirmar'}
+                              {loadingCategorias ? 'Cargando...' : guardandoPresupuesto ? '...' : 'Confirmar'}
                             </button>
                             <button
                               onClick={cancelarPresupuestar}
