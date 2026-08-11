@@ -289,7 +289,11 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
 
   const r = selectedCiclo.resumen;
   // Unión client-side: items confirmados ("comprometida") + gastos sin presupuesto ("sin comprometer")
-  const items = r.presupuesto_items.filter((i) => i.confirmado);
+  const items = r.presupuesto_items
+    .filter((i) => i.confirmado)
+    .sort((a, b) =>
+      (a.descripcion ?? '').localeCompare(b.descripcion ?? '', 'es', { sensitivity: 'base' }) || a.id - b.id
+    );
   const sinPresupuesto = [...r.gastos_sin_presupuesto].sort((a, b) => b.importe - a.importe);
   const totalSinPresupuesto = sinPresupuesto.reduce((s, g) => s + g.importe, 0);
 
