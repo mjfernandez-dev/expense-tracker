@@ -130,7 +130,9 @@ def confirmar_presupuesto(
     """Confirma (o reemplaza) el presupuesto para este ciclo."""
     ciclo = _cargar_ciclo_o_404(ciclo_id, current_user.id, db)
     try:
-        ciclo_commitment_service.aplicar_presupuesto_bulk(ciclo, data.items, db)
+        ciclo_commitment_service.aplicar_presupuesto_bulk(
+            ciclo, data.items, db, current_user.id
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     ciclo = ciclo_service.cargar_ciclo(db, ciclo_id, current_user.id)

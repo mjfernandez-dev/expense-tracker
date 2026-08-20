@@ -70,11 +70,34 @@ def aplicar_presupuesto_bulk(
     ciclo: models.Ciclo,
     items_data: list,
     db: "Session",
+    user_id: int,
 ) -> None:
     """
     Aplica un conjunto de PresupuestoItemCreate al ciclo.
+    Registra en la plantilla solo items confirmados; la ejecución previa fuerza
+    la confirmación efectiva aunque el payload indique confirmado=False.
     Raises ValueError si un monto_estimado queda por debajo de lo ya ejecutado.
     """
+    if ciclo.user_id != user_id:
+        raise ValueError("Categoría de usuario no válida")
+
+    user_category_ids = {
+        item.user_category_id
+        for item in items_data
+        if item.user_category_id is not None
+    }
+    categorias_usuario = {}
+    if user_category_ids:
+        categorias_usuario = {
+            categoria.id: categoria
+            for categoria in db.query(models.UserCategory).filter(
+                models.UserCategory.id.in_(user_category_ids),
+                models.UserCategory.user_id == user_id,
+            ).all()
+        }
+    if len(categorias_usuario) != len(user_category_ids):
+        raise ValueError("Categoría de usuario no válida")
+
     existentes = list(ciclo.presupuesto_items)
     usados_ids: set[int] = set()
 
@@ -84,48 +107,64 @@ def aplicar_presupuesto_bulk(
                 continue
             if item.categoria_id is not None and existente.categoria_id == item.categoria_id:
                 return existente
+            if item.categoria_id is not None:
+                continue
             if item.user_category_id is not None and existente.user_category_id == item.user_category_id:
                 return existente
+            if item.user_category_id is not None:
+                continue
             if (existente.descripcion or "").lower() == (item.descripcion or "").lower():
                 return existente
         return None
 
-    for item in items_data:
-        existente = _match_item(item)
-        if existente:
+    try:
+        for item in items_data:
+            existente = _match_item(item)
+            if existente:
+                progreso = calcular_progreso_presupuesto(existente)
+                if _to_decimal(item.monto_estimado) < progreso.ejecutado:
+                    raise ValueError(
+                        f"El monto estimado no puede ser menor a lo ya ejecutado ({progreso.ejecutado:.2f})"
+                    )
+                existente.monto_estimado = item.monto_estimado
+                existente.confirmado = True if progreso.ejecutado > 0 else item.confirmado
+                existente.descripcion = item.descripcion
+                existente.estado = calcular_progreso_presupuesto(existente).estado
+                usados_ids.add(existente.id)
+                confirmado = existente.confirmado
+            else:
+                db.add(models.PresupuestoItem(
+                    ciclo_id=ciclo.id,
+                    categoria_id=item.categoria_id,
+                    user_category_id=item.user_category_id,
+                    monto_estimado=item.monto_estimado,
+                    confirmado=item.confirmado,
+                    descripcion=item.descripcion,
+                    estado="pendiente",
+                ))
+                confirmado = item.confirmado
+
+            if item.user_category_id is not None and confirmado:
+                categoria = categorias_usuario[item.user_category_id]
+                monto_confirmado = _to_decimal(item.monto_estimado)
+                categoria.tiene_monto_fijo = True
+                if _to_decimal(categoria.monto_default) < monto_confirmado:
+                    categoria.monto_default = monto_confirmado
+
+        for existente in existentes:
+            if existente.id in usados_ids:
+                continue
             progreso = calcular_progreso_presupuesto(existente)
-            if _to_decimal(item.monto_estimado) < progreso.ejecutado:
-                raise ValueError(
-                    f"El monto estimado no puede ser menor a lo ya ejecutado ({progreso.ejecutado:.2f})"
-                )
-            existente.monto_estimado = item.monto_estimado
-            existente.confirmado = True if progreso.ejecutado > 0 else item.confirmado
-            existente.descripcion = item.descripcion
-            existente.estado = calcular_progreso_presupuesto(existente).estado
-            usados_ids.add(existente.id)
-            continue
+            if progreso.ejecutado > 0:
+                existente.confirmado = True
+                existente.estado = progreso.estado
+                continue
+            db.delete(existente)
 
-        db.add(models.PresupuestoItem(
-            ciclo_id=ciclo.id,
-            categoria_id=item.categoria_id,
-            user_category_id=item.user_category_id,
-            monto_estimado=item.monto_estimado,
-            confirmado=item.confirmado,
-            descripcion=item.descripcion,
-            estado="pendiente",
-        ))
-
-    for existente in existentes:
-        if existente.id in usados_ids:
-            continue
-        progreso = calcular_progreso_presupuesto(existente)
-        if progreso.ejecutado > 0:
-            existente.confirmado = True
-            existente.estado = progreso.estado
-            continue
-        db.delete(existente)
-
-    db.commit()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def actualizar_monto_presupuesto_item(

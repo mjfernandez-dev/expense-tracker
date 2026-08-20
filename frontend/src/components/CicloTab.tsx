@@ -476,12 +476,6 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
           >
             Ahorro
           </button>
-          <button
-            onClick={() => setSubTab('plantilla')}
-            className="border border-slate-600/60 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 hover:text-slate-100 text-xs font-medium px-3 py-1 rounded-lg transition-colors"
-          >
-            Categorías
-          </button>
         </div>
       </div>
 

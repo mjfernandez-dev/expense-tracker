@@ -1,4 +1,7 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
+
+import pytest
 
 from services import ciclo_time_service
 
@@ -510,3 +513,249 @@ def test_crear_item_presupuesto_solo_descripcion_no_falla(logged_in_client, user
     assert item["monto_estimado"] == 500.0
     assert item["monto_ejecutado"] == 0.0
     assert item["estado"] == "pendiente"
+
+
+# ── Plantilla de presupuesto como fuente de verdad ──
+
+def _obtener_categoria(client, user_category_id: int) -> dict:
+    response = client.get("/user-categories/")
+    assert response.status_code == 200, response.text
+    return next(cat for cat in response.json() if cat["id"] == user_category_id)
+
+
+@pytest.mark.parametrize(
+    ("monto_inicial", "monto_confirmado", "monto_esperado"),
+    [
+        (None, 200.0, 200.0),
+        (100.0, 200.0, 200.0),
+        (200.0, 200.0, 200.0),
+        (300.0, 200.0, 300.0),
+    ],
+)
+def test_bulk_registra_maximo_confirmado_en_plantilla(
+    logged_in_client,
+    user_category_id,
+    monto_inicial,
+    monto_confirmado,
+    monto_esperado,
+):
+    if monto_inicial is not None:
+        response = logged_in_client.put(
+            f"/user-categories/{user_category_id}",
+            json={"monto_default": monto_inicial},
+        )
+        assert response.status_code == 200, response.text
+
+    ingreso = logged_in_client.post(
+        "/movimientos/", json=_ingreso(user_category_id, 1000.0)
+    ).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+    response = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/",
+        json={
+            "items": [{
+                "user_category_id": user_category_id,
+                "monto_estimado": monto_confirmado,
+                "confirmado": True,
+            }]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    categoria = _obtener_categoria(logged_in_client, user_category_id)
+    assert categoria["tiene_monto_fijo"] is True
+    assert categoria["monto_default"] == monto_esperado
+
+
+def test_bulk_no_registra_item_no_confirmado_en_plantilla(
+    logged_in_client, user_category_id
+):
+    ingreso = logged_in_client.post(
+        "/movimientos/", json=_ingreso(user_category_id, 1000.0)
+    ).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+    response = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/",
+        json={
+            "items": [{
+                "user_category_id": user_category_id,
+                "monto_estimado": 200.0,
+                "confirmado": False,
+            }]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    categoria = _obtener_categoria(logged_in_client, user_category_id)
+    assert categoria["tiene_monto_fijo"] is False
+    assert categoria["monto_default"] is None
+
+
+def test_bulk_registra_item_no_confirmado_si_ya_tiene_ejecucion(
+    logged_in_client, user_category_id
+):
+    ingreso = logged_in_client.post(
+        "/movimientos/", json=_ingreso(user_category_id, 1000.0)
+    ).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+    primera_respuesta = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/",
+        json={
+            "items": [{
+                "user_category_id": user_category_id,
+                "monto_estimado": 200.0,
+                "confirmado": True,
+            }]
+        },
+    )
+    item_id = primera_respuesta.json()["resumen"]["presupuesto_items"][0]["id"]
+    gasto = logged_in_client.post(
+        "/movimientos/", json=_gasto(user_category_id, 100.0, item_id)
+    )
+    assert gasto.status_code == 200, gasto.text
+    reinicio_plantilla = logged_in_client.put(
+        f"/user-categories/{user_category_id}", json={"monto_default": 0}
+    )
+    assert reinicio_plantilla.status_code == 200, reinicio_plantilla.text
+
+    response = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/",
+        json={
+            "items": [{
+                "user_category_id": user_category_id,
+                "monto_estimado": 250.0,
+                "confirmado": False,
+            }]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    categoria = _obtener_categoria(logged_in_client, user_category_id)
+    assert categoria["tiene_monto_fijo"] is True
+    assert categoria["monto_default"] == 250.0
+
+
+def test_bulk_items_sin_user_category_no_modifican_plantillas(
+    logged_in_client, user_category_id, db_session
+):
+    import models
+
+    categoria_sistema = models.Category(nombre="Sistema bulk", es_predeterminada=True)
+    db_session.add(categoria_sistema)
+    db_session.flush()
+    ingreso = logged_in_client.post(
+        "/movimientos/", json=_ingreso(user_category_id, 1000.0)
+    ).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    response = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/",
+        json={
+            "items": [
+                {
+                    "categoria_id": categoria_sistema.id,
+                    "monto_estimado": 100.0,
+                    "confirmado": True,
+                },
+                {
+                    "descripcion": "Ad hoc",
+                    "monto_estimado": 150.0,
+                    "confirmado": True,
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    categoria = _obtener_categoria(logged_in_client, user_category_id)
+    assert categoria["tiene_monto_fijo"] is False
+    assert categoria["monto_default"] is None
+
+
+def test_bulk_rechaza_user_category_ajena_sin_mutarla(
+    logged_in_client, second_logged_in_client, user_category_id
+):
+    categoria_ajena = second_logged_in_client.post(
+        "/user-categories/", json={"nombre": "Categoría ajena"}
+    )
+    assert categoria_ajena.status_code == 200, categoria_ajena.text
+    categoria_ajena_id = categoria_ajena.json()["id"]
+    ingreso = logged_in_client.post(
+        "/movimientos/", json=_ingreso(user_category_id, 1000.0)
+    ).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    response = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/",
+        json={
+            "items": [{
+                "user_category_id": categoria_ajena_id,
+                "monto_estimado": 500.0,
+                "confirmado": True,
+            }]
+        },
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == "Categoría de usuario no válida"
+    categoria = _obtener_categoria(second_logged_in_client, categoria_ajena_id)
+    assert categoria["tiene_monto_fijo"] is False
+    assert categoria["monto_default"] is None
+    ciclo_actual = logged_in_client.get(f"/ciclos/{ciclo['id']}").json()
+    assert ciclo_actual["resumen"]["presupuesto_items"] == []
+
+
+def test_bulk_revierte_plantilla_y_presupuesto_si_falla_commit(tmp_path, monkeypatch):
+    import models
+    import schemas
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from services import ciclo_commitment_service
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'bulk_rollback.db'}")
+    models.Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    user = models.User(
+        username="rollback_user",
+        email="rollback@test.com",
+        hashed_password="test",
+    )
+    session.add(user)
+    session.flush()
+    categoria = models.UserCategory(user_id=user.id, nombre="Rollback")
+    ciclo = models.Ciclo(
+        user_id=user.id,
+        fecha_inicio=datetime.now(),
+        fecha_fin=datetime.now() + timedelta(days=10),
+        ahorro_objetivo=Decimal("0"),
+    )
+    session.add_all([categoria, ciclo])
+    session.commit()
+    categoria_id = categoria.id
+    ciclo_id = ciclo.id
+
+    def fallar_commit():
+        raise RuntimeError("fallo de persistencia")
+
+    monkeypatch.setattr(session, "commit", fallar_commit)
+    with pytest.raises(RuntimeError, match="fallo de persistencia"):
+        ciclo_commitment_service.aplicar_presupuesto_bulk(
+            ciclo,
+            [schemas.PresupuestoItemCreate(
+                user_category_id=categoria_id,
+                monto_estimado=Decimal("350"),
+                confirmado=True,
+            )],
+            session,
+            user.id,
+        )
+    session.close()
+
+    verificacion = Session()
+    categoria_persistida = verificacion.get(models.UserCategory, categoria_id)
+    assert categoria_persistida.tiene_monto_fijo is False
+    assert categoria_persistida.monto_default is None
+    assert verificacion.query(models.PresupuestoItem).filter_by(ciclo_id=ciclo_id).count() == 0
+    verificacion.close()
+    engine.dispose()

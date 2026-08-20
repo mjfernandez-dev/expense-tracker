@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import type { PresupuestoItemCreate, UserCategory } from '../types';
-import { getUserCategories, getCicloActivo, getUltimoCiclo, getMaximosHistoricos, createCiclo, confirmarPresupuesto, cerrarCiclo, updateUserPreferences } from '../services/api';
+import type { PresupuestoItemCreate } from '../types';
+import { getUserCategories, getCicloActivo, getMaximosHistoricos, createCiclo, confirmarPresupuesto, cerrarCiclo, updateUserPreferences } from '../services/api';
 import {
   getDaysRemainingInclusiveBA,
   getLastDayOfCurrentMonthBA,
   isDateAtOrAfterTodayBA,
 } from '../utils/buenosAiresDate';
+import {
+  mapearSugerenciasPresupuesto,
+  type CategoriaPresupuestoSugerida,
+} from '../utils/presupuestoSuggestions';
 
 interface CicloWizardProps {
   movimientoOrigenId: number | null;
@@ -13,13 +17,6 @@ interface CicloWizardProps {
   onComplete: () => void;
   onClose: () => void;
   porcentajeAhorro?: number;
-}
-
-interface CategoriaPresupuesto {
-  user_category_id: number;
-  nombre: string;
-  monto: string;
-  activa: boolean;
 }
 
 interface CicloActivoInfo {
@@ -43,7 +40,7 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
   const [ahorro, setAhorro] = useState<string>(String(ahorroCalculado));
   const [ahorroPorcentaje, setAhorroPorcentaje] = useState<string>(String(porcentajeAhorro));
   const [fuenteEdicion, setFuenteEdicion] = useState<'monto' | 'porcentaje'>('monto');
-  const [categorias, setCategorias] = useState<CategoriaPresupuesto[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaPresupuestoSugerida[]>([]);
   const [loadingCats, setLoadingCats] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -68,46 +65,11 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
     const cargar = async () => {
       setLoadingCats(true);
       try {
-        const [cicloConDatos, cats, maximosHistoricos] = await Promise.all([
-          (await getCicloActivo()) ?? (await getUltimoCiclo()),
+        const [cats, maximosHistoricos] = await Promise.all([
           getUserCategories(),
           getMaximosHistoricos(),
         ]);
-        const sugerenciasCiclo: Record<number, number> = {};
-
-        // Sugerencias del último ciclo, combinadas con el máximo histórico
-        if (cicloConDatos?.resumen?.presupuesto_items) {
-          for (const item of cicloConDatos.resumen.presupuesto_items) {
-            if (item.user_category_id) {
-              const ultimoCiclo = Math.max(
-                Number(item.monto_estimado),
-                Number(item.monto_ejecutado ?? 0),
-              );
-              const historico = maximosHistoricos[item.user_category_id] ?? 0;
-              sugerenciasCiclo[item.user_category_id] = Math.max(ultimoCiclo, historico);
-            }
-          }
-        }
-
-        // Categorías con gasto histórico que no estuvieron en el último ciclo
-        for (const [catId, maximo] of Object.entries(maximosHistoricos)) {
-          const id = Number(catId);
-          if (!sugerenciasCiclo[id]) {
-            sugerenciasCiclo[id] = maximo;
-          }
-        }
-
-        setCategorias(
-          cats.map((cat: UserCategory) => {
-            if (sugerenciasCiclo[cat.id]) {
-              return { user_category_id: cat.id, nombre: cat.nombre, monto: String(sugerenciasCiclo[cat.id]), activa: true };
-            }
-            if (cat.tiene_monto_fijo && cat.monto_default && cat.monto_default > 0) {
-              return { user_category_id: cat.id, nombre: cat.nombre, monto: String(cat.monto_default), activa: true };
-            }
-            return { user_category_id: cat.id, nombre: cat.nombre, monto: '', activa: false };
-          })
-        );
+        setCategorias(mapearSugerenciasPresupuesto(cats, maximosHistoricos));
       } catch {
         setError('No se pudieron cargar las sugerencias de presupuesto.');
       } finally {
@@ -255,7 +217,7 @@ export default function CicloWizard({ movimientoOrigenId, importeReferencia, onC
                 type="date"
                 value={fechaFin}
                 onChange={e => setFechaFin(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm scheme-dark"
               />
             </div>
             <div className="bg-slate-800/60 rounded-xl px-4 py-3 text-sm text-slate-300">
