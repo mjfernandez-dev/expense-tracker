@@ -474,7 +474,7 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
             onClick={() => setMostrarAhorroModal(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1 rounded-md transition-colors"
           >
-            Ahorro
+            Editar ahorro
           </button>
         </div>
       </div>

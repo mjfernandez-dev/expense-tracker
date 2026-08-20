@@ -1,6 +1,10 @@
 import { useState } from 'react';
-import type { Ciclo, CicloCreate } from '../types';
-import { updateCiclo, updateUserPreferences } from '../services/api';
+import type { Ciclo } from '../types';
+import {
+  calcularMontoAhorro,
+  calcularPorcentajeAhorro,
+  guardarAhorroCiclo,
+} from '../services/ahorroCiclo';
 
 interface AhorroModalProps {
   ciclo: Ciclo;
@@ -31,8 +35,8 @@ export default function AhorroModal({ ciclo, onClose, onSaved }: AhorroModalProp
     setFuenteEdicion('monto');
     setAhorro(value);
     const monto = parseFloat(value);
-    // Guard: ingreso 0 → % 0 (evita división por cero / NaN); tope 100 (el backend rechaza >100)
-    const pct = importeReferencia > 0 && !isNaN(monto) ? Math.min(100, redondear1((monto / importeReferencia) * 100)) : 0;
+    // Guard: ingreso 0 → % 0 (evita división por cero / NaN); tope 100 para la referencia visual.
+    const pct = calcularPorcentajeAhorro(monto, importeReferencia);
     setAhorroPorcentaje(String(pct));
   };
 
@@ -41,7 +45,7 @@ export default function AhorroModal({ ciclo, onClose, onSaved }: AhorroModalProp
     setAhorroPorcentaje(value);
     const pct = parseFloat(value);
     // Importe redondeado a pesos
-    const monto = !isNaN(pct) ? Math.round((importeReferencia * pct) / 100) : 0;
+    const monto = calcularMontoAhorro(pct, importeReferencia);
     setAhorro(String(monto));
   };
 
@@ -53,23 +57,7 @@ export default function AhorroModal({ ciclo, onClose, onSaved }: AhorroModalProp
     }
     setLoading(true);
     try {
-      const updated = await updateCiclo(ciclo.id, { ahorro_objetivo: ahorroNum } as Partial<CicloCreate>);
-      // Persistir el % vigente como default (no bloqueante: no impide guardar el ahorro).
-      // El % se clampea a [0,100]: el backend rechaza >100 con 422.
-      const pct = parseFloat(ahorroPorcentaje);
-      let preferencesFailed = false;
-      if (!isNaN(pct)) {
-        try {
-          await updateUserPreferences({ porcentaje_ahorro_default: Math.min(100, Math.max(0, pct)) });
-        } catch {
-          preferencesFailed = true;
-        }
-      }
-      if (preferencesFailed) {
-        // El ahorro ya se guardó, pero avisamos y NO cerramos para que el mensaje sea visible y se pueda reintentar.
-        setError('El ahorro se guardó, pero no se pudo actualizar tu porcentaje por defecto.');
-        return;
-      }
+      const updated = await guardarAhorroCiclo(ciclo.id, ahorroNum);
       onSaved(updated);
       onClose();
     } catch (err) {
@@ -94,7 +82,7 @@ export default function AhorroModal({ ciclo, onClose, onSaved }: AhorroModalProp
           </button>
         </div>
         <p className="text-slate-400 text-sm">
-          Este monto se reserva de inmediato y no cuenta como disponible. El % se sincroniza con el importe.
+          Este monto se reserva en el ciclo actual y no cuenta como disponible. El porcentaje solo te ayuda a calcularlo.
         </p>
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <div className="grid grid-cols-2 gap-3">

@@ -466,12 +466,12 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
         {/* Columna derecha: Ahorro + Nueva categoría */}
         <div className="space-y-4">
 
-          {/* Porcentaje de ahorro objetivo */}
+          {/* Porcentaje de ahorro por defecto */}
           <div className="bg-slate-900/80 backdrop-blur-2xl border border-slate-700/70 rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-white font-semibold text-sm">Porcentaje de ahorro objetivo</h3>
-                <p className="text-slate-400 text-xs mt-0.5">Se aparta de cada ingreso al iniciar un ciclo</p>
+                <h3 className="text-white font-semibold text-sm">Ahorro por defecto para futuros ciclos</h3>
+                <p className="text-slate-400 text-xs mt-0.5">Se aplica al iniciar un ciclo nuevo y no modifica el ciclo actual</p>
               </div>
               <SaveIndicator state={ahorroSaveState} />
             </div>
@@ -492,7 +492,7 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
               )}
             </div>
             <div className="bg-slate-800/50 rounded-xl px-3 py-2 text-xs text-slate-400 space-y-0.5">
-              <p>En tu próximo ingreso de <span className="text-slate-300 font-medium">$100,000</span> se apartarían <span className="text-emerald-400 font-medium">${(100000 * (parseFloat(porcentajeInput) || 0) / 100).toLocaleString('es-AR')}</span>.</p>
+              <p>En un futuro ciclo, de un ingreso de <span className="text-slate-300 font-medium">$100,000</span> se apartarían <span className="text-emerald-400 font-medium">${(100000 * (parseFloat(porcentajeInput) || 0) / 100).toLocaleString('es-AR')}</span>.</p>
               <p className="text-slate-500">Ajustable en el Paso 2 del wizard al iniciar un ciclo.</p>
             </div>
           </div>
