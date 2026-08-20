@@ -1,9 +1,11 @@
 # Pydantic valida que los datos recibidos/enviados por la API sean correctos
-from pydantic import BaseModel, EmailStr, field_validator, PlainSerializer, Field
-from datetime import datetime
+from pydantic import BaseModel, EmailStr, field_validator, model_validator, PlainSerializer, Field
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Optional, List
 import re
+
+from services.ciclo_time_service import ahora_buenos_aires
 
 # Tipo para montos de dinero: precisión Decimal internamente, serializa como float en JSON
 MoneyDecimal = Annotated[Decimal, PlainSerializer(lambda x: float(x), return_type=float)]
@@ -240,6 +242,82 @@ class GastoFijoUpdate(BaseModel):
     dias_anticipacion: Optional[int] = Field(None, ge=0, le=28)
 
 
+# ============== SCHEMAS PARA GASTO PROGRAMADO ==============
+
+class GastoProgramadoCreate(BaseModel):
+    importe: MoneyDecimal
+    vencimiento: date
+    descripcion: str
+    nota: Optional[str] = None
+    categoria_id: Optional[int] = None
+    user_category_id: Optional[int] = None
+    medio_pago: Optional[str] = None
+    clasificacion: Optional[str] = None
+    dias_anticipacion: Optional[int] = Field(default=2, ge=0, le=28)
+    cuota_actual: Optional[int] = Field(None, ge=1)
+    cuota_total: Optional[int] = Field(None, ge=1)
+
+    @model_validator(mode="after")
+    def _validar_reglas(self):
+        if self.categoria_id is None and self.user_category_id is None:
+            raise ValueError("Se requiere al menos una categoría (sistema o personalizada)")
+        if self.vencimiento < ahora_buenos_aires().date():
+            raise ValueError("La fecha de vencimiento no puede estar en el pasado")
+        if self.cuota_actual is not None and self.cuota_total is not None and self.cuota_actual > self.cuota_total:
+            raise ValueError("La cuota actual no puede superar el total de cuotas")
+        return self
+
+
+class GastoProgramadoUpdate(BaseModel):
+    importe: Optional[MoneyDecimal] = None
+    vencimiento: Optional[date] = None
+    descripcion: Optional[str] = None
+    nota: Optional[str] = None
+    categoria_id: Optional[int] = None
+    user_category_id: Optional[int] = None
+    medio_pago: Optional[str] = None
+    clasificacion: Optional[str] = None
+    dias_anticipacion: Optional[int] = Field(None, ge=0, le=28)
+    cuota_actual: Optional[int] = Field(None, ge=1)
+    cuota_total: Optional[int] = Field(None, ge=1)
+
+    @model_validator(mode="after")
+    def _validar_reglas(self):
+        campos = self.model_fields_set
+        if ("categoria_id" in campos or "user_category_id" in campos) and self.categoria_id is None and self.user_category_id is None:
+            raise ValueError("Se requiere al menos una categoría (sistema o personalizada)")
+        if self.vencimiento is not None and self.vencimiento < ahora_buenos_aires().date():
+            raise ValueError("La fecha de vencimiento no puede estar en el pasado")
+        if self.cuota_actual is not None and self.cuota_total is not None and self.cuota_actual > self.cuota_total:
+            raise ValueError("La cuota actual no puede superar el total de cuotas")
+        return self
+
+
+class GastoProgramadoRead(BaseModel):
+    id: int
+    user_id: int
+    importe: MoneyDecimal
+    vencimiento: date
+    descripcion: str
+    nota: Optional[str] = None
+    categoria_id: Optional[int] = None
+    user_category_id: Optional[int] = None
+    medio_pago: Optional[str] = None
+    clasificacion: Optional[str] = None
+    dias_anticipacion: Optional[int] = None
+    estado: str
+    cuota_actual: Optional[int] = None
+    cuota_total: Optional[int] = None
+    movimiento_id: Optional[int] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    categoria: Optional[CategoryRead] = None
+    user_category: Optional[UserCategoryRead] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ============== SCHEMAS PARA PRESUPUESTO POR CICLO =============
 
 class PresupuestoItemCreate(BaseModel):
@@ -270,6 +348,7 @@ class PresupuestoItemRead(BaseModel):
     confirmado: bool
     descripcion: Optional[str] = None
     estado: str
+    gasto_programado_id: Optional[int] = None
 
     class Config:
         from_attributes = True

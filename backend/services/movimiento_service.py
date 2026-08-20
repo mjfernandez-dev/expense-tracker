@@ -1,5 +1,5 @@
 """Lógica de negocio para movimientos: auto-detección y vinculación de presupuesto."""
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Optional
 
@@ -9,6 +9,20 @@ from sqlalchemy.orm import Session, joinedload
 import models
 import schemas
 from services.ciclo_commitment_service import calcular_progreso_presupuesto
+from services.ciclo_time_service import BA_TIMEZONE, ahora_buenos_aires
+
+
+def _normalizar_fecha(fecha: datetime) -> datetime:
+    """Convierte un datetime (posiblemente tz-aware) a naive en horario Buenos Aires."""
+    if fecha.tzinfo is not None:
+        return fecha.astimezone(BA_TIMEZONE).replace(tzinfo=None)
+    return fecha
+
+
+def _validar_fecha_no_futura(fecha: datetime) -> None:
+    """Rechaza movimientos con fecha posterior a hoy (horario Buenos Aires)."""
+    if _normalizar_fecha(fecha).date() > ahora_buenos_aires().date():
+        raise HTTPException(status_code=400, detail="La fecha del movimiento no puede ser futura")
 
 
 def load_presupuesto_item(item_id: int, current_user_id: int, db: Session) -> models.PresupuestoItem:
@@ -67,6 +81,7 @@ def auto_detectar_presupuesto_item(
     importe: Decimal,
     user_id: int,
     db: Session,
+    fecha: datetime,
     exclude_movimiento_id: Optional[int] = None,
 ) -> Optional[int]:
     ciclo_activo = db.query(models.Ciclo).filter(
@@ -75,6 +90,15 @@ def auto_detectar_presupuesto_item(
     ).first()
 
     if not ciclo_activo:
+        return None
+
+    # Auto-vinculación solo dentro de la ventana abierta del ciclo:
+    # fecha_inicio <= fecha <= min(ahora, fecha_fin). Un movimiento con fecha
+    # anterior al ciclo o más allá de su fin (aunque no sea futura) no se
+    # auto-vincula: no pertenece al período vigente.
+    fecha = _normalizar_fecha(fecha)
+    ventana_fin = min(ahora_buenos_aires(), ciclo_activo.fecha_fin)
+    if not (ciclo_activo.fecha_inicio <= fecha <= ventana_fin):
         return None
 
     query = db.query(models.PresupuestoItem).filter(
@@ -187,6 +211,7 @@ def crear_movimiento(
         user_id,
         db,
     )
+    _validar_fecha_no_futura(movimiento.fecha)
 
     datos = movimiento.model_dump(exclude={"presupuesto_item_id", "es_fijo"})
     datos["clasificacion"] = resolve_clasificacion(movimiento.tipo, movimiento.clasificacion)
@@ -214,6 +239,7 @@ def crear_movimiento(
             Decimal(str(movimiento.importe)),
             user_id,
             db,
+            fecha=movimiento.fecha,
         )
 
     apply_presupuesto_item_link(db_movimiento, item_id, user_id, db)
@@ -242,6 +268,7 @@ def actualizar_movimiento(
         user_id,
         db,
     )
+    _validar_fecha_no_futura(movimiento_update.fecha)
 
     db_movimiento.importe = movimiento_update.importe
     db_movimiento.fecha = movimiento_update.fecha
@@ -262,6 +289,7 @@ def actualizar_movimiento(
             Decimal(str(movimiento_update.importe)),
             user_id,
             db,
+            fecha=movimiento_update.fecha,
             exclude_movimiento_id=movimiento_id,
         )
 

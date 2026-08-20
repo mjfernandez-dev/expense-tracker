@@ -1,6 +1,6 @@
 # Importamos tipos de columnas y herramientas de SQLAlchemy
 from decimal import Decimal
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Numeric, DateTime, Boolean, Date, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 # CONEXIÓN: Importamos Base desde database.py (la clase padre de todos los modelos)
 from database import Base
@@ -26,6 +26,7 @@ class User(Base):
     # RELACIÓN 1-a-N: Un usuario tiene MUCHOS movimientos
     movimientos = relationship("Movimiento", back_populates="usuario")
     gastos_fijos = relationship("GastoFijo", back_populates="usuario")
+    gastos_programados = relationship("GastoProgramado", back_populates="usuario")
 
 
 # MODELO: Tabla de refresh tokens (para renovar access tokens sin re-login)
@@ -74,6 +75,7 @@ class Category(Base):
     # RELACIÓN: Movimientos que usan esta categoría del sistema
     movimientos = relationship("Movimiento", back_populates="categoria")
     gastos_fijos = relationship("GastoFijo", back_populates="categoria")
+    gastos_programados = relationship("GastoProgramado", back_populates="categoria")
 
 
 # MODELO: Tabla de categorías personalizadas del usuario (MULTI-TENANCY)
@@ -105,6 +107,7 @@ class UserCategory(Base):
     usuario = relationship("User", backref="categorias_personalizadas")
     movimientos = relationship("Movimiento", back_populates="user_category")
     gastos_fijos = relationship("GastoFijo", back_populates="user_category")
+    gastos_programados = relationship("GastoProgramado", back_populates="user_category")
 
 
 
@@ -123,11 +126,18 @@ class PresupuestoItem(Base):
     descripcion = Column(EncryptedString, nullable=True)
     estado = Column(String, default="pendiente", nullable=False)
     gasto_fijo_id = Column(Integer, ForeignKey("gastos_fijos.id"), nullable=True, index=True)
+    gasto_programado_id = Column(Integer, ForeignKey("gastos_programados.id"), nullable=True, index=True)
+
+    # ✅ Un gasto programado se reserva una sola vez por ciclo
+    __table_args__ = (
+        UniqueConstraint('ciclo_id', 'gasto_programado_id', name='uq_ciclo_gasto_programado'),
+    )
 
     # RELACIONES
     ciclo = relationship("Ciclo", back_populates="presupuesto_items")
     movimientos = relationship("Movimiento", back_populates="presupuesto_item")
     gasto_fijo = relationship("GastoFijo", back_populates="presupuesto_items")
+    gasto_programado = relationship("GastoProgramado", back_populates="presupuesto_items")
 
 
 # MODELO 2: Tabla de movimientos (gastos e ingresos)
@@ -202,6 +212,43 @@ class GastoFijo(Base):
     user_category = relationship("UserCategory", back_populates="gastos_fijos")
     movimientos = relationship("Movimiento", back_populates="gasto_fijo")
     presupuesto_items = relationship("PresupuestoItem", back_populates="gasto_fijo")
+
+
+# ============== MODELO PARA GASTOS PROGRAMADOS (OBLIGACIONES FUTURAS) ==============
+class GastoProgramado(Base):
+    """
+    Obligación de pago futura (vencimiento puntual) que reserva presupuesto
+    cuando su vencimiento cae dentro del ciclo activo. Al "registrar pago" se
+    convierte en un Movimiento real y pasa a estado "pagado" sin
+    descontar dos veces del saldo disponible.
+    """
+    __tablename__ = "gastos_programados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    importe = Column(Numeric(10, 2), nullable=False)
+    vencimiento = Column(Date, nullable=False, index=True)
+    descripcion = Column(EncryptedString, nullable=False)
+    nota = Column(EncryptedString, nullable=True)
+    categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
+    medio_pago = Column(String, nullable=True)
+    clasificacion = Column(String, nullable=True)
+    dias_anticipacion = Column(Integer, nullable=True, default=2)
+    estado = Column(String, nullable=False, default="pendiente")
+    cuota_actual = Column(Integer, nullable=True)
+    cuota_total = Column(Integer, nullable=True)
+    movimiento_id = Column(Integer, ForeignKey("movimientos.id"), nullable=True, index=True)
+    last_notified_on = Column(Date, nullable=True)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+    updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
+
+    # RELACIONES
+    usuario = relationship("User", back_populates="gastos_programados")
+    categoria = relationship("Category", back_populates="gastos_programados")
+    user_category = relationship("UserCategory", back_populates="gastos_programados")
+    movimiento = relationship("Movimiento")
+    presupuesto_items = relationship("PresupuestoItem", back_populates="gasto_programado")
 
 
 # ============== MÓDULO DAILY SOLVENCY ==============

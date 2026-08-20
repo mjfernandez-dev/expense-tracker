@@ -170,6 +170,10 @@ def crear_nuevo_ciclo(
             gasto_fijo_id=gf.id,
         ))
 
+    # Auto-importar gastos programados pendientes que vencen dentro del ciclo
+    from services.gasto_programado_service import importar_gastos_programados_al_ciclo
+    importar_gastos_programados_al_ciclo(ciclo, user_id, db)
+
     db.commit()
     db.refresh(ciclo)
     return ciclo
@@ -383,6 +387,7 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
             confirmado=item.confirmado,
             descripcion=item.descripcion,
             estado=progresos[item.id].estado,
+            gasto_programado_id=item.gasto_programado_id,
         )
         for item in ciclo.presupuesto_items
     ]

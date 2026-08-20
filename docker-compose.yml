@@ -45,6 +45,9 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - SECRET_KEY=${SECRET_KEY}  # REQUERIDA - sin fallback
 
+      # Cron interno (Cloud Scheduler llama a /api/cron/* con este header)
+      - CRON_SECRET=${CRON_SECRET:-cambiar-esta-clave-en-produccion}
+
       # Base de datos
       - DATABASE_URL=postgresql://${DB_USER:-finanzaapp_user}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-finanzaapp_db}
 

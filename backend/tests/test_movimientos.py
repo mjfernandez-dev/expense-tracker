@@ -339,3 +339,142 @@ def test_service_actualizar_movimiento_autovincula_presupuesto(db_session):
         db_session,
     )
     assert mov_actualizado.presupuesto_item_id == item.id
+
+
+# ============== hardening temporal: fechas futuras y ventana del ciclo ==============
+
+def test_crear_movimiento_fecha_futura_400(logged_in_client, user_category_id):
+    """API: un movimiento con fecha futura debe retornar 400, no crearse."""
+    from datetime import timedelta
+
+    payload = {
+        **_gasto(user_category_id),
+        "fecha": (datetime.now() + timedelta(days=1)).isoformat(),
+    }
+    r = logged_in_client.post("/movimientos/", json=payload)
+    assert r.status_code == 400
+    assert "futura" in r.json()["detail"]
+
+
+def test_actualizar_movimiento_fecha_futura_400(logged_in_client, user_category_id):
+    """API: actualizar un movimiento con fecha futura debe retornar 400."""
+    from datetime import timedelta
+
+    r = logged_in_client.post("/movimientos/", json=_gasto(user_category_id))
+    mov_id = r.json()["id"]
+
+    update = {
+        **_gasto(user_category_id),
+        "fecha": (datetime.now() + timedelta(days=1)).isoformat(),
+    }
+    r2 = logged_in_client.put(f"/movimientos/{mov_id}", json=update)
+    assert r2.status_code == 400
+    assert "futura" in r2.json()["detail"]
+
+
+def test_service_crear_movimiento_fecha_futura_400(db_session):
+    from services import movimiento_service, user_category_service
+    from services.ciclo_time_service import ahora_buenos_aires
+    from datetime import timedelta
+    from decimal import Decimal
+
+    import schemas
+
+    user = _crear_user(db_session, "u_futuro")
+    cat = user_category_service.crear_user_category(
+        user.id, schemas.UserCategoryCreate(nombre="Futuro"), db_session
+    )
+    with pytest.raises(HTTPException) as exc:
+        movimiento_service.crear_movimiento(
+            schemas.MovimientoCreate(
+                importe=Decimal("100"),
+                fecha=ahora_buenos_aires() + timedelta(days=1),
+                descripcion="Futuro",
+                tipo="gasto",
+                user_category_id=cat.id,
+            ),
+            user.id,
+            db_session,
+        )
+    assert exc.value.status_code == 400
+    assert "futura" in exc.value.detail
+
+
+def test_service_actualizar_movimiento_fecha_futura_400(db_session):
+    from services import movimiento_service, user_category_service
+    from services.ciclo_time_service import ahora_buenos_aires
+    from datetime import timedelta
+    from decimal import Decimal
+
+    import schemas
+
+    user = _crear_user(db_session, "u_futuro_update")
+    cat = user_category_service.crear_user_category(
+        user.id, schemas.UserCategoryCreate(nombre="Futuro Upd"), db_session
+    )
+    mov = movimiento_service.crear_movimiento(
+        schemas.MovimientoCreate(
+            importe=Decimal("100"),
+            fecha=ahora_buenos_aires(),
+            descripcion="Normal",
+            tipo="gasto",
+            user_category_id=cat.id,
+        ),
+        user.id,
+        db_session,
+    )
+    with pytest.raises(HTTPException) as exc:
+        movimiento_service.actualizar_movimiento(
+            mov.id,
+            schemas.MovimientoCreate(
+                importe=Decimal("150"),
+                fecha=ahora_buenos_aires() + timedelta(days=1),
+                descripcion="Normal futura",
+                tipo="gasto",
+                user_category_id=cat.id,
+            ),
+            user.id,
+            db_session,
+        )
+    assert exc.value.status_code == 400
+    assert "futura" in exc.value.detail
+
+
+def test_service_crear_movimiento_fuera_de_la_ventana_del_ciclo_no_autovincula(db_session):
+    """Movimiento con fecha más allá del fin del ciclo (aunque no futura) no se auto-vincula."""
+    from services import movimiento_service, user_category_service
+    from services.ciclo_time_service import ahora_buenos_aires
+    from decimal import Decimal
+    from datetime import timedelta
+
+    import models
+    import schemas
+
+    user = _crear_user(db_session, "u_fuera_ventana")
+    cat = user_category_service.crear_user_category(
+        user.id, schemas.UserCategoryCreate(nombre="Fuera Ventana"), db_session
+    )
+    ahora = ahora_buenos_aires()
+    ciclo = models.Ciclo(
+        user_id=user.id,
+        fecha_inicio=ahora - timedelta(days=20),
+        fecha_fin=ahora - timedelta(days=5),
+        ahorro_objetivo=Decimal("0"),
+        activo=True,
+    )
+    db_session.add(ciclo)
+    db_session.flush()
+    _crear_item_presupuesto(db_session, ciclo.id, cat.id)
+
+    mov = movimiento_service.crear_movimiento(
+        schemas.MovimientoCreate(
+            importe=Decimal("200"),
+            fecha=ahora,
+            descripcion="Compra fuera del ciclo",
+            tipo="gasto",
+            user_category_id=cat.id,
+        ),
+        user.id,
+        db_session,
+    )
+    assert mov.presupuesto_item_id is None

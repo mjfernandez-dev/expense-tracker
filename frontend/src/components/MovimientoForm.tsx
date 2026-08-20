@@ -427,6 +427,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             </label>
             <input
               type="date"
+              max={getCurrentBADateInputValue()}
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
               className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all [color-scheme:dark] ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}

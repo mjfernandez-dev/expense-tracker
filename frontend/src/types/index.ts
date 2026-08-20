@@ -122,6 +122,7 @@ export interface PresupuestoItem {
   confirmado: boolean;
   descripcion: string | null;
   estado: 'pendiente' | 'parcial' | 'efectivizado';
+  gasto_programado_id?: number | null;
 }
 
 export interface PresupuestoItemCreate {
@@ -195,5 +196,45 @@ export interface CicloCreate {
   fecha_fin: string;
   ahorro_objetivo: number;
 }
+
+// ============== TIPOS DE GASTO PROGRAMADO ==============
+
+export interface GastoProgramado {
+  id: number;
+  user_id: number;
+  importe: number;
+  vencimiento: string;
+  descripcion: string;
+  nota: string | null;
+  categoria_id: number | null;
+  user_category_id: number | null;
+  medio_pago: string | null;
+  clasificacion: 'necesidad' | 'deseo' | null;
+  dias_anticipacion: number | null;
+  estado: 'pendiente' | 'pagado' | 'cancelado';
+  cuota_actual: number | null;
+  cuota_total: number | null;
+  movimiento_id: number | null;
+  created_at: string;
+  updated_at: string;
+  categoria: Category | null;
+  user_category: UserCategory | null;
+}
+
+export interface GastoProgramadoCreate {
+  importe: number;
+  vencimiento: string;
+  descripcion: string;
+  nota?: string | null;
+  categoria_id?: number | null;
+  user_category_id?: number | null;
+  medio_pago?: string | null;
+  clasificacion?: 'necesidad' | 'deseo' | null;
+  dias_anticipacion?: number;
+  cuota_actual?: number | null;
+  cuota_total?: number | null;
+}
+
+export type GastoProgramadoUpdate = Partial<GastoProgramadoCreate>;
 
 // ============== TIPOS DE CUENTA ==============

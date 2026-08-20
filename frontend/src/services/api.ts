@@ -23,6 +23,9 @@ import type {
   PresupuestoItemCreate,
   GastoFijo,
   GastoFijoUpdate,
+  GastoProgramado,
+  GastoProgramadoCreate,
+  GastoProgramadoUpdate,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -483,6 +486,52 @@ export const getGastosFijos = async (): Promise<GastoFijo[]> => {
 export const updateGastoFijo = async (id: number, patch: GastoFijoUpdate): Promise<GastoFijo> => {
   const response = await api.put(`/gastos-fijos/${id}`, patch);
   return response.data;
+};
+
+// ============== GASTOS PROGRAMADOS ==============
+
+// GET /gastos-programados/ → lista gastos programados (opcionalmente por estado)
+export const getGastosProgramados = async (
+  params?: { estado?: 'pendiente' | 'pagado' | 'cancelado' }
+): Promise<GastoProgramado[]> => {
+  const response = await api.get<GastoProgramado[]>('/gastos-programados/', { params });
+  return response.data;
+};
+
+// POST /gastos-programados/ → crea un gasto programado
+export const createGastoProgramado = async (data: GastoProgramadoCreate): Promise<GastoProgramado> => {
+  const response = await api.post<GastoProgramado>('/gastos-programados/', data);
+  return response.data;
+};
+
+// PATCH /gastos-programados/{id} → actualiza campos parciales
+export const updateGastoProgramado = async (
+  id: number,
+  patch: GastoProgramadoUpdate
+): Promise<GastoProgramado> => {
+  const response = await api.patch<GastoProgramado>(`/gastos-programados/${id}`, patch);
+  return response.data;
+};
+
+// POST /gastos-programados/{id}/pagar → registra el pago y crea el movimiento asociado
+export const pagarGastoProgramado = async (
+  id: number
+): Promise<{ programado: GastoProgramado; movimiento: Movimiento }> => {
+  const response = await api.post<{ programado: GastoProgramado; movimiento: Movimiento }>(
+    `/gastos-programados/${id}/pagar`
+  );
+  return response.data;
+};
+
+// POST /gastos-programados/{id}/cancelar → cancela un gasto programado pendiente
+export const cancelarGastoProgramado = async (id: number): Promise<GastoProgramado> => {
+  const response = await api.post<GastoProgramado>(`/gastos-programados/${id}/cancelar`);
+  return response.data;
+};
+
+// DELETE /gastos-programados/{id} → elimina un gasto programado
+export const eliminarGastoProgramado = async (id: number): Promise<void> => {
+  await api.delete(`/gastos-programados/${id}`);
 };
 
 export default api;

@@ -30,4 +30,9 @@ COPY --from=frontend-builder /build/dist /app/static
 
 # Cloud Run asigna el puerto dinámicamente vía $PORT
 EXPOSE 8080
+
+# Secret para el endpoint /api/cron/* (lo envía Cloud Scheduler por header).
+# Default de imagen; Cloud Run debe sobrescribirlo en el deploy con el valor real.
+ENV CRON_SECRET=cambiar-esta-clave-en-produccion
+
 CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]

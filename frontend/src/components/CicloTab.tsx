@@ -7,6 +7,8 @@ import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, crearItemPresupues
 import ClasificacionPie from './ClasificacionPie';
 import AhorroModal from './AhorroModal';
 import PresupuestoManager from './PresupuestoManager';
+import GastoProgramadoSection from './GastoProgramadoSection';
+import GastoProgramadoForm from './GastoProgramadoForm';
 
 type SubTab = 'ciclo' | 'plantilla';
 
@@ -68,6 +70,7 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
   const [errorCategorias, setErrorCategorias] = useState<string | null>(null);
   const [loadingCategorias, setLoadingCategorias] = useState<boolean>(true);
   const [mostrarAhorroModal, setMostrarAhorroModal] = useState<boolean>(false);
+  const [mostrarGastoProgramadoForm, setMostrarGastoProgramadoForm] = useState<boolean>(false);
 
   // Carga best-effort de categorías para resolver el nombre del grupo a un id
   useEffect(() => {
@@ -318,7 +321,7 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
 
   const clasificacionData = r.clasificacion_importes;
 
-  const renderItem = (itemId: number, descripcion: string, ejecutado: number, estimado: number, estado: string, pendiente: number) => {
+  const renderItem = (itemId: number, descripcion: string, ejecutado: number, estimado: number, estado: string, pendiente: number, gastoProgramadoId: number | null) => {
     const pct = estimado > 0 ? Math.min((ejecutado / estimado) * 100, 100) : 0;
     const barColor =
       estado === 'efectivizado' ? 'bg-green-500' :
@@ -340,6 +343,11 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
             <span className="text-xs font-mono text-blue-400/80 bg-blue-500/10 border border-blue-500/20 px-1.5 py-px rounded flex-shrink-0">
               comprometida
             </span>
+            {gastoProgramadoId != null && (
+              <span className="text-xs font-mono text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-px rounded flex-shrink-0">
+                programado
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className={`text-xs font-mono ${pctColor}`}>{Math.round(pct)}%</span>
@@ -512,6 +520,22 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
         </div>
       </div>
 
+      {/* ── Gastos programados ───────────────────────── */}
+      <section>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <h2 className="text-xs font-mono font-semibold text-slate-400 uppercase tracking-widest">
+            Gastos programados
+          </h2>
+          <button
+            onClick={() => setMostrarGastoProgramadoForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1 rounded-md transition-colors"
+          >
+            Programar gasto
+          </button>
+        </div>
+        <GastoProgramadoSection refreshKey={refreshKey} onChanged={onRefresh} />
+      </section>
+
       {/* ── Desktop: 2 columnas / Mobile: 1 columna ─── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
 
@@ -529,7 +553,7 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
             ) : (
               <div className="divide-y divide-slate-700/50">
                 {items.map((item) =>
-                  renderItem(item.id, item.descripcion ?? '', item.monto_ejecutado, item.monto_estimado, item.estado, item.monto_pendiente)
+                  renderItem(item.id, item.descripcion ?? '', item.monto_ejecutado, item.monto_estimado, item.estado, item.monto_pendiente, item.gasto_programado_id ?? null)
                 )}
 
                 {items.length > 0 && sinPresupuesto.length > 0 && (
@@ -672,6 +696,16 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
           onSaved={(actualizado) => {
             setSelectedCiclo(actualizado);
             setMostrarAhorroModal(false);
+          }}
+        />
+      )}
+
+      {mostrarGastoProgramadoForm && (
+        <GastoProgramadoForm
+          onClose={() => setMostrarGastoProgramadoForm(false)}
+          onCreated={() => {
+            setMostrarGastoProgramadoForm(false);
+            onRefresh();
           }}
         />
       )}
