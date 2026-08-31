@@ -19,10 +19,29 @@ def _normalizar_fecha(fecha: datetime) -> datetime:
     return fecha
 
 
-def _validar_fecha_no_futura(fecha: datetime) -> None:
-    """Rechaza movimientos con fecha posterior a hoy (horario Buenos Aires)."""
-    if _normalizar_fecha(fecha).date() > ahora_buenos_aires().date():
+def _fecha_para_creacion(fecha: datetime) -> datetime:
+    """Use creation time for today's date; retain the selected historical date/time."""
+    fecha_normalizada = _normalizar_fecha(fecha)
+    ahora = ahora_buenos_aires()
+    if fecha_normalizada.date() > ahora.date():
         raise HTTPException(status_code=400, detail="La fecha del movimiento no puede ser futura")
+    if fecha_normalizada.date() == ahora.date():
+        return ahora
+    return fecha_normalizada
+
+
+def _fecha_para_actualizacion(fecha: datetime, fecha_actual: datetime) -> datetime:
+    """Preserve time when an edit keeps the movement on the same calendar date."""
+    fecha_normalizada = _normalizar_fecha(fecha)
+    fecha_actual_normalizada = _normalizar_fecha(fecha_actual)
+    ahora = ahora_buenos_aires()
+    if fecha_normalizada.date() > ahora.date():
+        raise HTTPException(status_code=400, detail="La fecha del movimiento no puede ser futura")
+    if fecha_normalizada.date() == fecha_actual_normalizada.date():
+        return fecha_actual_normalizada
+    if fecha_normalizada.date() == ahora.date():
+        return ahora
+    return fecha_normalizada
 
 
 def load_presupuesto_item(item_id: int, current_user_id: int, db: Session) -> models.PresupuestoItem:
@@ -211,9 +230,10 @@ def crear_movimiento(
         user_id,
         db,
     )
-    _validar_fecha_no_futura(movimiento.fecha)
+    fecha_movimiento = _fecha_para_creacion(movimiento.fecha)
 
     datos = movimiento.model_dump(exclude={"presupuesto_item_id", "es_fijo"})
+    datos["fecha"] = fecha_movimiento
     datos["clasificacion"] = resolve_clasificacion(movimiento.tipo, movimiento.clasificacion)
     db_movimiento = models.Movimiento(**datos, user_id=user_id)
     db.add(db_movimiento)
@@ -239,7 +259,7 @@ def crear_movimiento(
             Decimal(str(movimiento.importe)),
             user_id,
             db,
-            fecha=movimiento.fecha,
+            fecha=fecha_movimiento,
         )
 
     apply_presupuesto_item_link(db_movimiento, item_id, user_id, db)
@@ -268,10 +288,13 @@ def actualizar_movimiento(
         user_id,
         db,
     )
-    _validar_fecha_no_futura(movimiento_update.fecha)
+    fecha_movimiento = _fecha_para_actualizacion(
+        movimiento_update.fecha,
+        db_movimiento.fecha,
+    )
 
     db_movimiento.importe = movimiento_update.importe
-    db_movimiento.fecha = movimiento_update.fecha
+    db_movimiento.fecha = fecha_movimiento
     db_movimiento.descripcion = movimiento_update.descripcion
     db_movimiento.nota = movimiento_update.nota
     db_movimiento.tipo = movimiento_update.tipo
@@ -289,7 +312,7 @@ def actualizar_movimiento(
             Decimal(str(movimiento_update.importe)),
             user_id,
             db,
-            fecha=movimiento_update.fecha,
+            fecha=fecha_movimiento,
             exclude_movimiento_id=movimiento_id,
         )
 

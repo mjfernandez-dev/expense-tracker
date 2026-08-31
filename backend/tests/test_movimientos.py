@@ -96,6 +96,40 @@ def test_actualizar_movimiento(logged_in_client, user_category_id):
     assert r2.json()["importe"] == 999.0
 
 
+def test_fecha_de_hoy_usa_hora_de_creacion_y_editar_mismo_dia_la_preserva(
+    logged_in_client, user_category_id, monkeypatch
+):
+    from services import movimiento_service
+
+    reloj = {"ahora": datetime(2026, 8, 31, 10, 15, 30)}
+    monkeypatch.setattr(
+        movimiento_service,
+        "ahora_buenos_aires",
+        lambda: reloj["ahora"],
+    )
+
+    creado = logged_in_client.post("/movimientos/", json={
+        **_gasto(user_category_id),
+        "fecha": "2026-08-31T00:00:00",
+    })
+    assert creado.status_code == 200, creado.text
+    assert datetime.fromisoformat(creado.json()["fecha"]) == reloj["ahora"]
+
+    reloj["ahora"] = datetime(2026, 8, 31, 18, 45, 0)
+    actualizado = logged_in_client.put(
+        f"/movimientos/{creado.json()['id']}",
+        json={
+            **_gasto(user_category_id),
+            "importe": 600.0,
+            "fecha": "2026-08-31T00:00:00",
+        },
+    )
+    assert actualizado.status_code == 200, actualizado.text
+    assert datetime.fromisoformat(actualizado.json()["fecha"]) == datetime(
+        2026, 8, 31, 10, 15, 30
+    )
+
+
 def test_eliminar_movimiento(logged_in_client, user_category_id):
     r = logged_in_client.post("/movimientos/", json=_gasto(user_category_id))
     mov_id = r.json()["id"]

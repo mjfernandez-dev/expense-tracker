@@ -267,6 +267,220 @@ def test_dias_restantes_usa_fecha_de_buenos_aires(logged_in_client, user_categor
     assert resumen["dias_restantes"] == 18
 
 
+def test_cierre_y_nuevo_ciclo_separan_movimientos_del_mismo_dia(
+    logged_in_client, user_category_id, monkeypatch
+):
+    from services import movimiento_service
+
+    reloj = {"ahora": datetime(2026, 8, 31, 8, 0, 0)}
+    monkeypatch.setattr(
+        ciclo_time_service,
+        "ahora_buenos_aires",
+        lambda: reloj["ahora"],
+    )
+    monkeypatch.setattr(
+        movimiento_service,
+        "ahora_buenos_aires",
+        lambda: reloj["ahora"],
+    )
+
+    origen_anterior = logged_in_client.post(
+        "/movimientos/", json=_ingreso(user_category_id, 500000.0)
+    ).json()
+    ciclo_anterior = logged_in_client.post("/ciclos/", json={
+        "movimiento_origen_id": origen_anterior["id"],
+        "fecha_fin": "2026-09-30T23:59:59",
+        "ahorro_objetivo": 0,
+    }).json()
+
+    for hora, importe in [(9, 10000.0), (9, 12000.0), (9, 10000.0)]:
+        reloj["ahora"] = datetime(2026, 8, 31, hora, int(importe / 1000), 0)
+        respuesta = logged_in_client.post("/movimientos/", json={
+            **_gasto(user_category_id, importe),
+            "fecha": "2026-08-31T00:00:00",
+        })
+        assert respuesta.status_code == 200, respuesta.text
+
+    reloj["ahora"] = datetime(2026, 8, 31, 10, 0, 0)
+    cerrado = logged_in_client.delete(f"/ciclos/{ciclo_anterior['id']}")
+    assert cerrado.status_code == 200, cerrado.text
+
+    reloj["ahora"] = datetime(2026, 8, 31, 11, 0, 0)
+    nuevo_ingreso = logged_in_client.post("/movimientos/", json={
+        **_ingreso(user_category_id, 1200000.0),
+        "fecha": "2026-08-31T00:00:00",
+    }).json()
+    reloj["ahora"] = datetime(2026, 8, 31, 11, 5, 0)
+    ciclo_nuevo = logged_in_client.post("/ciclos/", json={
+        "movimiento_origen_id": nuevo_ingreso["id"],
+        "fecha_fin": "2026-09-30T23:59:59",
+        "ahorro_objetivo": 0,
+    })
+    assert ciclo_nuevo.status_code == 201, ciclo_nuevo.text
+
+    reloj["ahora"] = datetime(2026, 8, 31, 12, 0, 0)
+    gasto_nuevo = logged_in_client.post("/movimientos/", json={
+        **_gasto(user_category_id, 5000.0),
+        "fecha": "2026-08-31T00:00:00",
+    })
+    assert gasto_nuevo.status_code == 200, gasto_nuevo.text
+    cerrado_nuevamente = logged_in_client.delete(f"/ciclos/{ciclo_anterior['id']}")
+    assert cerrado_nuevamente.status_code == 200, cerrado_nuevamente.text
+
+    anterior = logged_in_client.get(f"/ciclos/{ciclo_anterior['id']}").json()
+    actual = logged_in_client.get("/ciclos/activo").json()
+    assert datetime.fromisoformat(anterior["fecha_fin"]) == datetime(2026, 8, 31, 10, 0, 0)
+    assert anterior["resumen"]["total_gastos"] == 32000.0
+    assert actual["resumen"]["total_ingresos"] == 1200000.0
+    assert actual["resumen"]["total_gastos"] == 5000.0
+
+
+def test_resumen_compatibilidad_asigna_movimientos_persistidos_a_un_solo_ciclo(
+    logged_in_client, user_category_id, db_session, monkeypatch
+):
+    import models
+
+    usuario_id = db_session.query(models.UserCategory).filter(
+        models.UserCategory.id == user_category_id
+    ).one().user_id
+    monkeypatch.setattr(
+        ciclo_time_service,
+        "ahora_buenos_aires",
+        lambda: datetime(2026, 8, 31, 18, 0, 0),
+    )
+
+    gastos = [
+        models.Movimiento(
+            user_id=usuario_id,
+            user_category_id=user_category_id,
+            importe=Decimal(str(importe)),
+            fecha=fecha,
+            descripcion=descripcion,
+            tipo="gasto",
+        )
+        for importe, fecha, descripcion in [
+            (10000, datetime(2026, 8, 31, 0, 0, 0), "Old expense one"),
+            (12000, datetime(2026, 8, 31, 0, 0, 0), "Old expense two"),
+            (10000, datetime(2026, 8, 31, 0, 0, 0), "Old expense three"),
+            (7000, datetime(2026, 8, 31, 11, 5, 0), "Successor boundary expense"),
+            (5000, datetime(2026, 8, 31, 12, 0, 0), "Successor later expense"),
+        ]
+    ]
+    ingreso_sucesor = models.Movimiento(
+        user_id=usuario_id,
+        user_category_id=user_category_id,
+        importe=Decimal("1200000"),
+        fecha=datetime(2026, 8, 31, 0, 0, 0),
+        descripcion="Persisted midnight income",
+        tipo="ingreso",
+    )
+    db_session.add_all([*gastos, ingreso_sucesor])
+    db_session.flush()
+
+    ciclo_anterior = models.Ciclo(
+        user_id=usuario_id,
+        fecha_inicio=datetime(2026, 8, 1, 0, 0, 0),
+        fecha_fin=datetime(2026, 9, 30, 23, 59, 59),
+        ahorro_objetivo=Decimal("0"),
+        activo=False,
+    )
+    ciclo_sucesor = models.Ciclo(
+        user_id=usuario_id,
+        movimiento_origen_id=ingreso_sucesor.id,
+        fecha_inicio=datetime(2026, 8, 31, 11, 5, 0),
+        fecha_fin=datetime(2026, 9, 30, 23, 59, 59),
+        ahorro_objetivo=Decimal("0"),
+        activo=True,
+    )
+    db_session.add_all([ciclo_anterior, ciclo_sucesor])
+    db_session.commit()
+
+    anterior = logged_in_client.get(f"/ciclos/{ciclo_anterior.id}").json()["resumen"]
+    sucesor = logged_in_client.get(f"/ciclos/{ciclo_sucesor.id}").json()["resumen"]
+
+    assert anterior["total_ingresos"] == 0.0
+    assert anterior["total_gastos"] == 32000.0
+    assert sucesor["total_ingresos"] == 1200000.0
+    assert sucesor["total_gastos"] == 12000.0
+    assert anterior["total_ingresos"] + sucesor["total_ingresos"] == 1200000.0
+    assert anterior["total_gastos"] + sucesor["total_gastos"] == 44000.0
+
+
+def test_cerrar_ciclo_vencido_no_extiende_fecha_fin(
+    logged_in_client, user_category_id, db_session, monkeypatch
+):
+    import models
+
+    usuario_id = db_session.query(models.UserCategory).filter(
+        models.UserCategory.id == user_category_id
+    ).one().user_id
+    fecha_fin = datetime(2026, 8, 30, 23, 59, 59)
+    ciclo = models.Ciclo(
+        user_id=usuario_id,
+        fecha_inicio=datetime(2026, 8, 1, 0, 0, 0),
+        fecha_fin=fecha_fin,
+        ahorro_objetivo=Decimal("0"),
+        activo=True,
+    )
+    db_session.add(ciclo)
+    db_session.commit()
+    monkeypatch.setattr(
+        ciclo_time_service,
+        "ahora_buenos_aires",
+        lambda: datetime(2026, 8, 31, 10, 0, 0),
+    )
+
+    respuesta = logged_in_client.delete(f"/ciclos/{ciclo.id}")
+
+    assert respuesta.status_code == 200, respuesta.text
+    db_session.refresh(ciclo)
+    assert ciclo.fecha_fin == fecha_fin
+
+
+def test_presupuesto_item_descripcion_prioriza_item_y_fallbacks_de_categoria(
+    logged_in_client, user_category_id, db_session
+):
+    import models
+
+    ingreso = logged_in_client.post(
+        "/movimientos/", json=_ingreso(user_category_id, 2000.0)
+    ).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+    categoria_sistema = models.Category(nombre="System fallback test")
+    db_session.add(categoria_sistema)
+    db_session.flush()
+    db_session.add_all([
+        models.PresupuestoItem(
+            ciclo_id=ciclo["id"],
+            user_category_id=user_category_id,
+            monto_estimado=Decimal("100"),
+            confirmado=True,
+            descripcion="Item description",
+        ),
+        models.PresupuestoItem(
+            ciclo_id=ciclo["id"],
+            user_category_id=user_category_id,
+            monto_estimado=Decimal("200"),
+            confirmado=True,
+        ),
+        models.PresupuestoItem(
+            ciclo_id=ciclo["id"],
+            categoria_id=categoria_sistema.id,
+            monto_estimado=Decimal("300"),
+            confirmado=True,
+        ),
+    ])
+    db_session.commit()
+
+    items = logged_in_client.get(f"/ciclos/{ciclo['id']}").json()["resumen"]["presupuesto_items"]
+    descripciones = {item["monto_estimado"]: item["descripcion"] for item in items}
+    categoria_usuario = _obtener_categoria(logged_in_client, user_category_id)
+
+    assert descripciones[100.0] == "Item description"
+    assert descripciones[200.0] == categoria_usuario["nombre"]
+    assert descripciones[300.0] == "System fallback test"
+
+
 # ── PATCH granular de monto estimado (presupuesto/items/{item_id}) ──
 
 def _crear_ciclo_con_item(logged_in_client, user_category_id, monto=200.0):

@@ -2,7 +2,7 @@
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 import models
@@ -212,6 +212,9 @@ def cerrar_ciclo(ciclo_id: int, user_id: int, db: Session) -> None:
     )
     if not ciclo:
         raise ValueError("_not_found")
+    cierre = ciclo_time_service.ahora_buenos_aires()
+    if ciclo.activo and cierre < ciclo.fecha_fin:
+        ciclo.fecha_fin = cierre
     ciclo.activo = False
     db.commit()
 
@@ -250,6 +253,29 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
     ahora = ciclo_time_service.ahora_buenos_aires()
     fecha_limite = min(ahora, ciclo.fecha_fin)
 
+    sucesor = (
+        db.query(models.Ciclo)
+        .filter(
+            models.Ciclo.user_id == user_id,
+            models.Ciclo.fecha_inicio > ciclo.fecha_inicio,
+        )
+        .order_by(models.Ciclo.fecha_inicio.asc())
+        .first()
+    )
+    limite_sucesor = sucesor.fecha_inicio if sucesor else None
+    if limite_sucesor is not None and limite_sucesor < fecha_limite:
+        fecha_limite = limite_sucesor
+
+    origenes_de_otros_ciclos = select(models.Ciclo.movimiento_origen_id).where(
+        models.Ciclo.user_id == user_id,
+        models.Ciclo.id != ciclo.id,
+        models.Ciclo.movimiento_origen_id.is_not(None),
+    )
+
+    filtros_limite = [models.Movimiento.fecha <= fecha_limite]
+    if limite_sucesor is not None and limite_sucesor == fecha_limite:
+        filtros_limite = [models.Movimiento.fecha < fecha_limite]
+
     # Todos los movimientos dentro del período del ciclo
     # + el movimiento que originó el ciclo (puede ser anterior a fecha_inicio)
     movimientos = (
@@ -261,7 +287,8 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         .filter(
             models.Movimiento.user_id == user_id,
             models.Movimiento.fecha >= ciclo.fecha_inicio,
-            models.Movimiento.fecha <= fecha_limite,
+            *filtros_limite,
+            ~models.Movimiento.id.in_(origenes_de_otros_ciclos),
         )
         .all()
     )
@@ -374,6 +401,35 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
     else:
         semaforo = "rojo"
 
+    user_category_ids = {
+        item.user_category_id
+        for item in ciclo.presupuesto_items
+        if item.user_category_id is not None
+    }
+    user_category_names = dict(
+        db.query(models.UserCategory.id, models.UserCategory.nombre).filter(
+            models.UserCategory.user_id == user_id,
+            models.UserCategory.id.in_(user_category_ids),
+        ).all()
+    ) if user_category_ids else {}
+    category_ids = {
+        item.categoria_id
+        for item in ciclo.presupuesto_items
+        if item.categoria_id is not None
+    }
+    category_names = dict(
+        db.query(models.Category.id, models.Category.nombre).filter(
+            models.Category.id.in_(category_ids),
+        ).all()
+    ) if category_ids else {}
+
+    def _descripcion_item(item: models.PresupuestoItem) -> Optional[str]:
+        return (
+            item.descripcion
+            or user_category_names.get(item.user_category_id)
+            or category_names.get(item.categoria_id)
+        )
+
     # Armar lista de presupuestoitems del ciclo
     presupuesto_items_read = [
         schemas.PresupuestoItemRead(
@@ -385,7 +441,7 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
             monto_ejecutado=progresos[item.id].ejecutado,
             monto_pendiente=progresos[item.id].pendiente,
             confirmado=item.confirmado,
-            descripcion=item.descripcion,
+            descripcion=_descripcion_item(item),
             estado=progresos[item.id].estado,
             gasto_programado_id=item.gasto_programado_id,
         )
