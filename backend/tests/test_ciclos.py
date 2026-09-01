@@ -285,7 +285,10 @@ def test_cierre_y_nuevo_ciclo_separan_movimientos_del_mismo_dia(
     )
 
     origen_anterior = logged_in_client.post(
-        "/movimientos/", json=_ingreso(user_category_id, 500000.0)
+        "/movimientos/", json={
+            **_ingreso(user_category_id, 500000.0),
+            "fecha": "2026-08-31T00:00:00",
+        }
     ).json()
     ciclo_anterior = logged_in_client.post("/ciclos/", json={
         "movimiento_origen_id": origen_anterior["id"],
