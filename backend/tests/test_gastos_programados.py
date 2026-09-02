@@ -229,18 +229,26 @@ def test_pagar_dos_veces_devuelve_409_y_un_solo_movimiento(logged_in_client, use
 
 # ── 8. Cancelar: libera la reserva y recupera el saldo ───────────────────────
 
-def test_cancelar_libera_reserva_y_recupera_saldo(logged_in_client, user_category_id):
+def test_cancelar_elimina_solo_reserva_y_recupera_saldo(logged_in_client, user_category_id):
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
-    _crear_ciclo(logged_in_client, ingreso["id"])
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
     gp = _crear_gp(logged_in_client, user_category_id, importe=300.0)
+    ordinario = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/items/", json={
+        "monto_estimado": 100.0,
+        "confirmado": True,
+        "descripcion": "Presupuesto ordinario",
+    })
+    assert ordinario.status_code == 201, ordinario.text
 
     r = logged_in_client.post(f"/gastos-programados/{gp['id']}/cancelar")
     assert r.status_code == 200, r.text
     assert r.json()["estado"] == "cancelado"
 
     resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
-    assert resumen["presupuesto_items"] == []
-    assert resumen["saldo_disponible_total"] == 1000.0
+    assert len(resumen["presupuesto_items"]) == 1
+    assert resumen["presupuesto_items"][0]["gasto_programado_id"] is None
+    assert resumen["presupuesto_items"][0]["monto_estimado"] == 100.0
+    assert resumen["saldo_disponible_total"] == 900.0
 
 
 # ── 9. Editar importe: reserva actualizada; por debajo de lo ejecutado → 400 ─
@@ -260,7 +268,7 @@ def test_editar_importe_arriba_actualiza_reserva(logged_in_client, user_category
     assert resumen["saldo_disponible_total"] == 500.0
 
 
-def test_editar_importe_por_debajo_de_lo_ejecutado_devuelve_400(logged_in_client, user_category_id):
+def test_movimiento_generico_no_puede_contaminar_reserva(logged_in_client, user_category_id):
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
     _crear_ciclo(logged_in_client, ingreso["id"])
     gp = _crear_gp(logged_in_client, user_category_id, importe=300.0)
@@ -268,7 +276,6 @@ def test_editar_importe_por_debajo_de_lo_ejecutado_devuelve_400(logged_in_client
     resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
     item_id = next(i for i in resumen["presupuesto_items"] if i["gasto_programado_id"] == gp["id"])["id"]
 
-    # Ejecutar 200 contra la reserva sin pagar el gasto programado
     gasto = logged_in_client.post("/movimientos/", json={
         "importe": 200.0,
         "fecha": datetime.now().isoformat(),
@@ -277,11 +284,10 @@ def test_editar_importe_por_debajo_de_lo_ejecutado_devuelve_400(logged_in_client
         "user_category_id": user_category_id,
         "presupuesto_item_id": item_id,
     })
-    assert gasto.status_code == 200, gasto.text
+    assert gasto.status_code == 409, gasto.text
 
-    r = logged_in_client.patch(f"/gastos-programados/{gp['id']}", json={"importe": 100.0})
-    assert r.status_code == 400, r.text
-    assert "monto estimado" in r.json()["detail"].lower()
+    r = logged_in_client.post(f"/gastos-programados/{gp['id']}/cancelar")
+    assert r.status_code == 200, r.text
 
 
 # ── 10. Multi-tenancy: recursos ajenos → 404 ─────────────────────────────────

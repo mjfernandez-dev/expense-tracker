@@ -37,6 +37,23 @@ def _crear_ciclo(logged_in_client, movimiento_origen_id: int) -> dict:
     return r.json()
 
 
+def _crear_reserva(logged_in_client, user_category_id: int) -> tuple[dict, dict]:
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+    gp = logged_in_client.post("/gastos-programados/", json={
+        "importe": 300.0,
+        "vencimiento": (ciclo_time_service.ahora_buenos_aires().date() + timedelta(days=5)).isoformat(),
+        "descripcion": "Reserva protegida",
+        "user_category_id": user_category_id,
+    })
+    assert gp.status_code == 201, gp.text
+    reserva = next(
+        item for item in logged_in_client.get("/ciclos/activo").json()["resumen"]["presupuesto_items"]
+        if item["gasto_programado_id"] == gp.json()["id"]
+    )
+    return ciclo, reserva
+
+
 def test_gasto_vinculado_no_duplica_descuento_en_ciclo(logged_in_client, user_category_id):
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 1000.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
@@ -570,6 +587,19 @@ def test_patch_item_en_ciclo_ajeno_devuelve_404(logged_in_client, second_logged_
     assert r.status_code == 404, r.text
 
 
+def test_patch_reserva_programada_rechaza_cambio(logged_in_client, user_category_id):
+    ciclo, reserva = _crear_reserva(logged_in_client, user_category_id)
+
+    respuesta = logged_in_client.patch(
+        f"/ciclos/{ciclo['id']}/presupuesto/items/{reserva['id']}",
+        json={"monto_estimado": 900.0},
+    )
+
+    assert respuesta.status_code == 409, respuesta.text
+    actual = logged_in_client.get("/ciclos/activo").json()["resumen"]["presupuesto_items"]
+    assert next(item for item in actual if item["id"] == reserva["id"])["monto_estimado"] == 300.0
+
+
 def test_resumen_enriquecido_gastos_sin_presupuesto_y_clasificacion(logged_in_client, user_category_id):
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
@@ -692,6 +722,37 @@ def test_crear_item_presupuesto_actualiza_item_existente_sin_duplicar(logged_in_
     assert matching[0]["monto_estimado"] == 400.0
 
 
+def test_bulk_y_creacion_granular_preservan_reserva_y_operan_sobre_items_ordinarios(
+    logged_in_client, user_category_id
+):
+    ciclo, reserva = _crear_reserva(logged_in_client, user_category_id)
+    payload = _crear_item_presupuesto(
+        user_category_id=user_category_id,
+        monto_estimado=500.0,
+        descripcion="Presupuesto ordinario",
+    )
+
+    bulk = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/", json={"items": [payload]}
+    )
+    assert bulk.status_code == 200, bulk.text
+    items = bulk.json()["resumen"]["presupuesto_items"]
+    assert next(item for item in items if item["id"] == reserva["id"])["monto_estimado"] == 300.0
+    ordinarios = [item for item in items if item["gasto_programado_id"] is None]
+    assert len(ordinarios) == 1
+
+    granular = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/items/",
+        json={**payload, "monto_estimado": 700.0},
+    )
+    assert granular.status_code == 201, granular.text
+    items = granular.json()["resumen"]["presupuesto_items"]
+    assert next(item for item in items if item["id"] == reserva["id"])["monto_estimado"] == 300.0
+    ordinarios = [item for item in items if item["gasto_programado_id"] is None]
+    assert len(ordinarios) == 1
+    assert ordinarios[0]["monto_estimado"] == 700.0
+
+
 def test_crear_item_presupuesto_monto_menor_a_ejecutado_devuelve_400(logged_in_client, user_category_id):
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
@@ -714,6 +775,29 @@ def test_crear_item_presupuesto_en_ciclo_ajeno_devuelve_404(logged_in_client, se
     })
     assert r.status_code == 404, r.text
     assert r.json()["detail"] == "Ciclo no encontrado"
+
+
+def test_crear_item_presupuesto_rechaza_categoria_de_otro_usuario(
+    logged_in_client, second_logged_in_client, user_category_id
+):
+    ingreso = logged_in_client.post(
+        "/movimientos/", json=_ingreso(user_category_id, 2000.0)
+    ).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+    categoria_ajena = second_logged_in_client.post("/user-categories/", json={
+        "nombre": "Categoría ajena",
+        "descripcion": "Tenant isolation",
+        "color": "#000000",
+        "icon": "test",
+    }).json()
+
+    respuesta = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/items/",
+        json=_crear_item_presupuesto(user_category_id=categoria_ajena["id"]),
+    )
+
+    assert respuesta.status_code == 400, respuesta.text
+    assert respuesta.json()["detail"] == "Categoría de usuario no válida"
 
 
 def test_crear_item_presupuesto_solo_descripcion_no_falla(logged_in_client, user_category_id):

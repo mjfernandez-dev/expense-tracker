@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Iterable, Optional
 
 import models
 from services import ciclo_time_service
+from services.reserva_gasto_programado_policy import asegurar_item_ordinario, items_ordinarios
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -98,7 +99,7 @@ def aplicar_presupuesto_bulk(
     if len(categorias_usuario) != len(user_category_ids):
         raise ValueError("Categoría de usuario no válida")
 
-    existentes = list(ciclo.presupuesto_items)
+    existentes = items_ordinarios(ciclo.presupuesto_items)
     usados_ids: set[int] = set()
 
     def _match_item(item) -> Optional[models.PresupuestoItem]:
@@ -184,6 +185,7 @@ def actualizar_monto_presupuesto_item(
     item = next((i for i in ciclo.presupuesto_items if i.id == item_id), None)
     if item is None:
         raise ValueError("_not_found")
+    asegurar_item_ordinario(item)
 
     nuevo_monto_decimal = _to_decimal(nuevo_monto)
     if nuevo_monto_decimal < ZERO:
@@ -220,24 +222,33 @@ def crear_o_vincular_presupuesto_item(
       (incluyendo los gastos sueltos que se van a vincular).
     Commitea y devuelve el item actualizado.
     """
+    if data.user_category_id is not None:
+        categoria_usuario = db.query(models.UserCategory).filter(
+            models.UserCategory.id == data.user_category_id,
+            models.UserCategory.user_id == user_id,
+        ).first()
+        if categoria_usuario is None:
+            raise ValueError("Categoría de usuario no válida")
+
     # 1. Match de item existente del ciclo (patrón _match_item, priorizando
     # la categoría más específica que venga en el body).
+    existentes = items_ordinarios(ciclo.presupuesto_items)
     existente = None
     if data.user_category_id is not None:
         existente = next(
-            (i for i in ciclo.presupuesto_items if i.user_category_id == data.user_category_id),
+            (i for i in existentes if i.user_category_id == data.user_category_id),
             None,
         )
     if existente is None and data.categoria_id is not None:
         existente = next(
-            (i for i in ciclo.presupuesto_items if i.categoria_id == data.categoria_id),
+            (i for i in existentes if i.categoria_id == data.categoria_id),
             None,
         )
     if existente is None:
         existente = next(
             (
                 i
-                for i in ciclo.presupuesto_items
+                for i in existentes
                 if (i.descripcion or "").lower() == (data.descripcion or "").lower()
             ),
             None,

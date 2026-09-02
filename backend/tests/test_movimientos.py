@@ -38,6 +38,27 @@ def _ingreso(user_category_id: int) -> dict:
     }
 
 
+def _crear_reserva_programada(logged_in_client, user_category_id: int) -> tuple[dict, dict]:
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id)).json()
+    ciclo = logged_in_client.post("/ciclos/", json={
+        "movimiento_origen_id": ingreso["id"],
+        "fecha_fin": "2099-12-31T23:59:59",
+        "ahorro_objetivo": 0,
+    }).json()
+    gp = logged_in_client.post("/gastos-programados/", json={
+        "importe": 300.0,
+        "vencimiento": "2099-12-30",
+        "descripcion": "Reserva protegida",
+        "user_category_id": user_category_id,
+    })
+    assert gp.status_code == 201, gp.text
+    item = next(
+        item for item in logged_in_client.get("/ciclos/activo").json()["resumen"]["presupuesto_items"]
+        if item["gasto_programado_id"] == gp.json()["id"]
+    )
+    return ciclo, item
+
+
 def test_listar_movimientos_vacio(logged_in_client):
     r = logged_in_client.get("/movimientos/")
     assert r.status_code == 200
@@ -373,6 +394,62 @@ def test_service_actualizar_movimiento_autovincula_presupuesto(db_session):
         db_session,
     )
     assert mov_actualizado.presupuesto_item_id == item.id
+
+
+def test_movimiento_generico_usa_item_ordinario_y_no_reserva(
+    logged_in_client, user_category_id, db_session
+):
+    import models
+
+    ciclo, reserva = _crear_reserva_programada(logged_in_client, user_category_id)
+    ordinario = models.PresupuestoItem(
+        ciclo_id=ciclo["id"],
+        user_category_id=user_category_id,
+        monto_estimado=500,
+        confirmado=True,
+        descripcion="Presupuesto ordinario",
+    )
+    db_session.add(ordinario)
+    db_session.commit()
+
+    movimiento = logged_in_client.post("/movimientos/", json=_gasto(user_category_id))
+
+    assert movimiento.status_code == 200, movimiento.text
+    assert movimiento.json()["presupuesto_item_id"] == ordinario.id
+    assert movimiento.json()["presupuesto_item_id"] != reserva["id"]
+
+
+def test_movimiento_generico_no_autovincula_si_solo_hay_reserva(
+    logged_in_client, user_category_id
+):
+    _crear_reserva_programada(logged_in_client, user_category_id)
+
+    movimiento = logged_in_client.post("/movimientos/", json=_gasto(user_category_id))
+
+    assert movimiento.status_code == 200, movimiento.text
+    assert movimiento.json()["presupuesto_item_id"] is None
+
+
+def test_vinculo_explicito_a_reserva_rechaza_propietario_y_oculta_a_otro_tenant(
+    logged_in_client, second_logged_in_client, user_category_id
+):
+    _, reserva = _crear_reserva_programada(logged_in_client, user_category_id)
+    payload = {**_gasto(user_category_id), "presupuesto_item_id": reserva["id"]}
+
+    propio = logged_in_client.post("/movimientos/", json=payload)
+    assert propio.status_code == 409, propio.text
+
+    categoria_ajena = second_logged_in_client.post("/user-categories/", json={
+        "nombre": "Categoria segundo tenant",
+        "descripcion": "Tenant isolation",
+        "color": "#000000",
+        "icon": "test",
+    }).json()
+    ajeno = second_logged_in_client.post("/movimientos/", json={
+        **_gasto(categoria_ajena["id"]),
+        "presupuesto_item_id": reserva["id"],
+    })
+    assert ajeno.status_code == 404, ajeno.text
 
 
 # ============== hardening temporal: fechas futuras y ventana del ciclo ==============

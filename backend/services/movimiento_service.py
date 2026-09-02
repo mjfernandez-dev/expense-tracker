@@ -10,6 +10,7 @@ import models
 import schemas
 from services.ciclo_commitment_service import calcular_progreso_presupuesto
 from services.ciclo_time_service import BA_TIMEZONE, ahora_buenos_aires
+from services.reserva_gasto_programado_policy import asegurar_item_ordinario
 
 
 def _normalizar_fecha(fecha: datetime) -> datetime:
@@ -56,6 +57,7 @@ def load_presupuesto_item(item_id: int, current_user_id: int, db: Session) -> mo
     )
     if not item:
         raise HTTPException(status_code=404, detail="Item de presupuesto no encontrado")
+    asegurar_item_ordinario(item)
     return item
 
 
@@ -97,11 +99,9 @@ def eliminar_movimiento(movimiento_id: int, user_id: int, db: Session) -> dict[s
 def auto_detectar_presupuesto_item(
     categoria_id: Optional[int],
     user_category_id: Optional[int],
-    importe: Decimal,
     user_id: int,
     db: Session,
     fecha: datetime,
-    exclude_movimiento_id: Optional[int] = None,
 ) -> Optional[int]:
     ciclo_activo = db.query(models.Ciclo).filter(
         models.Ciclo.user_id == user_id,
@@ -123,6 +123,7 @@ def auto_detectar_presupuesto_item(
     query = db.query(models.PresupuestoItem).filter(
         models.PresupuestoItem.ciclo_id == ciclo_activo.id,
         models.PresupuestoItem.confirmado == True,
+        models.PresupuestoItem.gasto_programado_id.is_(None),
     )
 
     if categoria_id is not None:
@@ -256,7 +257,6 @@ def crear_movimiento(
         item_id = auto_detectar_presupuesto_item(
             movimiento.categoria_id,
             movimiento.user_category_id,
-            Decimal(str(movimiento.importe)),
             user_id,
             db,
             fecha=fecha_movimiento,
@@ -309,11 +309,9 @@ def actualizar_movimiento(
         item_id = auto_detectar_presupuesto_item(
             movimiento_update.categoria_id,
             movimiento_update.user_category_id,
-            Decimal(str(movimiento_update.importe)),
             user_id,
             db,
             fecha=fecha_movimiento,
-            exclude_movimiento_id=movimiento_id,
         )
 
     apply_presupuesto_item_link(db_movimiento, item_id, user_id, db)
