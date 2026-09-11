@@ -4,6 +4,7 @@ import type { UserCategory, MovimientoCreate, Movimiento } from '../types';
 import { getUserCategories, createMovimiento, updateMovimiento, createCategory, searchDescripciones } from '../services/api';
 import type { DescripcionSuggestion } from '../services/api';
 import { getCurrentBADateInputValue } from '../utils/buenosAiresDate';
+import { obtenerCategoriaSugerida } from '../utils/sugerenciaCategoria';
 
 interface MovimientoFormProps {
   onMovimientoCreated: (movimiento?: Movimiento) => void;
@@ -41,6 +42,9 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const descRef = useRef<HTMLInputElement>(null);
   const suggestionListRef = useRef<HTMLUListElement>(null);
   const justSelectedRef = useRef(false);
+  // Guard de toque manual: si el usuario eligió la categoría a mano, la
+  // auto-aplicación de la sugerencia se saltea (la elección explícita gana).
+  const categoriaTouchedRef = useRef(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -101,6 +105,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   }, [descripcion, movimientoToEdit]);
 
   const resetForm = useCallback(() => {
+    categoriaTouchedRef.current = false;
     setTipo('gasto');
     setImporte('');
     setDescripcion('');
@@ -138,6 +143,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       const nueva = await createCategory(nombre);
       setCategories((prev) => [...prev, nueva]);
       setCategoriaId(nueva.id.toString());
+      // Crear una categoría es una elección explícita: nunca auto-aplicar encima
+      categoriaTouchedRef.current = true;
       setNewCatNombre('');
       setShowNewCat(false);
     } catch {
@@ -166,6 +173,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       if (selected) {
         justSelectedRef.current = true;
         setDescripcion(selected.descripcion);
+        aplicarCategoriaSugerida(selected.descripcion);
         setShowSuggestions(false);
         setSuggestions([]);
       }
@@ -175,12 +183,31 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     }
   };
 
+  // Auto-aplica la categoría sugerida para una descripción elegida, solo al
+  // crear y si el usuario no tocó la categoría a mano (el helper decide).
+  const aplicarCategoriaSugerida = useCallback(
+    (desc: string) => {
+      const sugerida = obtenerCategoriaSugerida(
+        desc,
+        suggestions,
+        categories,
+        Boolean(movimientoToEdit),
+        categoriaTouchedRef.current,
+      );
+      if (sugerida !== null) {
+        setCategoriaId(String(sugerida));
+      }
+    },
+    [suggestions, categories, movimientoToEdit],
+  );
+
   const selectSuggestion = useCallback((desc: string) => {
     justSelectedRef.current = true;
     setDescripcion(desc);
+    aplicarCategoriaSugerida(desc);
     setShowSuggestions(false);
     setSuggestions([]);
-  }, []);
+  }, [aplicarCategoriaSugerida]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -334,7 +361,13 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             onKeyDown={handleDescKeyDown}
             onBlur={() => {
               // Esperar a que el mousedown de la sugerencia se procese
-              setTimeout(() => setShowSuggestions(false), 200);
+              setTimeout(() => {
+                setShowSuggestions(false);
+                // Exact match en blur: auto-aplica la categoría solo al crear.
+                // Edición, toque manual y sin historial quedan excluidos dentro
+                // del helper (no-op benigno si la lista quedó stale en el debounce).
+                aplicarCategoriaSugerida(descripcion);
+              }, 200);
             }}
             placeholder={isIngreso ? 'Ej: Sueldo de febrero' : 'Ej: Almuerzo con cliente'}
             autoComplete="off"
@@ -390,7 +423,11 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             </div>
             <select
               value={categoriaId}
-              onChange={(e) => setCategoriaId(e.target.value)}
+              onChange={(e) => {
+                setCategoriaId(e.target.value);
+                // Elección manual explícita: la sugerencia no debe pisarla
+                categoriaTouchedRef.current = true;
+              }}
               className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
             >
               {categories.map((cat) => (

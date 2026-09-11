@@ -344,6 +344,10 @@ export const updateMovimiento = async (id: number, movimiento: MovimientoCreate)
 export interface DescripcionSuggestion {
   descripcion: string;
   frecuencia: number;
+  // Aditivo: categoría más usada para la descripción (null si no hay historial).
+  // Opcional para tolerar payloads viejos / cacheados que omiten los campos.
+  user_category_id?: number | null;
+  categoria_id?: number | null;
 }
 
 export const searchDescripciones = async (q: string, limit: number = 10): Promise<DescripcionSuggestion[]> => {

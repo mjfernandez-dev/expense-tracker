@@ -163,3 +163,5 @@ ideas.md
 
 # Claude local metadata
 .claude/
+# Local AI runtime state
+.atl/
