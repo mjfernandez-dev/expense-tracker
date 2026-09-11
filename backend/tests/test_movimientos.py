@@ -37,6 +37,17 @@ def _ingreso(user_category_id: int) -> dict:
         "user_category_id": user_category_id,
     }
 
+def _crear_segunda_categoria(logged_in_client) -> int:
+    """Crea una segunda categoría personalizada (distinta de la fixture)."""
+    r = logged_in_client.post("/user-categories/", json={
+        "nombre": "Categoria B",
+        "descripcion": "Segunda categoria",
+        "color": "#00FF00",
+        "icon": "test",
+    })
+    assert r.status_code == 200, r.text
+    return r.json()["id"]
+
 
 def _crear_reserva_programada(logged_in_client, user_category_id: int) -> tuple[dict, dict]:
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id)).json()
@@ -180,11 +191,17 @@ def test_sin_categoria_retorna_400(logged_in_client):
 # ============== búsqueda de descripciones ==============
 
 def test_search_descripciones_agrupa_y_filtra(logged_in_client, user_category_id):
-    """Agrupa por descripción exacta, ordena por frecuencia y excluye no-matches."""
+    """Agrupa por descripción exacta, ordena por frecuencia y sugiere la categoría más usada."""
+    cat_b = _crear_segunda_categoria(logged_in_client)
+
+    # 2× "Cafe" con user-cat A y 1× "Cafe" con user-cat B → sugiere A (2 > 1)
     logged_in_client.post("/movimientos/", json=_gasto(user_category_id))
     logged_in_client.post("/movimientos/", json=_gasto(user_category_id))
     logged_in_client.post(
-        "/movimientos/", json={**_gasto(user_category_id), "descripcion": "Cafe con leche"}
+        "/movimientos/", json={**_gasto(cat_b), "descripcion": "Cafe"}
+    )
+    logged_in_client.post(
+        "/movimientos/", json={**_gasto(cat_b), "descripcion": "Cafe con leche"}
     )
     logged_in_client.post(
         "/movimientos/", json={**_gasto(user_category_id), "descripcion": "Telefono"}
@@ -193,9 +210,57 @@ def test_search_descripciones_agrupa_y_filtra(logged_in_client, user_category_id
     r = logged_in_client.get("/movimientos/descripciones/search", params={"q": "cafe"})
     assert r.status_code == 200
     assert r.json() == [
-        {"descripcion": "Cafe", "frecuencia": 2},
-        {"descripcion": "Cafe con leche", "frecuencia": 1},
+        {
+            "descripcion": "Cafe",
+            "frecuencia": 3,
+            "user_category_id": user_category_id,
+            "categoria_id": None,
+        },
+        {
+            "descripcion": "Cafe con leche",
+            "frecuencia": 1,
+            "user_category_id": cat_b,
+            "categoria_id": None,
+        },
     ]
+
+
+def test_search_descripciones_desempata_por_fecha_mas_reciente(logged_in_client, user_category_id):
+    """Empate en uso → gana la categoría del movimiento más reciente; misma fecha → id menor."""
+    cat_b = _crear_segunda_categoria(logged_in_client)
+
+    # Empate 1 vs 1: el movimiento más reciente (B, 2026-08-10) gana
+    logged_in_client.post("/movimientos/", json={
+        **_gasto(user_category_id),
+        "fecha": "2026-08-01T10:00:00",
+    })
+    logged_in_client.post("/movimientos/", json={
+        **_gasto(cat_b),
+        "fecha": "2026-08-10T10:00:00",
+    })
+
+    r = logged_in_client.get("/movimientos/descripciones/search", params={"q": "Cafe"})
+    assert r.status_code == 200
+    assert r.json() == [{
+        "descripcion": "Cafe",
+        "frecuencia": 2,
+        "user_category_id": cat_b,
+        "categoria_id": None,
+    }]
+
+    # Empate 2 vs 2 con la misma fecha máxima: gana el id menor (A fue creada primero)
+    logged_in_client.post("/movimientos/", json={
+        **_gasto(cat_b),
+        "fecha": "2026-08-20T10:00:00",
+    })
+    logged_in_client.post("/movimientos/", json={
+        **_gasto(user_category_id),
+        "fecha": "2026-08-20T10:00:00",
+    })
+
+    r = logged_in_client.get("/movimientos/descripciones/search", params={"q": "Cafe"})
+    assert r.status_code == 200
+    assert r.json()[0]["user_category_id"] == user_category_id
 
 
 def test_search_descripciones_respeta_limit(logged_in_client, user_category_id):
@@ -209,12 +274,16 @@ def test_search_descripciones_respeta_limit(logged_in_client, user_category_id):
     )
     assert r.status_code == 200
     assert len(r.json()) == 2
+    # Categoría personalizada sin categoría de sistema → payload aditivo nullable
+    for sugerencia in r.json():
+        assert sugerencia["user_category_id"] == user_category_id
+        assert sugerencia["categoria_id"] is None
 
 
 def test_search_descripciones_aisla_por_usuario(
     logged_in_client, second_logged_in_client, user_category_id
 ):
-    """Los movimientos de otro usuario no aparecen en las búsquedas propias."""
+    """Los movimientos y categorías de otro usuario no aparecen ni influyen en los propios."""
     r = second_logged_in_client.post("/api/user-categories/", json={
         "nombre": "Categoria Otro",
         "descripcion": "Para tests",
@@ -223,9 +292,20 @@ def test_search_descripciones_aisla_por_usuario(
     })
     assert r.status_code == 200, r.text
     cat_otro = r.json()["id"]
+    # El otro usuario tiene DOS movimientos "Cafe" con su categoría: no deben filtrar
     r2 = second_logged_in_client.post(
         "/movimientos/",
         json={**_gasto(cat_otro), "descripcion": "Cafe de otro usuario"},
+    )
+    assert r2.status_code == 200, r2.text
+    r2 = second_logged_in_client.post(
+        "/movimientos/",
+        json={**_gasto(cat_otro), "descripcion": "Cafe"},
+    )
+    assert r2.status_code == 200, r2.text
+    r2 = second_logged_in_client.post(
+        "/movimientos/",
+        json={**_gasto(cat_otro), "descripcion": "Cafe"},
     )
     assert r2.status_code == 200, r2.text
 
@@ -233,7 +313,14 @@ def test_search_descripciones_aisla_por_usuario(
 
     r3 = logged_in_client.get("/movimientos/descripciones/search", params={"q": "cafe"})
     assert r3.status_code == 200
-    assert r3.json() == [{"descripcion": "Cafe", "frecuencia": 1}]
+    assert r3.json() == [
+        {
+            "descripcion": "Cafe",
+            "frecuencia": 1,
+            "user_category_id": user_category_id,
+            "categoria_id": None,
+        }
+    ]
 
 
 # ============== movimiento_service — service-level tests ==============

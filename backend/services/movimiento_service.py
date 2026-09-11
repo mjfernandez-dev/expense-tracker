@@ -348,6 +348,29 @@ def listar_movimientos(
     ).limit(limit).offset(skip).all()
 
 
+def _sugerir_categoria_por_descripcion(
+    filas: list[tuple[int, str, Optional[int], Optional[int], Optional[datetime]]],
+) -> tuple[Optional[int], Optional[int]]:
+    """(user_category_id, categoria_id) más usados; ties: fecha más reciente, id menor."""
+    def _top(slot: str) -> Optional[int]:
+        conteos: dict[int, list] = {}  # cat_id -> [conteo, fecha_max]
+        for _, _, categoria_id, user_category_id, fecha in filas:
+            cat = user_category_id if slot == "user" else categoria_id
+            if cat is None:
+                continue
+            prev = conteos.get(cat)
+            if prev is None:
+                conteos[cat] = [1, fecha or datetime.min]
+            else:
+                prev[0] += 1
+                if fecha and fecha > prev[1]:
+                    prev[1] = fecha
+        if not conteos:
+            return None
+        return max(conteos.items(), key=lambda kv: (kv[1][0], kv[1][1], -kv[0]))[0]
+    return _top("user"), _top("categoria")
+
+
 def buscar_descripciones(q: str, limit: int, user_id: int, db: Session) -> list[dict[str, object]]:
     """Busca descripciones existentes del usuario que contengan el texto dado.
 
@@ -355,17 +378,44 @@ def buscar_descripciones(q: str, limit: int, user_id: int, db: Session) -> list[
     ILIKE/LIKE a nivel DB (el LIKE opera contra el blob cifrado). Se traen todas
     las descripciones, se desencriptan automaticamente en Python, y se filtran
     en memoria.
+
+    Agrupa por descripción exacta (trim + case-insensitive) y emite, por
+    sugerencia, la categoría más usada para esa descripción (ver
+    _sugerir_categoria_por_descripcion). Los campos de categoría son aditivos
+    y nullable: clientes viejos los ignoran.
     """
     rows = (
-        db.query(models.Movimiento.descripcion)
+        db.query(
+            models.Movimiento.id,
+            models.Movimiento.descripcion,
+            models.Movimiento.categoria_id,
+            models.Movimiento.user_category_id,
+            models.Movimiento.fecha,
+        )
         .filter(models.Movimiento.user_id == user_id)
         .all()
     )
     q_lower = q.lower()
-    desc_counts: dict[str, int] = {}
-    for (desc,) in rows:
-        if desc and q_lower in desc.lower():
-            desc_counts[desc] = desc_counts.get(desc, 0) + 1
+    grupos: dict[str, dict[str, object]] = {}
+    for row in rows:
+        movimiento_id, desc, categoria_id, user_category_id, fecha = row
+        if not desc or q_lower not in desc.lower():
+            continue
+        clave = desc.strip().lower()
+        grupo = grupos.get(clave)
+        if grupo is None:
+            grupo = {"descripcion": desc, "frecuencia": 0, "filas": []}
+            grupos[clave] = grupo
+        grupo["frecuencia"] = int(grupo["frecuencia"]) + 1
+        grupo["filas"].append((movimiento_id, desc, categoria_id, user_category_id, fecha))
 
-    sorted_descs = sorted(desc_counts.items(), key=lambda x: -x[1])[:limit]
-    return [{"descripcion": d, "frecuencia": c} for d, c in sorted_descs]
+    resultados: list[dict[str, object]] = []
+    for grupo in sorted(grupos.values(), key=lambda g: -int(g["frecuencia"]))[:limit]:
+        sugeri_user, sugeri_cat = _sugerir_categoria_por_descripcion(grupo["filas"])
+        resultados.append({
+            "descripcion": grupo["descripcion"],
+            "frecuencia": grupo["frecuencia"],
+            "user_category_id": sugeri_user,
+            "categoria_id": sugeri_cat,
+        })
+    return resultados
