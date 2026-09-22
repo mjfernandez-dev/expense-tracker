@@ -32,6 +32,7 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from database import engine, Base
@@ -164,5 +165,25 @@ def health():
 
 # Servir frontend estático (SPA) — debe ir ÚLTIMO para no robar rutas de la API
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+
+
+class SPAStaticFiles(StaticFiles):
+    """StaticFiles con fallback SPA: sirve index.html para rutas del router.
+
+    El frontend usa BrowserRouter; un F5 en /presupuesto pediría ese path al
+    servidor y StaticFiles devolvería 404. Este fallback reenvía cualquier 404
+    de rutas no-API a index.html para que React tome el control. Las rutas
+    /api/* inexistentes siguen devolviendo 404 JSON (no deben caer al SPA).
+    """
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as exc:
+            if exc.status_code == 404 and not path.startswith("api/"):
+                return await super().get_response("index.html", scope)
+            raise
+
+
 if os.path.isdir(STATIC_DIR):
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="frontend")
+    app.mount("/", SPAStaticFiles(directory=STATIC_DIR, html=True), name="frontend")
