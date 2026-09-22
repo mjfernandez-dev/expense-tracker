@@ -30,6 +30,7 @@ logger = logging.getLogger("finanzaapp")
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from database import engine, Base
@@ -99,6 +100,33 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(RequestLoggingMiddleware)
+
+
+class OriginCheckMiddleware(BaseHTTPMiddleware):
+    """Mitiga CSRF validando el header Origin en requests de escritura.
+
+    En producción las cookies son SameSite=None, así que el navegador siempre
+    envía el header Origin en requests que cambian estado; si ese Origin no está
+    en la lista permitida, se rechaza con 403. Clientes sin navegador (cron,
+    curl, tests) no envían Origin y pasan sin problema.
+    """
+
+    _SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method not in self._SAFE_METHODS:
+            origin = request.headers.get("origin")
+            if origin and origin not in ALLOWED_ORIGINS:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Origen no permitido"},
+                )
+        return await call_next(request)
+
+
+# Registrado DESPUÉS de RequestLoggingMiddleware para quedar como el middleware
+# más externo: el check de Origin se ejecuta antes que cualquier handler.
+app.add_middleware(OriginCheckMiddleware)
 
 # API Router: agrupa todas las rutas bajo /api para Cloud Run
 api_router = APIRouter(prefix="/api")
