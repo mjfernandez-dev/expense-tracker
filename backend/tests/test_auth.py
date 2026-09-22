@@ -191,3 +191,40 @@ def test_reset_password_via_service(client, registered_user, db_session):
         "new_password": "OtraClave456!",
     })
     assert r2.status_code == 400
+
+
+# ============== REVOCACIÓN DE REFRESH TOKENS POR CAMBIO/RESET ==============
+
+def test_change_password_revoca_refresh_token(logged_in_client, registered_user, db_session):
+    """Cambiar la contraseña debe revocar todos los refresh tokens activos."""
+    # El refresh funciona antes del cambio de contraseña
+    r_before = logged_in_client.post("/auth/refresh")
+    assert r_before.status_code == 200
+
+    r = logged_in_client.post("/auth/change-password", json={
+        "current_password": registered_user["password"],
+        "new_password": "NuevaClave123!",
+    })
+    assert r.status_code == 200
+
+    # Después del cambio, el refresh token ya no debe ser válido
+    r_after = logged_in_client.post("/auth/refresh")
+    assert r_after.status_code == 401
+
+
+def test_reset_password_revoca_refresh_token(logged_in_client, registered_user, db_session):
+    """Resetear la contraseña debe revocar todos los refresh tokens activos."""
+    from services import auth_service
+    from auth import get_user_by_email
+
+    user = get_user_by_email(db_session, registered_user["email"])
+    raw_token = auth_service.crear_password_reset_token(user, db_session)
+
+    r = logged_in_client.post("/auth/reset-password", json={
+        "token": raw_token,
+        "new_password": "NuevaClave123!",
+    })
+    assert r.status_code == 200
+
+    r_after = logged_in_client.post("/auth/refresh")
+    assert r_after.status_code == 401

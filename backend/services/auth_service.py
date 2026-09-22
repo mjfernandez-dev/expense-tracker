@@ -23,6 +23,14 @@ def registrar_usuario(user: schemas.UserCreate, db: Session) -> models.User:
     return db_user
 
 
+def _revocar_refresh_tokens(user_id: int, db: Session) -> None:
+    """Marca como revocados todos los refresh tokens activos del usuario."""
+    db.query(models.RefreshToken).filter(
+        models.RefreshToken.user_id == user_id,
+        models.RefreshToken.revoked.is_(False),
+    ).update({"revoked": True}, synchronize_session=False)
+
+
 def cambiar_password(current_user: models.User, payload: schemas.PasswordChange, db: Session) -> None:
     if not verify_password(payload.current_password, current_user.hashed_password):
         raise HTTPException(
@@ -30,6 +38,7 @@ def cambiar_password(current_user: models.User, payload: schemas.PasswordChange,
             detail="La contraseña actual no es correcta",
         )
     current_user.hashed_password = get_password_hash(payload.new_password)
+    _revocar_refresh_tokens(current_user.id, db)
     db.commit()
     db.refresh(current_user)
 
@@ -78,5 +87,6 @@ def resetear_password(token_hash: str, new_password: str, db: Session) -> bool:
 
     user.hashed_password = get_password_hash(new_password)
     token.used = True
+    _revocar_refresh_tokens(user.id, db)
     db.commit()
     return True
