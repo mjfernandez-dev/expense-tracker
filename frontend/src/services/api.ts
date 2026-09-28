@@ -21,8 +21,6 @@ import type {
   Ciclo,
   CicloCreate,
   PresupuestoItemCreate,
-  GastoFijo,
-  GastoFijoUpdate,
   GastoProgramado,
   GastoProgramadoCreate,
   GastoProgramadoUpdate,
@@ -475,20 +473,6 @@ export const getCiclo = async (id: number): Promise<Ciclo> => {
 // GET /ciclos/ → lista todos los ciclos del usuario (sin resumen)
 export const getCiclos = async (): Promise<Ciclo[]> => {
   const response = await api.get<Ciclo[]>('/ciclos/');
-  return response.data;
-};
-
-// ============== GASTOS FIJOS ==============
-
-// GET /gastos-fijos/ → lista gastos fijos del usuario autenticado
-export const getGastosFijos = async (): Promise<GastoFijo[]> => {
-  const response = await api.get('/gastos-fijos/');
-  return response.data;
-};
-
-// PUT /gastos-fijos/{id} → actualiza activo, dia_vencimiento y/o dias_anticipacion
-export const updateGastoFijo = async (id: number, patch: GastoFijoUpdate): Promise<GastoFijo> => {
-  const response = await api.put(`/gastos-fijos/${id}`, patch);
   return response.data;
 };
 

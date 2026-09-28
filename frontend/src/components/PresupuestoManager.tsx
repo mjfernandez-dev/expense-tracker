@@ -1,9 +1,8 @@
 // COMPONENTE: Gestión de presupuesto base (plantilla) + categorías personalizadas
 // Reemplaza CategoryManager agregando monto_default, tiene_monto_fijo y ahorro_objetivo_default
 import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
-import type { UserCategory, GastoFijo } from '../types';
+import type { UserCategory } from '../types';
 import type { MovimientoAfectado } from '../services/api';
-import { isPushSupported, subscribeToPush } from '../services/push';
 import {
   getUserCategories,
   createCategory,
@@ -13,12 +12,9 @@ import {
   getMovimientosAfectados,
   reasignarYEliminarCategoria,
   updateUserPreferences,
-  getGastosFijos,
-  updateGastoFijo,
 } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import SaveIndicator from './SaveIndicator';
-import ConfirmModal from './ConfirmModal';
 import type { SaveState } from './SaveIndicator';
 
 interface CategoryRow extends UserCategory {
@@ -50,97 +46,10 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
   const [formLoading, setFormLoading] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // ── Gastos Fijos ──────────────────────────────────────────────────
-  const [gastosFijos, setGastosFijos] = useState<GastoFijo[]>([]);
-  const [gastoFijoSaveErrors, setGastoFijoSaveErrors] = useState<Record<number, string>>({});
-  const [gastosFijosLoading, setGastosFijosLoading] = useState<boolean>(false);
-  const [gastosFijosError, setGastosFijosError] = useState<string | null>(null);
-
-  // ── Confirmación in-app de notificaciones push ────────────────────
-  const [showPushConfirm, setShowPushConfirm] = useState<boolean>(false);
-
-  const fetchGastosFijos = useCallback(async () => {
-    setGastosFijosLoading(true);
-    setGastosFijosError(null);
-    try {
-      const data = await getGastosFijos();
-      setGastosFijos(data);
-    } catch {
-      setGastosFijosError('No se pudieron cargar los gastos fijos.');
-    } finally {
-      setGastosFijosLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchGastosFijos();
-  }, [fetchGastosFijos, refreshKey]);
-
-  const triggerPushOptIn = async (newDiaVencimiento: number | null) => {
-    if (newDiaVencimiento === null) return;
-    if (!isPushSupported()) return; // T3.3 handles UI for this case
-    if (localStorage.getItem('push_denied') === 'true') return;
-    if (Notification.permission === 'granted') {
-      try {
-        await subscribeToPush();
-      } catch (err) {
-        const e = err as { response?: { status?: number } };
-        if (e.response?.status !== 409) {
-          setAutoSaveError('No se pudo sincronizar la suscripción a notificaciones.');
-        }
-      }
-      return;
-    }
-    if (Notification.permission === 'denied') return;
-
-    // Show in-app confirmation before browser prompt (better UX)
-    setShowPushConfirm(true);
-  };
-
-  const handlePushOptInConfirm = async () => {
-    setShowPushConfirm(false);
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      try {
-        await subscribeToPush();
-      } catch {
-        setAutoSaveError('No se pudo activar las notificaciones. Intentá de nuevo.');
-      }
-    } else {
-      localStorage.setItem('push_denied', 'true');
-    }
-  };
-
-  const handleVencimientoBlur = async (gf: GastoFijo, field: 'dia_vencimiento' | 'dias_anticipacion', rawValue: string) => {
-    const parsed = rawValue === '' ? null : parseInt(rawValue, 10);
-    // Optimistic update
-    setGastosFijos(prev => prev.map(g => g.id === gf.id ? { ...g, [field]: parsed } : g));
-    setGastoFijoSaveErrors(prev => ({ ...prev, [gf.id]: '' }));
-    try {
-      const updated = await updateGastoFijo(gf.id, {
-        activo: gf.activo,
-        [field]: parsed,
-      });
-      setGastosFijos(prev => prev.map(g => g.id === gf.id ? { ...g, ...updated } : g));
-      // T3.2: opt-in only when dia_vencimiento transitions from null → value
-      if (field === 'dia_vencimiento' && gf.dia_vencimiento == null && parsed !== null) {
-        await triggerPushOptIn(parsed);
-      }
-    } catch (err) {
-      const e = err as { response?: { data?: { detail?: string } } };
-      setGastoFijoSaveErrors(prev => ({
-        ...prev,
-        [gf.id]: e.response?.data?.detail ?? 'Error al guardar',
-      }));
-      // Revert
-      setGastosFijos(prev => prev.map(g => g.id === gf.id ? gf : g));
-    }
-  };
-
-  // Errores inline de auto-save
+  // ── Errores inline de auto-save ───────────────────────────────────
   const [autoSaveError, setAutoSaveError] = useState<string | null>(null);
 
-  // Confirmación eliminación
+  // ── Confirmación eliminación ──────────────────────────────────────
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -500,88 +409,6 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
         </div>
       </div>
 
-      {/* ── Gastos Fijos: vencimientos ──────────────────────────── */}
-      <div className="relative">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-600/40 to-transparent" />
-        <div className="pt-6 text-center">
-          <p className="text-xs font-mono text-slate-500 uppercase tracking-widest">Vencimientos recurrentes</p>
-        </div>
-      </div>
-      {gastosFijosError && (
-        <p className="text-red-400 text-xs px-1">{gastosFijosError}</p>
-      )}
-      {gastosFijosLoading && (
-        <p className="text-slate-500 text-xs px-1">Cargando gastos fijos...</p>
-      )}
-      {gastosFijos.length > 0 && (
-        <div className="bg-slate-900/80 backdrop-blur-2xl border border-slate-700/70 rounded-2xl p-5 space-y-3">
-          <div>
-            <h3 className="text-white font-semibold text-sm">Gastos fijos recurrentes</h3>
-            <p className="text-slate-400 text-xs mt-0.5">
-              Configurá recordatorios para no olvidar ningún vencimiento.
-            </p>
-          </div>
-          <div className="space-y-2">
-            {gastosFijos.map(gf => (
-              <div
-                key={gf.id}
-                className="bg-slate-800/60 border border-slate-700/40 rounded-xl px-3 py-3 space-y-2"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-200 text-sm font-medium truncate flex-1">
-                    {gf.descripcion}
-                  </span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${gf.activo ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700/60 text-slate-400 border border-slate-600/30'}`}>
-                    {gf.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                </div>
-
-                {gastoFijoSaveErrors[gf.id] && (
-                  <p className="text-red-400 text-xs">{gastoFijoSaveErrors[gf.id]}</p>
-                )}
-
-                <div className="flex flex-wrap gap-3">
-                  {/* Día de vencimiento */}
-                  <div className="flex flex-col gap-1 min-w-32">
-                    <label className="text-slate-400 text-xs">Día de vencimiento</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="31"
-                      placeholder="ej. 10"
-                      defaultValue={gf.dia_vencimiento ?? ''}
-                      onBlur={e => handleVencimientoBlur(gf, 'dia_vencimiento', e.target.value)}
-                      className="w-24 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-white text-sm focus:outline-none focus:border-blue-500 text-right"
-                    />
-                    {/* T3.3: degradation hint for browsers without push support */}
-                    {!isPushSupported() && gf.dia_vencimiento != null && (
-                      <p className="text-xs text-slate-500 mt-1">
-                        Instalá la app para recibir avisos de vencimiento
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Días de anticipación — solo visible cuando dia_vencimiento tiene valor */}
-                  {gf.dia_vencimiento != null && (
-                    <div className="flex flex-col gap-1 min-w-36">
-                      <label className="text-slate-400 text-xs">Días de anticipación</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="28"
-                        defaultValue={gf.dias_anticipacion ?? 2}
-                        onBlur={e => handleVencimientoBlur(gf, 'dias_anticipacion', e.target.value)}
-                        className="w-24 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-white text-sm focus:outline-none focus:border-blue-500 text-right"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ── Modal renombrar ─────────────────────────────────────── */}
       {editingId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -699,22 +526,6 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
             </div>
           </div>
         </div>
-      )}
-
-      {/* ── Confirmación in-app de notificaciones push ─────────────── */}
-      {showPushConfirm && (
-        <ConfirmModal
-          title="Activar notificaciones"
-          confirmLabel="Activar"
-          onConfirm={handlePushOptInConfirm}
-          onCancel={() => {
-            setShowPushConfirm(false);
-            localStorage.setItem('push_denied', 'true');
-          }}
-        >
-          <p>¿Querés recibir avisos cuando se acerque el vencimiento de un gasto fijo?</p>
-          <p className="text-slate-400 text-xs">Te notificaremos incluso con la app cerrada.</p>
-        </ConfirmModal>
       )}
     </div>
   );

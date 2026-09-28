@@ -84,31 +84,6 @@ export interface MovimientoCreate {
   clasificacion?: 'necesidad' | 'deseo' | null;
 }
 
-// ============== TIPOS DE GASTO FIJO ==============
-
-export interface GastoFijo {
-  id: number;
-  user_id: number;
-  descripcion: string;
-  categoria_id: number | null;
-  user_category_id: number | null;
-  activo: boolean;
-  created_at: string;
-  categoria: Category | null;
-  user_category: UserCategory | null;
-  max_importe: number | null;
-  ultimo_importe: number | null;
-  total_meses: number;
-  dia_vencimiento: number | null;
-  dias_anticipacion: number | null;
-}
-
-export interface GastoFijoUpdate {
-  activo?: boolean;
-  dia_vencimiento?: number | null;
-  dias_anticipacion?: number | null;
-}
-
 // ============== TIPOS DE PRESUPUESTO POR CICLO ==============
 
 export interface PresupuestoItem {
@@ -210,7 +185,6 @@ export interface GastoProgramado {
   user_category_id: number | null;
   medio_pago: string | null;
   clasificacion: 'necesidad' | 'deseo' | null;
-  dias_anticipacion: number | null;
   estado: 'pendiente' | 'pagado' | 'cancelado';
   cuota_actual: number | null;
   cuota_total: number | null;
@@ -230,7 +204,6 @@ export interface GastoProgramadoCreate {
   user_category_id?: number | null;
   medio_pago?: string | null;
   clasificacion?: 'necesidad' | 'deseo' | null;
-  dias_anticipacion?: number;
   cuota_actual?: number | null;
   cuota_total?: number | null;
 }

@@ -63,7 +63,6 @@ def test_crear_y_listar_gastos_programados(logged_in_client, user_category_id):
     assert gp["estado"] == "pendiente"
     assert gp["importe"] == 500.0
     assert gp["vencimiento"] == (_hoy().date() + timedelta(days=5)).isoformat()
-    assert gp["dias_anticipacion"] == 2
     assert gp["user_category"] is not None
 
     r = logged_in_client.get("/gastos-programados/")

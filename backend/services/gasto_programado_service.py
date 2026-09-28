@@ -5,8 +5,6 @@ dentro del ciclo activo, reserva dinero como PresupuestoItem (descuenta el
 saldo disponible). Al registrar el pago se crea un Movimiento real vinculado al
 item y el gasto pasa a "pagado" sin descontar dos veces.
 """
-import logging
-from datetime import date, timedelta
 from decimal import Decimal
 from typing import Optional
 
@@ -14,11 +12,9 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 import models
-from services import ciclo_service, ciclo_time_service, push_service
+from services import ciclo_service, ciclo_time_service
 from services.ciclo_commitment_service import calcular_progreso_presupuesto
 from services.movimiento_service import _validate_categoria
-
-logger = logging.getLogger("finanzaapp")
 
 
 _GP_LOAD_OPTIONS = (
@@ -80,7 +76,6 @@ def crear_gasto_programado(
         user_category_id=data.user_category_id,
         medio_pago=data.medio_pago,
         clasificacion=data.clasificacion,
-        dias_anticipacion=data.dias_anticipacion,
         estado="pendiente",
         cuota_actual=data.cuota_actual,
         cuota_total=data.cuota_total,
@@ -329,99 +324,3 @@ def importar_gastos_programados_al_ciclo(
             estado="pendiente",
             gasto_programado_id=gp.id,
         ))
-
-
-def gastos_programados_por_notificar(db: Session, hoy: date) -> list[models.GastoProgramado]:
-    """Gastos programados pendientes cuya ventana de aviso ya arrancó y que no
-    fueron notificados hoy (idempotencia diaria vía last_notified_on).
-
-    Ventana: vencimiento - COALESCE(dias_anticipacion, 2) <= hoy. Los vencidos
-    impagos siguen notificables mientras estén 'pendiente'. Ordena por
-    user_id y vencimiento (para agrupar por usuario en el cron).
-    """
-    # Pre-filtro por cota superior: dias_anticipacion está acotado a 28 en el
-    # schema, así que un vencimiento a más de 31 días nunca puede estar en
-    # ventana. El filtro exacto se hace en Python (por fila, con COALESCE 2).
-    candidatos = (
-        db.query(models.GastoProgramado)
-        .filter(
-            models.GastoProgramado.estado == "pendiente",
-            models.GastoProgramado.vencimiento <= hoy + timedelta(days=31),
-            (models.GastoProgramado.last_notified_on.is_(None))
-            | (models.GastoProgramado.last_notified_on < hoy),
-        )
-        .order_by(
-            models.GastoProgramado.user_id.asc(),
-            models.GastoProgramado.vencimiento.asc(),
-        )
-        .all()
-    )
-    return [
-        gp
-        for gp in candidatos
-        if gp.vencimiento
-        - timedelta(days=gp.dias_anticipacion if gp.dias_anticipacion is not None else 2)
-        <= hoy
-    ]
-
-
-def marcar_gastos_programados_notificados(ids: list[int], db: Session, hoy: date) -> None:
-    """Marca los gastos programados dados como notificados hoy (un solo UPDATE)."""
-    if not ids:
-        return
-    db.query(models.GastoProgramado).filter(models.GastoProgramado.id.in_(ids)).update(
-        {models.GastoProgramado.last_notified_on: hoy},
-        synchronize_session=False,
-    )
-    db.commit()
-
-
-def notificar_gastos_programados(db: Session, hoy: date) -> dict:
-    """Envía recordatorios push de gastos programados pendientes y marca notificados.
-
-    Idempotente por día: last_notified_on evita re-notificar el mismo día.
-    Un fallo de push de un usuario no aborta el run; se devuelven conteos
-    de notificados, usuarios alcanzados y fallidos.
-    """
-    debidos = gastos_programados_por_notificar(db, hoy)
-
-    por_usuario: dict[int, list[models.GastoProgramado]] = {}
-    for gp in debidos:
-        por_usuario.setdefault(gp.user_id, []).append(gp)
-
-    notificados = 0
-    fallidos = 0
-    for user_id, programados in por_usuario.items():
-        subs = (
-            db.query(models.PushSubscription)
-            .filter(models.PushSubscription.user_id == user_id)
-            .all()
-        )
-        for gp in programados:
-            # gp.descripcion es EncryptedString: se desencripta acá. No loguear.
-            payload = {
-                "title": "Recordatorio de gasto programado",
-                "body": f"«{gp.descripcion}» vence el {gp.vencimiento:%d/%m/%Y} — registrá el pago",
-                "url": "/",
-            }
-            entregado = False
-            for sub in subs:
-                try:
-                    if push_service.send_push_notification(sub, payload):
-                        entregado = True
-                    else:
-                        db.delete(sub)
-                except Exception as exc:
-                    logger.error(
-                        "cron_gp_push_error sub_id=%s gp_id=%s: %s",
-                        sub.id,
-                        gp.id,
-                        exc,
-                    )
-            if entregado:
-                notificados += 1
-            else:
-                fallidos += 1
-
-    marcar_gastos_programados_notificados([gp.id for gp in debidos], db, hoy)
-    return {"notified": notificados, "users": len(por_usuario), "failed": fallidos}

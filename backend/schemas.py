@@ -214,34 +214,6 @@ class ReasignarMovimientosBody(BaseModel):
     nueva_categoria_id: int
 
 
-# ============== SCHEMAS PARA GASTO FIJO ==============
-
-class GastoFijoRead(BaseModel):
-    id: int
-    user_id: int
-    descripcion: str
-    categoria_id: Optional[int] = None
-    user_category_id: Optional[int] = None
-    activo: bool
-    created_at: datetime
-    categoria: Optional[CategoryRead] = None
-    user_category: Optional[UserCategoryRead] = None
-    max_importe: Optional[MoneyDecimal] = None    # Máximo histórico (calculado en endpoint)
-    ultimo_importe: Optional[MoneyDecimal] = None  # Importe del último mes (calculado en endpoint)
-    total_meses: int = 0                   # Cantidad de meses registrados
-    dia_vencimiento: Optional[int] = None
-    dias_anticipacion: Optional[int] = 2
-
-    class Config:
-        from_attributes = True
-
-
-class GastoFijoUpdate(BaseModel):
-    activo: bool
-    dia_vencimiento: Optional[int] = Field(None, ge=1, le=31)
-    dias_anticipacion: Optional[int] = Field(None, ge=0, le=28)
-
-
 # ============== SCHEMAS PARA GASTO PROGRAMADO ==============
 
 class GastoProgramadoCreate(BaseModel):
@@ -253,7 +225,6 @@ class GastoProgramadoCreate(BaseModel):
     user_category_id: Optional[int] = None
     medio_pago: Optional[str] = None
     clasificacion: Optional[str] = None
-    dias_anticipacion: Optional[int] = Field(default=2, ge=0, le=28)
     cuota_actual: Optional[int] = Field(None, ge=1)
     cuota_total: Optional[int] = Field(None, ge=1)
 
@@ -277,7 +248,6 @@ class GastoProgramadoUpdate(BaseModel):
     user_category_id: Optional[int] = None
     medio_pago: Optional[str] = None
     clasificacion: Optional[str] = None
-    dias_anticipacion: Optional[int] = Field(None, ge=0, le=28)
     cuota_actual: Optional[int] = Field(None, ge=1)
     cuota_total: Optional[int] = Field(None, ge=1)
 
@@ -304,7 +274,6 @@ class GastoProgramadoRead(BaseModel):
     user_category_id: Optional[int] = None
     medio_pago: Optional[str] = None
     clasificacion: Optional[str] = None
-    dias_anticipacion: Optional[int] = None
     estado: str
     cuota_actual: Optional[int] = None
     cuota_total: Optional[int] = None
@@ -427,16 +396,3 @@ class CicloRead(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-# ============== SCHEMAS PARA PUSH NOTIFICATIONS ==============
-
-class PushSubscribeRequest(BaseModel):
-    endpoint: str
-    p256dh: str
-    auth: str
-
-
-class PushSubscribeResponse(BaseModel):
-    id: int
-    message: str

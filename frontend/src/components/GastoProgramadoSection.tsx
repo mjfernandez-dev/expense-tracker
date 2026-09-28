@@ -1,5 +1,5 @@
 // COMPONENTE: Gastos programados del ciclo actual — pendientes con acciones
-// (registrar pago / cancelar) y un historial compacto de pagados/cancelados.
+// (registrar pago / cancelar).
 import { useState, useEffect, useCallback } from 'react';
 import type { GastoProgramado } from '../types';
 import { getGastosProgramados, pagarGastoProgramado, cancelarGastoProgramado } from '../services/api';
@@ -46,9 +46,6 @@ export default function GastoProgramadoSection({ refreshKey, onChanged }: GastoP
   const pendientes = gastos
     .filter((g) => g.estado === 'pendiente')
     .sort((a, b) => a.vencimiento.localeCompare(b.vencimiento));
-  const historial = gastos
-    .filter((g) => g.estado !== 'pendiente')
-    .sort((a, b) => b.vencimiento.localeCompare(a.vencimiento));
 
   const nombreCategoria = (g: GastoProgramado) => g.categoria?.nombre ?? g.user_category?.nombre ?? null;
 
@@ -165,33 +162,6 @@ export default function GastoProgramadoSection({ refreshKey, onChanged }: GastoP
           </div>
         )}
       </div>
-
-      {/* ── Historial (pagados / cancelados) ───────────────── */}
-      {historial.length > 0 && (
-        <div className="bg-slate-900/60 border border-slate-700/50 backdrop-blur-2xl rounded-2xl overflow-hidden">
-          <div className="px-4 py-2 border-b border-slate-700/40">
-            <span className="text-xs font-mono font-semibold text-slate-500 uppercase tracking-widest">
-              Historial
-            </span>
-          </div>
-          <div className="divide-y divide-slate-700/40">
-            {historial.map((g) => (
-              <div key={g.id} className="px-4 py-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-mono text-slate-500 bg-slate-700/40 border border-slate-600/40 px-1.5 py-px rounded flex-shrink-0">
-                    {g.estado === 'pagado' ? 'pagado' : 'cancelado'}
-                  </span>
-                  <span className="text-slate-400 text-xs truncate">{g.descripcion || 'Sin descripción'}</span>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0 text-xs">
-                  <span className="text-slate-500 tabular-nums whitespace-nowrap">{formatFecha(g.vencimiento)}</span>
-                  <span className="text-slate-400 tabular-nums whitespace-nowrap">{formatARS(g.importe)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── Confirmación de pago / cancelación ─────────────── */}
       {confirmacion && (

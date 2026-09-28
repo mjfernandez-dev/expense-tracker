@@ -19,7 +19,6 @@ export default function GastoProgramadoForm({ onClose, onCreated }: GastoProgram
   const [categoriaId, setCategoriaId] = useState<string>('');
   const [medioPago, setMedioPago] = useState<string>('');
   const [clasificacion, setClasificacion] = useState<string>('');
-  const [diasAnticipacion, setDiasAnticipacion] = useState<string>('2');
   const [cuotaActual, setCuotaActual] = useState<string>('');
   const [cuotaTotal, setCuotaTotal] = useState<string>('');
 
@@ -78,7 +77,6 @@ export default function GastoProgramadoForm({ onClose, onCreated }: GastoProgram
       user_category_id: parseInt(categoriaId, 10) || null,
       medio_pago: medioPago || null,
       clasificacion: (clasificacion || null) as 'necesidad' | 'deseo' | null,
-      dias_anticipacion: diasAnticipacion !== '' ? Math.max(0, Math.min(28, parseInt(diasAnticipacion, 10) || 2)) : 2,
       cuota_actual: cuotaAct != null && !isNaN(cuotaAct) && cuotaAct > 0 ? cuotaAct : null,
       cuota_total: cuotaTot != null && !isNaN(cuotaTot) && cuotaTot > 0 ? cuotaTot : null,
     };
@@ -198,18 +196,7 @@ export default function GastoProgramadoForm({ onClose, onCreated }: GastoProgram
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={optionLabelClass}>Días anticipación</label>
-              <input
-                type="number"
-                min="0"
-                max="28"
-                value={diasAnticipacion}
-                onChange={(e) => setDiasAnticipacion(e.target.value)}
-                className={`${inputClass} text-right`}
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={optionLabelClass}>Cuota actual</label>
               <input
