@@ -33,6 +33,18 @@ function toUtcDayNumber({ year, month, day }: DateParts): number {
   return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
 }
 
+// Mes actual en hora de Buenos Aires. El backend guarda timestamps naive de BA, así que
+// "qué mes es hoy" se resuelve en BA y no con la zona local del browser.
+export interface BAMonth {
+  year: number;
+  month: number; // 0-indexado, igual que Date.getMonth()
+}
+
+export function getCurrentMonthBA(now: Date = new Date()): BAMonth {
+  const { year, month } = getDatePartsInTimeZone(now);
+  return { year, month: month - 1 };
+}
+
 export function getCurrentBADateInputValue(now: Date = new Date()): string {
   const { year, month, day } = getDatePartsInTimeZone(now);
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;

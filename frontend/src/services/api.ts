@@ -8,6 +8,7 @@ import {
   getCachedUser, saveUser, clearCachedUser,
   enqueueOperation,
 } from './offlineDB';
+import type { MonthRange } from '../utils/movimientoMonthRange';
 // CONEXIÓN: Importamos los tipos definidos en types/index.ts
 import type {
   Category,
@@ -265,17 +266,31 @@ export const createCategory = async (nombre: string): Promise<UserCategory> => {
 
 // ============== FUNCIONES PARA MOVIMIENTOS ==============
 
-// Obtener todos los movimientos (opcionalmente filtrar por tipo)
+// Obtener movimientos (opcionalmente filtrar por tipo y/o acotar a un rango de fechas)
 // GET /movimientos/ → devuelve Movimiento[]
-export const getMovimientos = async (tipo?: 'gasto' | 'ingreso'): Promise<Movimiento[]> => {
+// `rango` acota la consulta al servidor; sin él el endpoint devuelve los movimientos más
+// recientes hasta `limit`, que es lo mismo que no filtrar nada desde el punto de vista del
+// histórico. El fallback offline devuelve el cache completo (multi-mes) y el componente
+// lo acota localmente.
+export const getMovimientos = async (
+  tipo?: 'gasto' | 'ingreso',
+  rango?: MonthRange,
+): Promise<Movimiento[]> => {
   if (!navigator.onLine) {
     const cached = await getCachedMovimientos();
     return tipo ? cached.filter(m => m.tipo === tipo) : cached;
   }
   try {
-    const params = tipo ? { tipo } : {};
+    const params: Record<string, string> = {};
+    if (tipo) params.tipo = tipo;
+    if (rango) {
+      params.fecha_desde = rango.fechaDesde;
+      params.fecha_hasta = rango.fechaHasta;
+    }
     const response = await api.get<Movimiento[]>('/movimientos/', { params });
-    if (!tipo) await saveMovimientos(response.data); // solo guardar snapshot completo
+    // Solo se cachea la consulta sin filtro de tipo: el cache es un espejo por mes, y
+    // guardar una respuesta filtrada por tipo dejaría huecos que el prune no puede distinguir.
+    if (!tipo) await saveMovimientos(response.data, rango);
     return response.data;
   } catch (error) {
     const cached = await getCachedMovimientos();

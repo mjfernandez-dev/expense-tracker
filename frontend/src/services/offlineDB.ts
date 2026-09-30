@@ -3,6 +3,7 @@
 
 import { openDB, type IDBPDatabase } from 'idb';
 import type { Movimiento, Category, UserCategory, User, MovimientoCreate } from '../types';
+import { isDateInMonthRange, type MonthRange } from '../utils/movimientoMonthRange';
 
 interface FinanzaDB {
   movimientos:    { key: number; value: Movimiento };
@@ -38,11 +39,25 @@ function getDB(): Promise<IDBPDatabase<FinanzaDB>> {
 
 // ============ MOVIMIENTOS ============
 
-export async function saveMovimientos(items: Movimiento[]): Promise<void> {
+/**
+ * Guarda los movimientos carta por carta (keyPath `id`), no reemplaza el store.
+ *
+ * El store es un espejo acumulado: la UI consulta mes a mes, así que un `clear()` en cada
+ * respuesta dejaría cacheado solo el último mes visitado y el modo offline volvería a ver
+ * un solo mes. Cuando la consulta trae un rango, además se purgan las entradas que caen
+ * dentro de ese rango y no vinieron en la respuesta: para esa ventana el servidor es la
+ * fuente de verdad (refleja altas, ediciones y borrados).
+ */
+export async function saveMovimientos(items: Movimiento[], rango?: MonthRange): Promise<void> {
   const db = await getDB();
   const tx = db.transaction('movimientos', 'readwrite');
-  await tx.store.clear();
-  await Promise.all(items.map(m => tx.store.put(m)));
+  if (rango) {
+    const cacheados = await tx.store.getAll();
+    const recibidos = new Set(items.map((m) => m.id));
+    const obsoletos = cacheados.filter((m) => !recibidos.has(m.id) && isDateInMonthRange(m.fecha, rango));
+    await Promise.all(obsoletos.map((m) => tx.store.delete(m.id)));
+  }
+  await Promise.all(items.map((m) => tx.store.put(m)));
   await tx.done;
 }
 

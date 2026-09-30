@@ -1,6 +1,8 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import type { Movimiento } from '../types';
 import { getMovimientos, deleteMovimiento } from '../services/api';
+import { monthRange } from '../utils/movimientoMonthRange';
+import { getCurrentMonthBA, type BAMonth } from '../utils/buenosAiresDate';
 import ClasificacionBadge from './ClasificacionBadge';
 
 const formatARS = (n: number) =>
@@ -28,8 +30,11 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  // El backend guarda timestamps naive de Buenos Aires, así que el mes inicial se resuelve
+  // en BA y no con la zona horaria del browser.
+  const [mesInicial] = useState<BAMonth>(getCurrentMonthBA);
+  const [selectedYear, setSelectedYear] = useState<number>(mesInicial.year);
+  const [selectedMonth, setSelectedMonth] = useState<number>(mesInicial.month);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);  // modal normal
   const [autoDeleteTarget, setAutoDeleteTarget] = useState<Movimiento | null>(null);  // modal auto-generado
@@ -38,17 +43,30 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [tabActivo, setTabActivo] = useState<TabActivo>('gastos');
 
+  const esMesInicial =
+    selectedYear === mesInicial.year && selectedMonth === mesInicial.month;
+
+  // Guard de secuencia: el usuario puede clickear las flechas de mes rápido y dos
+  // respuestas pueden cruzarse. Solo la petición más reciente escribe en el estado.
+  const requestSeq = useRef<number>(0);
+
+  // Pide al servidor SOLO el mes visible. El listado del endpoint viene truncado a `limit`,
+  // así que filtrar por mes en el cliente sobre esa página truncada no recupera histórico.
   const fetchMovimientos = useCallback(async () => {
+    const seq = ++requestSeq.current;
     try {
+      setError(null);
       setLoading(true);
-      const data = await getMovimientos();
+      const data = await getMovimientos(undefined, monthRange(selectedYear, selectedMonth));
+      if (seq !== requestSeq.current) return;  // respuesta vencida: hay una más nueva en vuelo
       setMovimientos(data);
     } catch {
+      if (seq !== requestSeq.current) return;
       setError('Error al cargar los movimientos');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
-  }, []);
+  }, [selectedYear, selectedMonth]);
 
   useEffect(() => {
     fetchMovimientos();
@@ -60,6 +78,9 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     return () => { document.body.style.overflow = ''; };
   }, [deleteTarget, autoDeleteTarget]);
 
+  // Filtro por mes client-side. NO es código muerto: el cache de IndexedDB es multi-mes y el
+  // fallback offline de `getMovimientos` lo devuelve completo, así que sin este filtro la
+  // vista offline mezclaría todos los meses cacheados. El fetch, en cambio, ya viene acotado.
   const movimientosMes = useMemo(() => {
     return movimientos.filter((mov) => {
       const date = new Date(mov.fecha);
@@ -249,20 +270,8 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="bg-slate-800/70 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6">
-        <div className="text-center text-slate-300">Cargando movimientos...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 rounded-lg text-sm">{error}</div>
-    );
-  }
-
+  // La tarjeta (hero, tabs y filtros) queda siempre montada: el estado de carga y el error
+  // viven solo en el cuerpo de la lista, así que cambiar de mes no hace flash del bloque entero.
   return (
     <>
     <div className="bg-slate-800/70 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-600/60 p-6">
@@ -289,7 +298,13 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
               {MESES[selectedMonth]} {selectedYear}
             </span>
             <div className="text-[2.5rem] leading-none font-extrabold text-white mt-2 tracking-tight">
-              {esIngreso ? '+' : '-'}{formatARS(esIngreso ? totalIngresos : totalGastos)}
+              {loading ? (
+                // Mientras carga el mes nuevo, `movimientos` todavía contiene el mes anterior:
+                // mostrar su total bajo el nombre del mes nuevo sería mentir.
+                <span className="inline-block w-40 h-9 rounded-lg bg-slate-700/70 animate-pulse align-middle" aria-hidden="true" />
+              ) : (
+                <>{esIngreso ? '+' : '-'}{formatARS(esIngreso ? totalIngresos : totalGastos)}</>
+              )}
             </div>
             <span className="text-sm text-slate-400 mt-1.5 block">
               total {esIngreso ? 'ingresos' : 'gastos'}
@@ -394,7 +409,11 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
       <>
 
-          {listaActiva.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8 text-slate-400" role="status">Cargando movimientos...</div>
+          ) : error ? (
+            <div role="alert" className="rounded-xl bg-red-500/10 border border-red-300/60 text-red-100 px-4 py-3 text-sm">{error}</div>
+          ) : listaActiva.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               {searchQuery.trim() || selectedCategory ? (
                 <>
@@ -413,8 +432,10 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
                   <p className="text-lg">
                     No hay {esIngreso ? 'ingresos' : 'gastos'} en {MESES[selectedMonth]} {selectedYear}.
                   </p>
+                  {/* El listado viene acotado al mes pedido, así que `movimientos.length === 0` ya no
+                      significa "no tenés movimientos" sino "no tenés movimientos en este mes". */}
                   <p className="text-sm mt-2">
-                    {movimientos.length === 0
+                    {esMesInicial && movimientos.length === 0
                       ? `Comenzá registrando tu primer ${esIngreso ? 'ingreso' : 'gasto'} arriba`
                       : 'Probá navegando a otro mes'}
                   </p>
