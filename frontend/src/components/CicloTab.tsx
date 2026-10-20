@@ -1,7 +1,7 @@
 // COMPONENTE: Tab único "Ciclo" — reemplaza Balance + edición de presupuesto del ciclo.
 // El backend (calcular_resumen) es la única fuente de verdad; NO se recalculan totales
 // desde movimientos para el reporte.
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Ciclo, Category, UserCategory, PresupuestoItemCreate } from '../types';
 import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, crearItemPresupuesto, getUserCategories, getCategories } from '../services/api';
 import ClasificacionPie from './ClasificacionPie';
@@ -89,12 +89,15 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
     cargarCategorias();
   }, []);
 
-  // Refrescar la plantilla al volver a la pestaña (datos sin cache obsoleto)
+  // Refrescar la plantilla al volver a la pestaña, solo si la última carga ya no es fresca.
+  // Antes: refetch completo (remount + /ciclos) en CADA vuelta a la pestaña.
+  const lastLoadedAt = useRef<number>(Date.now());
+
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        onRefresh();
-      }
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastLoadedAt.current < 30_000) return;
+      onRefresh();
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
@@ -119,6 +122,7 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
         setError('No se pudo cargar el ciclo.');
       } finally {
         setLoading(false);
+        lastLoadedAt.current = Date.now();
       }
     };
     cargar();
