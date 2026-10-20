@@ -184,7 +184,7 @@ function App() {
         )}
 
         {tab === 'movimientos' && (
-          <MovimientoList key={refreshKey} onEdit={handleEdit} />
+          <MovimientoList onEdit={handleEdit} refreshKey={refreshKey} />
         )}
 
         {tab === 'ciclo' && (
