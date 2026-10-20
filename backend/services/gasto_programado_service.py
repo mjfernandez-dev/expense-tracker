@@ -303,16 +303,21 @@ def importar_gastos_programados_al_ciclo(
         .all()
     )
 
-    for gp in pendientes:
-        existe = (
-            db.query(models.PresupuestoItem)
+    # Detección de duplicados en UNA query (antes: una query por gasto pendiente — N+1).
+    gp_ids_ya_importados: set = {
+        row[0]
+        for row in (
+            db.query(models.PresupuestoItem.gasto_programado_id)
             .filter(
                 models.PresupuestoItem.ciclo_id == ciclo.id,
-                models.PresupuestoItem.gasto_programado_id == gp.id,
+                models.PresupuestoItem.gasto_programado_id.isnot(None),
             )
-            .first()
+            .all()
         )
-        if existe is not None:
+    }
+
+    for gp in pendientes:
+        if gp.id in gp_ids_ya_importados:
             continue
         db.add(models.PresupuestoItem(
             ciclo_id=ciclo.id,
