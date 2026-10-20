@@ -1,13 +1,15 @@
 // COMPONENTE RAÍZ: Aplicación con diseño moderno usando Tailwind
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Movimiento } from './types';
 import MovimientoModal from './components/MovimientoModal';
-import MovimientoList from './components/MovimientoList';
-import DashboardCiclo from './components/DashboardCiclo';
-import CicloTab from './components/CicloTab';
-import CicloWizard from './components/CicloWizard';
 import { OfflineIndicator } from './components/OfflineIndicator';
+
+// Chunks de tab cargados a demanda: el entry chunk queda chico y cada tab baja su propio chunk.
+const DashboardCiclo = lazy(() => import('./components/DashboardCiclo'));
+const MovimientoList = lazy(() => import('./components/MovimientoList'));
+const CicloTab = lazy(() => import('./components/CicloTab'));
+const CicloWizard = lazy(() => import('./components/CicloWizard'));
 
 import { useAuth } from './context/useAuth';
 import { createMovimiento } from './services/api';
@@ -165,7 +167,7 @@ function App() {
 
       {/* CONTENIDO POR TAB */}
       <div className="max-w-6xl mx-auto px-3 sm:px-4 pb-32 pt-4">
-
+        <Suspense fallback={<p className="py-24 text-center text-sm text-slate-500">Cargando…</p>}>
         {tab === 'inicio' && (
           <>
             <DashboardCiclo refreshKey={refreshKey} />
@@ -182,12 +184,13 @@ function App() {
         )}
 
         {tab === 'movimientos' && (
-          <MovimientoList key={refreshKey} onEdit={handleEdit} />
+          <MovimientoList onEdit={handleEdit} refreshKey={refreshKey} />
         )}
 
         {tab === 'ciclo' && (
           <CicloTab refreshKey={refreshKey} onRefresh={handleRefresh} />
         )}
+        </Suspense>
 
       </div>
 
@@ -233,6 +236,7 @@ function App() {
 
       {/* WIZARD */}
       {showWizard && (
+        <Suspense fallback={null}>
         <CicloWizard
           movimientoOrigenId={wizardMovimientoId}
           importeReferencia={wizardImporte}
@@ -240,6 +244,7 @@ function App() {
           onClose={handleWizardClose}
           porcentajeAhorro={user?.porcentaje_ahorro_default ?? 10}
         />
+        </Suspense>
       )}
     </div>
   );

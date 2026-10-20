@@ -24,9 +24,10 @@ type TabActivo = 'gastos' | 'ingresos';
 
 interface MovimientoListProps {
   onEdit?: (movimiento: Movimiento) => void;
+  refreshKey?: number;
 }
 
-function MovimientoList({ onEdit }: MovimientoListProps) {
+function MovimientoList({ onEdit, refreshKey = 0 }: MovimientoListProps) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,7 @@ function MovimientoList({ onEdit }: MovimientoListProps) {
 
   useEffect(() => {
     fetchMovimientos();
-  }, [fetchMovimientos]);
+  }, [fetchMovimientos, refreshKey]);
 
   useEffect(() => {
     const isOpen = deleteTarget !== null || autoDeleteTarget !== null;
