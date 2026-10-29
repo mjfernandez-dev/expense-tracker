@@ -205,6 +205,35 @@ def actualizar_monto_presupuesto_item(
     return item
 
 
+def liberar_resto_presupuesto_item(
+    ciclo: models.Ciclo,
+    item_id: int,
+    db: "Session",
+) -> models.PresupuestoItem:
+    """
+    Libera el saldo no gastado de un item de presupuesto: baja monto_estimado
+    al total ya ejecutado. El dinero liberado vuelve al disponible del ciclo
+    automáticamente (el resumen suma reserva = monto_estimado confirmado).
+
+    - item inexistente → ValueError("_not_found")  (router → 404 sin revelar recurso)
+    - item de una reserva de gasto programado → HTTPException 409
+      (su saldo todavía puede ejecutarse; asegurar_item_ordinario)
+    - Idempotente: liberar de nuevo es no-op.
+    """
+    item = next((i for i in ciclo.presupuesto_items if i.id == item_id), None)
+    if item is None:
+        raise ValueError("_not_found")
+    asegurar_item_ordinario(item)
+
+    progreso = calcular_progreso_presupuesto(item)
+    if progreso.ejecutado < progreso.reservado:
+        item.monto_estimado = progreso.ejecutado
+    item.estado = calcular_progreso_presupuesto(item).estado
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 def crear_o_vincular_presupuesto_item(
     ciclo: models.Ciclo,
     data,

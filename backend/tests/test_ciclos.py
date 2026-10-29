@@ -1060,3 +1060,116 @@ def test_bulk_revierte_plantilla_y_presupuesto_si_falla_commit(tmp_path, monkeyp
     assert verificacion.query(models.PresupuestoItem).filter_by(ciclo_id=ciclo_id).count() == 0
     verificacion.close()
     engine.dispose()
+
+
+# ============== LIBERAR RESTO (saldo no gastado de un item) ==============
+
+
+def _confirmar_item_y_gasto_vinculado(
+    logged_in_client, user_category_id: int, monto: float, gasto: float
+) -> tuple[dict, dict]:
+    """Ciclo con un item de presupuesto confirmado de `monto` y, opcionalmente,
+    un gasto vinculado de `gasto`."""
+    ingreso = logged_in_client.post(
+        "/movimientos/", json=_ingreso(user_category_id, 1000.0)
+    ).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+    r = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/",
+        json={
+            "items": [{
+                "user_category_id": user_category_id,
+                "monto_estimado": monto,
+                "confirmado": True,
+            }]
+        },
+    )
+    assert r.status_code == 200, r.text
+    item = next(
+        i
+        for i in r.json()["resumen"]["presupuesto_items"]
+        if i["user_category_id"] == user_category_id
+    )
+    if gasto > 0:
+        r_gasto = logged_in_client.post(
+            "/movimientos/",
+            json=_gasto(user_category_id, gasto, presupuesto_item_id=item["id"]),
+        )
+        assert r_gasto.status_code == 200, r_gasto.text
+    return ciclo, item
+
+
+def test_liberar_resto_baja_reservado_al_ejecutado(logged_in_client, user_category_id):
+    ciclo, item = _confirmar_item_y_gasto_vinculado(
+        logged_in_client, user_category_id, 100.0, 30.0
+    )
+
+    r = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/items/{item['id']}/liberar-resto"
+    )
+    assert r.status_code == 200, r.text
+    resumen = r.json()["resumen"]
+    it = next(i for i in resumen["presupuesto_items"] if i["id"] == item["id"])
+    assert float(it["monto_estimado"]) == 30.0
+    assert float(it["monto_ejecutado"]) == 30.0
+    assert float(it["monto_pendiente"]) == 0.0
+    assert it["estado"] == "efectivizado"
+    # El saldo liberado (70) vuelve al disponible: 1000 - ahorro 0 - reservado 30 = 970
+    assert float(resumen["saldo_disponible_total"]) == 970.0
+
+
+def test_liberar_resto_con_ejecutado_cero_deja_monto_cero(logged_in_client, user_category_id):
+    ciclo, item = _confirmar_item_y_gasto_vinculado(
+        logged_in_client, user_category_id, 100.0, 0.0
+    )
+
+    r = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/items/{item['id']}/liberar-resto"
+    )
+    assert r.status_code == 200, r.text
+    it = next(i for i in r.json()["resumen"]["presupuesto_items"] if i["id"] == item["id"])
+    assert float(it["monto_estimado"]) == 0.0
+    assert it["estado"] == "pendiente"
+
+
+def test_liberar_resto_es_idempotente(logged_in_client, user_category_id):
+    ciclo, item = _confirmar_item_y_gasto_vinculado(
+        logged_in_client, user_category_id, 100.0, 30.0
+    )
+
+    r1 = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/items/{item['id']}/liberar-resto"
+    )
+    r2 = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/items/{item['id']}/liberar-resto"
+    )
+    assert r1.status_code == 200, r1.text
+    assert r2.status_code == 200, r2.text
+    it = next(
+        i
+        for i in r2.json()["resumen"]["presupuesto_items"]
+        if i["id"] == item["id"]
+    )
+    assert float(it["monto_estimado"]) == 30.0
+
+
+def test_liberar_resto_reserva_gasto_programado_rechazada_409(logged_in_client, user_category_id):
+    ciclo, reserva = _crear_reserva(logged_in_client, user_category_id)
+
+    r = logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/items/{reserva['id']}/liberar-resto"
+    )
+    assert r.status_code == 409, r.text
+
+
+def test_liberar_resto_item_de_otro_usuario_da_404(
+    logged_in_client, second_logged_in_client, user_category_id
+):
+    ciclo, item = _confirmar_item_y_gasto_vinculado(
+        logged_in_client, user_category_id, 100.0, 30.0
+    )
+
+    r = second_logged_in_client.post(
+        f"/ciclos/{ciclo['id']}/presupuesto/items/{item['id']}/liberar-resto"
+    )
+    assert r.status_code == 404, r.text

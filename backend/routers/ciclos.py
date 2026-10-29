@@ -163,6 +163,28 @@ def actualizar_monto_presupuesto_item(
     return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
 
 
+@router.post("/{ciclo_id}/presupuesto/items/{item_id}/liberar-resto", response_model=schemas.CicloRead)
+def liberar_resto_presupuesto_item(
+    ciclo_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Libera el saldo no gastado de un item de presupuesto (monto_estimado → ejecutado).
+
+    Devuelve el ciclo completo con resumen: el disponible y el daily cap se
+    recalculan en la misma respuesta."""
+    ciclo = _cargar_ciclo_o_404(ciclo_id, current_user.id, db)
+    try:
+        ciclo_commitment_service.liberar_resto_presupuesto_item(ciclo, item_id, db)
+    except ValueError as exc:
+        if str(exc) == "_not_found":
+            raise HTTPException(status_code=404, detail="Item de presupuesto no encontrado")
+        raise HTTPException(status_code=400, detail=str(exc))
+    ciclo = ciclo_service.cargar_ciclo(db, ciclo_id, current_user.id)
+    return ciclo_service.ciclo_a_read(ciclo, db, current_user.id)
+
+
 @router.post("/{ciclo_id}/presupuesto/items/", response_model=schemas.CicloRead, status_code=201)
 def crear_o_vincular_presupuesto_item(
     ciclo_id: int,
