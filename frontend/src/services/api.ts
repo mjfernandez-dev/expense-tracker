@@ -457,6 +457,16 @@ export const actualizarMontoPresupuestoItem = async (
   return response.data;
 };
 
+// POST /ciclos/{id}/presupuesto/items/{item_id}/liberar-resto → baja monto_estimado
+// al ejecutado; el saldo liberado vuelve al disponible del ciclo
+export const liberarRestoPresupuestoItem = async (
+  cicloId: number,
+  itemId: number,
+): Promise<Ciclo> => {
+  const response = await api.post(`/ciclos/${cicloId}/presupuesto/items/${itemId}/liberar-resto`);
+  return response.data;
+};
+
 // POST /ciclos/{id}/presupuesto/items/ → crea (o actualiza) un item de presupuesto
 // para una categoría y vincula los gastos sin comprometer de esa categoría
 export const crearItemPresupuesto = async (

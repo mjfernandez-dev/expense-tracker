@@ -3,9 +3,10 @@
 // desde movimientos para el reporte.
 import { useState, useEffect, useRef } from 'react';
 import type { Ciclo, Category, UserCategory, PresupuestoItemCreate } from '../types';
-import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, crearItemPresupuesto, getUserCategories, getCategories } from '../services/api';
+import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, liberarRestoPresupuestoItem, crearItemPresupuesto, getUserCategories, getCategories } from '../services/api';
 import ClasificacionPie from './ClasificacionPie';
 import AhorroModal from './AhorroModal';
+import ConfirmModal from './ConfirmModal';
 import PresupuestoManager from './PresupuestoManager';
 import GastoProgramadoSection from './GastoProgramadoSection';
 import GastoProgramadoForm from './GastoProgramadoForm';
@@ -71,6 +72,10 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
   const [loadingCategorias, setLoadingCategorias] = useState<boolean>(true);
   const [mostrarAhorroModal, setMostrarAhorroModal] = useState<boolean>(false);
   const [mostrarGastoProgramadoForm, setMostrarGastoProgramadoForm] = useState<boolean>(false);
+
+  // ── Liberar el saldo no gastado de un item ───────────────────────
+  const [liberarTarget, setLiberarTarget] = useState<{ id: number; monto: number } | null>(null);
+  const [isLiberando, setIsLiberando] = useState<boolean>(false);
 
   // Carga best-effort de categorías para resolver el nombre del grupo a un id
   useEffect(() => {
@@ -175,6 +180,33 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
       setInlineError(e.response?.data?.detail ?? 'No se pudo actualizar el monto.');
     } finally {
       setSavingId(null);
+    }
+  };
+
+  // ── Liberar resto: baja monto estimado al ejecutado (server-side atómico) ──
+  const iniciarLiberar = (itemId: number, pendiente: number) => {
+    setInlineError(null);
+    setLiberarTarget({ id: itemId, monto: pendiente });
+  };
+
+  const cancelarLiberar = () => {
+    setLiberarTarget(null);
+  };
+
+  const confirmarLiberarResto = async () => {
+    if (!selectedCiclo || !liberarTarget) return;
+    setIsLiberando(true);
+    setInlineError(null);
+    try {
+      // El POST devuelve el CicloRead actualizado → reemplazar selección sin re-fetch
+      const actualizado = await liberarRestoPresupuestoItem(selectedCiclo.id, liberarTarget.id);
+      setSelectedCiclo(actualizado);
+      setLiberarTarget(null);
+    } catch (err) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setInlineError(e.response?.data?.detail ?? 'No se pudo liberar el saldo.');
+    } finally {
+      setIsLiberando(false);
     }
   };
 
@@ -399,16 +431,27 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => iniciarEdicion(itemId, estimado)}
-              className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700 flex-shrink-0"
-              aria-label={`Editar monto estimado de ${descripcion || 'categoría'}`}
-            >
-              Editar
-            </button>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {pendiente > 0 && ejecutado > 0 && gastoProgramadoId == null && (
+                <button
+                  onClick={() => iniciarLiberar(itemId, pendiente)}
+                  className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700"
+                  aria-label={`Liberar resto de ${descripcion || 'categoría'}`}
+                >
+                  Liberar
+                </button>
+              )}
+              <button
+                onClick={() => iniciarEdicion(itemId, estimado)}
+                className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700"
+                aria-label={`Editar monto estimado de ${descripcion || 'categoría'}`}
+              >
+                Editar
+              </button>
+            </div>
           )}
         </div>
-        {isEditing && inlineError && (
+        {inlineError && (
           <p className="text-xs text-red-400 mt-1">{inlineError}</p>
         )}
       </div>
@@ -686,6 +729,22 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
         </section>
 
       </div>
+
+      {liberarTarget && (
+        <ConfirmModal
+          title="Liberar resto"
+          confirmLabel="Liberar"
+          loading={isLiberando}
+          loadingLabel="Liberando..."
+          onConfirm={confirmarLiberarResto}
+          onCancel={cancelarLiberar}
+        >
+          <p>
+            Liberá {formatARS(liberarTarget.monto)} que quedaron sin gastar en esta categoría.
+            El monto vuelve al disponible del ciclo.
+          </p>
+        </ConfirmModal>
+      )}
 
       {mostrarAhorroModal && selectedCiclo && (
         <AhorroModal
