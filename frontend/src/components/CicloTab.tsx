@@ -432,7 +432,7 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
             </div>
           ) : (
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {pendiente > 0 && ejecutado > 0 && gastoProgramadoId == null && (
+              {pendiente > 0 && gastoProgramadoId == null && (
                 <button
                   onClick={() => iniciarLiberar(itemId, pendiente)}
                   className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700"
