@@ -8,8 +8,6 @@ import ClasificacionPie from './ClasificacionPie';
 import AhorroModal from './AhorroModal';
 import ConfirmModal from './ConfirmModal';
 import PresupuestoManager from './PresupuestoManager';
-import GastoProgramadoSection from './GastoProgramadoSection';
-import GastoProgramadoForm from './GastoProgramadoForm';
 
 type SubTab = 'ciclo' | 'plantilla';
 
@@ -71,7 +69,6 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
   const [errorCategorias, setErrorCategorias] = useState<string | null>(null);
   const [loadingCategorias, setLoadingCategorias] = useState<boolean>(true);
   const [mostrarAhorroModal, setMostrarAhorroModal] = useState<boolean>(false);
-  const [mostrarGastoProgramadoForm, setMostrarGastoProgramadoForm] = useState<boolean>(false);
 
   // ── Liberar el saldo no gastado de un item ───────────────────────
   const [liberarTarget, setLiberarTarget] = useState<{ id: number; monto: number } | null>(null);
@@ -561,22 +558,6 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
         </div>
       </div>
 
-      {/* ── Gastos programados ───────────────────────── */}
-      <section>
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h2 className="text-xs font-mono font-semibold text-slate-400 uppercase tracking-widest">
-            Gastos programados
-          </h2>
-          <button
-            onClick={() => setMostrarGastoProgramadoForm(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1 rounded-md transition-colors"
-          >
-            Programar gasto
-          </button>
-        </div>
-        <GastoProgramadoSection refreshKey={refreshKey} onChanged={onRefresh} />
-      </section>
-
       {/* ── Desktop: 2 columnas / Mobile: 1 columna ─── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
 
@@ -753,16 +734,6 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
           onSaved={(actualizado) => {
             setSelectedCiclo(actualizado);
             setMostrarAhorroModal(false);
-          }}
-        />
-      )}
-
-      {mostrarGastoProgramadoForm && (
-        <GastoProgramadoForm
-          onClose={() => setMostrarGastoProgramadoForm(false)}
-          onCreated={() => {
-            setMostrarGastoProgramadoForm(false);
-            onRefresh();
           }}
         />
       )}
