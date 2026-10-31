@@ -334,8 +334,8 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
   const totalSinPresupuesto = sinPresupuesto.reduce((s, g) => s + g.importe, 0);
 
   const resultado = r.saldo_disponible_actual;
-  // Comprometido = presupuesto confirmado + ahorro a metas (derivado: el backend
-  // lo descuenta en saldo_disponible_total sin exponer ambos por separado).
+  // Comprometido = presupuesto confirmado (el backend lo descuenta en
+  // saldo_disponible_total junto con el ahorro, sin exponer ambos por separado).
   const comprometido = Math.max(0, r.total_ingresos - r.ahorro_objetivo - r.saldo_disponible_total);
   // Ciclos agrupados por año para el selector (el backend los trae por fecha desc)
   const ciclosPorAño = ciclos.reduce<{ año: number; ciclos: Ciclo[] }[]>((acc, c) => {
@@ -544,7 +544,7 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
             −{formatARS(r.ahorro_objetivo)} <span className="text-slate-500 font-mono">ahorro</span>
           </span>
           <span className="flex items-baseline gap-1.5 text-blue-300">
-            −{formatARS(comprometido)} <span className="text-slate-500 font-mono">presupuesto + metas</span>
+            −{formatARS(comprometido)} <span className="text-slate-500 font-mono">presupuesto</span>
           </span>
           <span className="flex items-baseline gap-1.5 text-slate-300">
             = {formatARS(r.saldo_disponible_total)} <span className="text-slate-500 font-mono">total disponible</span>
