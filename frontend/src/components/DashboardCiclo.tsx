@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Ciclo } from '../types';
 import { getCicloActivo, cerrarCiclo } from '../services/api';
+import { restantePresupuesto } from '../utils/restantePresupuesto';
 import EditCicloModal from './EditCicloModal';
 import ConfirmModal from './ConfirmModal';
 
@@ -221,6 +222,10 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
               const totalPresupuestado = items.reduce((s, i) => s + i.monto_estimado, 0);
               const totalEjecutado = items.reduce((s, i) => s + i.monto_ejecutado, 0);
               const pct = totalPresupuestado > 0 ? Math.round((totalEjecutado / totalPresupuestado) * 100) : 0;
+              // Unspent committed money. Items whose execution exceeded their
+              // estimate contribute 0: the overspend is already debited inside
+              // saldo_disponible_actual (gastos no planificados).
+              const restante = restantePresupuesto(items);
               return (
                 <div className="bg-slate-800/50 border border-slate-700/40 rounded-xl px-4 py-3 space-y-2">
                   <div className="flex items-center justify-between">
@@ -247,7 +252,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                       Disponible + restante
                     </span>
                     <span className="text-sm font-mono font-bold text-slate-100 tabular-nums">
-                      {formatARS(r.saldo_disponible_actual + totalPresupuestado - totalEjecutado)}
+                      {formatARS(r.saldo_disponible_actual + restante)}
                     </span>
                   </div>
                 </div>
