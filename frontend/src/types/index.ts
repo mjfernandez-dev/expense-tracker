@@ -146,6 +146,8 @@ export interface GastoFijoCompromiso {
 export interface GastoNoPlanificado {
   categoria: string;
   importe: number;
+  user_category_id?: number | null;
+  categoria_id?: number | null;
 }
 
 export interface ClasificacionImportes {
