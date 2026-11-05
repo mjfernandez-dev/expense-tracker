@@ -592,6 +592,8 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
 
     # ── Desglose de gastos sin presupuesto (categoría + importe) ─────
     # Nombre de categoría: prioriza user_category, luego category, luego "Sin categoría".
+    # Los ids acompañan cada fila para que la matriz de la plantilla
+    # (frontend) junte datos por id y no por nombre.
     def _categoria_nombre(movimiento) -> str:
         if movimiento.user_category is not None:
             return movimiento.user_category.nombre
@@ -599,7 +601,7 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
             return movimiento.categoria.nombre
         return "Sin categoría"
 
-    sin_presupuesto_por_categoria: dict[str, Decimal] = {}
+    sin_presupuesto_por_categoria: dict[tuple[str, Optional[int], Optional[int]], Decimal] = {}
     clasificacion = {"necesidad": Decimal("0"), "deseo": Decimal("0"), "sin_clasificar": Decimal("0")}
 
     for movimiento in movimientos:
@@ -613,9 +615,9 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
             clasificacion["sin_clasificar"] += movimiento.importe
         if movimiento.presupuesto_item_id is not None:
             continue
-        categoria = _categoria_nombre(movimiento)
-        sin_presupuesto_por_categoria[categoria] = (
-            sin_presupuesto_por_categoria.get(categoria, Decimal("0")) + movimiento.importe
+        clave = (_categoria_nombre(movimiento), movimiento.user_category_id, movimiento.categoria_id)
+        sin_presupuesto_por_categoria[clave] = (
+            sin_presupuesto_por_categoria.get(clave, Decimal("0")) + movimiento.importe
         )
 
     # Exceso de items vinculados (superaron su presupuesto) → gasto
@@ -624,17 +626,19 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         progreso = progresos[item.id]
         if progreso.ejecutado > progreso.reservado:
             exceso = progreso.ejecutado - progreso.reservado
-            categoria = item.descripcion or "Sin categoría"
-            sin_presupuesto_por_categoria[categoria] = (
-                sin_presupuesto_por_categoria.get(categoria, Decimal("0")) + exceso
+            clave = (item.descripcion or "Sin categoría", item.user_category_id, item.categoria_id)
+            sin_presupuesto_por_categoria[clave] = (
+                sin_presupuesto_por_categoria.get(clave, Decimal("0")) + exceso
             )
 
     gastos_sin_presupuesto = [
         schemas.GastoNoPlanificadoRead(
             categoria=categoria,
             importe=importe,
+            user_category_id=user_category_id,
+            categoria_id=categoria_id,
         )
-        for categoria, importe in sorted(
+        for (categoria, user_category_id, categoria_id), importe in sorted(
             sin_presupuesto_por_categoria.items(),
             key=lambda kv: kv[1],
             reverse=True,

@@ -350,6 +350,8 @@ class GastoNoPlanificadoRead(BaseModel):
     """Gastos del ciclo sin item de presupuesto, agrupados por categoría."""
     categoria: str
     importe: MoneyDecimal
+    user_category_id: Optional[int] = None
+    categoria_id: Optional[int] = None
 
 
 class ClasificacionImportes(BaseModel):

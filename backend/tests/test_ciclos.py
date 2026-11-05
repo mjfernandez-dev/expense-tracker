@@ -674,7 +674,12 @@ def test_crear_item_presupuesto_vincular_gastos_sueltos(logged_in_client, user_c
     gasto = logged_in_client.post("/movimientos/", json=_gasto(user_category_id, 300.0))
     assert gasto.status_code == 200, gasto.text
     resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
-    assert resumen["gastos_sin_presupuesto"] == [{"categoria": "Test Categoria", "importe": 300.0}]
+    assert resumen["gastos_sin_presupuesto"] == [{
+        "categoria": "Test Categoria",
+        "importe": 300.0,
+        "user_category_id": user_category_id,
+        "categoria_id": None,
+    }]
 
     # Presupuestar esa categoría con monto >= ejecutado
     r = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/items/", json={
