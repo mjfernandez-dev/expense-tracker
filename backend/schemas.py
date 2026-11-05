@@ -359,6 +359,24 @@ class ClasificacionImportes(BaseModel):
     sin_clasificar: MoneyDecimal = Decimal('0')
 
 
+class ComparacionCicloAnterior(BaseModel):
+    """Gasto acumulado del ciclo actual vs el ciclo anterior al punto equivalente.
+
+    ancla:
+    - "dias_restantes": punto del ciclo anterior al que le faltaban tantos
+      días como los que le faltan al ciclo actual.
+    - "dia_transcurrido": fallback cuando ese punto cae antes del inicio del
+      ciclo anterior; compara el mismo día transcurrido desde el inicio.
+    """
+    ciclo_anterior_id: int
+    dias_comparados: int
+    ancla: str
+    total_anterior: MoneyDecimal
+    total_actual: MoneyDecimal
+    libre_anterior: MoneyDecimal
+    libre_actual: MoneyDecimal
+
+
 class CicloResumen(BaseModel):
     ciclo_id: int
     fecha_inicio: datetime
@@ -381,6 +399,7 @@ class CicloResumen(BaseModel):
     gastos_fijos: List[GastoFijoCompromiso] = []
     gastos_sin_presupuesto: List[GastoNoPlanificadoRead] = []
     clasificacion_importes: ClasificacionImportes = ClasificacionImportes()
+    comparacion_anterior: Optional[ComparacionCicloAnterior] = None
 
 
 class CicloRead(BaseModel):

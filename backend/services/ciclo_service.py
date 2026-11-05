@@ -1,4 +1,5 @@
 """Servicio de cálculo del ciclo financiero (Daily Solvency)."""
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from typing import Optional
 
@@ -243,16 +244,22 @@ def reabrir_ciclo(ciclo_id: int, user_id: int, db: Session) -> None:
     db.commit()
 
 
-def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.CicloResumen:
-    """
-    Calcula el resumen financiero del ciclo activo:
-    - SaldoDisponible = Ingresos - AhorroObjetivo - PresupuestoConfirmado
-    - DailyCap = SaldoDisponible / DíasRestantes
-    - Semáforo según % del Daily Cap gastado hoy.
-    """
-    ahora = ciclo_time_service.ahora_buenos_aires()
-    fecha_limite = min(ahora, ciclo.fecha_fin)
+def _movimientos_de_ciclo(
+    db: Session,
+    ciclo: models.Ciclo,
+    user_id: int,
+    fecha_limite: datetime,
+) -> list[models.Movimiento]:
+    """Movimientos del usuario dentro del período del ciclo hasta fecha_limite.
 
+    - El corte en el inicio del ciclo sucesor es exclusivo (evita duplicar
+      gastos cuando los ciclos tienen fechas solapadas).
+    - Excluye los movimientos que originaron OTROS ciclos.
+    - Incluye el movimiento origen del propio ciclo aunque sea anterior a
+      fecha_inicio (validando ownership multi-tenant).
+    Única fuente de la definición de "gasto de un ciclo": la usa el resumen
+    y la comparación con el ciclo anterior.
+    """
     sucesor = (
         db.query(models.Ciclo)
         .filter(
@@ -305,6 +312,105 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         ).first()
         if mov_origen and mov_origen not in movimientos:
             movimientos.append(mov_origen)
+
+    return movimientos
+
+
+def _ciclo_anterior_de(db: Session, user_id: int, ciclo: models.Ciclo) -> Optional[models.Ciclo]:
+    """Ciclo cerrado más reciente con inicio anterior al ciclo dado."""
+    return (
+        db.query(models.Ciclo)
+        .filter(
+            models.Ciclo.user_id == user_id,
+            models.Ciclo.activo == False,
+            models.Ciclo.fecha_inicio < ciclo.fecha_inicio,
+        )
+        .order_by(models.Ciclo.fecha_inicio.desc(), models.Ciclo.id.asc())
+        .first()
+    )
+
+
+def _sumas_de_gasto(movimientos: list[models.Movimiento]) -> tuple[Decimal, Decimal]:
+    """Totales (total, libre) de una lista de movimientos.
+
+    "libre" son los gastos sin item de presupuesto. Simplificación simétrica
+    para comparar ciclos: los excesos de items vinculados no se reatribuyen
+    (a diferencia de gastos_no_planificados del resumen)."""
+    total = sum(
+        (m.importe for m in movimientos if m.tipo == "gasto"),
+        Decimal("0"),
+    )
+    libre = sum(
+        (m.importe for m in movimientos if m.tipo == "gasto" and m.presupuesto_item_id is None),
+        Decimal("0"),
+    )
+    return total, libre
+
+
+def _fecha_fin_de_dia(fecha, tzinfo) -> datetime:
+    """datetime al final del día dado, con el timezone del ciclo de referencia."""
+    return datetime.combine(fecha, time(23, 59, 59, 999999), tzinfo=tzinfo)
+
+
+def calcular_comparacion_ciclo_anterior(
+    db: Session,
+    ciclo: models.Ciclo,
+    user_id: int,
+    total_actual: Decimal,
+    libre_actual: Decimal,
+    dias_restantes: int,
+    hoy,
+) -> Optional[schemas.ComparacionCicloAnterior]:
+    """Comparación del gasto acumulado del ciclo actual vs el ciclo anterior.
+
+    Punto de comparación (ancla "dias_restantes"): el mismo día del ciclo
+    anterior, definido como el día que le faltaban tantos días como los que le
+    faltan al ciclo actual (fin_anterior - X días, fin de día).
+
+    Si ese punto cae antes del inicio del ciclo anterior (ciclo anterior más
+    corto o cerrado temprano), se cae al ancla "dia_transcurrido": el mismo
+    día transcurrido desde el inicio de ambos ciclos.
+
+    Sin ciclo anterior, devuelve None.
+    """
+    anterior = _ciclo_anterior_de(db, user_id, ciclo)
+    if anterior is None or anterior.fecha_fin <= anterior.fecha_inicio:
+        return None
+
+    tzinfo = anterior.fecha_fin.tzinfo
+    dias = max(1, dias_restantes)
+    fecha_corte = anterior.fecha_fin.date() - timedelta(days=dias - 1)
+    ancla = "dias_restantes"
+    if fecha_corte < anterior.fecha_inicio.date():
+        dias = max(1, (hoy - ciclo.fecha_inicio.date()).days + 1)
+        fecha_corte = anterior.fecha_inicio.date() + timedelta(days=dias - 1)
+        ancla = "dia_transcurrido"
+
+    movs_anterior = _movimientos_de_ciclo(db, anterior, user_id, _fecha_fin_de_dia(fecha_corte, tzinfo))
+    total_anterior, libre_anterior = _sumas_de_gasto(movs_anterior)
+
+    return schemas.ComparacionCicloAnterior(
+        ciclo_anterior_id=anterior.id,
+        dias_comparados=dias,
+        ancla=ancla,
+        total_anterior=total_anterior,
+        total_actual=total_actual,
+        libre_anterior=libre_anterior,
+        libre_actual=libre_actual,
+    )
+
+
+def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.CicloResumen:
+    """
+    Calcula el resumen financiero del ciclo activo:
+    - SaldoDisponible = Ingresos - AhorroObjetivo - PresupuestoConfirmado
+    - DailyCap = SaldoDisponible / DíasRestantes
+    - Semáforo según % del Daily Cap gastado hoy.
+    """
+    ahora = ciclo_time_service.ahora_buenos_aires()
+    fecha_limite = min(ahora, ciclo.fecha_fin)
+
+    movimientos = _movimientos_de_ciclo(db, ciclo, user_id, fecha_limite)
 
     total_ingresos = sum(
         m.importe for m in movimientos if m.tipo == "ingreso"
@@ -359,6 +465,20 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
     hoy = ahora.date()
     fecha_fin_date = ciclo.fecha_fin.date()
     dias_restantes = max(1, (fecha_fin_date - hoy).days + 1)
+
+    # Comparación con el ciclo anterior: gasto acumulado al punto equivalente
+    comparacion_anterior = calcular_comparacion_ciclo_anterior(
+        db,
+        ciclo,
+        user_id,
+        total_actual=total_gastos,
+        libre_actual=sum(
+            (m.importe for m in movimientos if m.tipo == "gasto" and m.presupuesto_item_id is None),
+            Decimal("0"),
+        ),
+        dias_restantes=dias_restantes,
+        hoy=hoy,
+    )
 
     # Daily Cap (nunca negativo)
     if saldo_disponible_actual > 0:
@@ -543,4 +663,5 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         gastos_fijos=gastos_fijos_read,
         gastos_sin_presupuesto=gastos_sin_presupuesto,
         clasificacion_importes=schemas.ClasificacionImportes(**clasificacion),
+        comparacion_anterior=comparacion_anterior,
     )

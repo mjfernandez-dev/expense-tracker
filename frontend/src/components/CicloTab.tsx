@@ -8,6 +8,7 @@ import ClasificacionPie from './ClasificacionPie';
 import AhorroModal from './AhorroModal';
 import ConfirmModal from './ConfirmModal';
 import PresupuestoManager from './PresupuestoManager';
+import ComparacionCicloAnteriorCard from './ComparacionCicloAnteriorCard';
 
 type SubTab = 'ciclo' | 'plantilla';
 
@@ -557,6 +558,11 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
           </span>
         </div>
       </div>
+
+      {/* ── Comparación con el ciclo anterior ── */}
+      {r.comparacion_anterior && (
+        <ComparacionCicloAnteriorCard comparacion={r.comparacion_anterior} />
+      )}
 
       {/* ── Desktop: 2 columnas / Mobile: 1 columna ─── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">

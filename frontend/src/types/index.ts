@@ -130,6 +130,7 @@ export interface CicloResumen {
   gastos_fijos: GastoFijoCompromiso[];
   gastos_sin_presupuesto: GastoNoPlanificado[];
   clasificacion_importes: ClasificacionImportes;
+  comparacion_anterior: ComparacionCicloAnterior | null;
 }
 
 export interface GastoFijoCompromiso {
@@ -151,6 +152,16 @@ export interface ClasificacionImportes {
   necesidad: number;
   deseo: number;
   sin_clasificar: number;
+}
+
+export interface ComparacionCicloAnterior {
+  ciclo_anterior_id: number;
+  dias_comparados: number;
+  ancla: 'dias_restantes' | 'dia_transcurrido';
+  total_anterior: number;
+  total_actual: number;
+  libre_anterior: number;
+  libre_actual: number;
 }
 
 export interface Ciclo {
