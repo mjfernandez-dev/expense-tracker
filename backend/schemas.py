@@ -239,6 +239,30 @@ class GastoProgramadoCreate(BaseModel):
         return self
 
 
+class SerieGastoCreate(BaseModel):
+    """Alta de una serie de cuotas (deuda): genera los GastoProgramados de una vez."""
+    producto: str
+    importe: MoneyDecimal
+    cuota_inicial: int = Field(..., ge=1)
+    cuota_total: int = Field(..., ge=1)
+    primer_vencimiento: date
+    nota: Optional[str] = None
+    categoria_id: Optional[int] = None
+    user_category_id: Optional[int] = None
+    medio_pago: Optional[str] = None
+    clasificacion: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _validar_reglas(self):
+        if self.cuota_inicial > self.cuota_total:
+            raise ValueError("La cuota inicial no puede superar el total de cuotas")
+        if self.categoria_id is None and self.user_category_id is None:
+            raise ValueError("Se requiere al menos una categoría (sistema o personalizada)")
+        if self.primer_vencimiento < ahora_buenos_aires().date():
+            raise ValueError("La primer cuota no puede vencer en el pasado")
+        return self
+
+
 class GastoProgramadoUpdate(BaseModel):
     importe: Optional[MoneyDecimal] = None
     vencimiento: Optional[date] = None

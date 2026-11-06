@@ -26,6 +26,22 @@ def crear_gasto_programado(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.post("/serie", response_model=list[schemas.GastoProgramadoRead], status_code=201)
+def crear_serie_gastos_programados(
+    data: schemas.SerieGastoCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Genera las cuotas restantes de una deuda (alta de deuda ya en curso incluida).
+
+    Cada cuota es un gasto programado pendiente con vencimiento mensual;
+    las que caen dentro del ciclo activo se reservan automáticamente."""
+    try:
+        return gasto_programado_service.crear_serie_gastos_programados(data, current_user.id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.get("/", response_model=list[schemas.GastoProgramadoRead])
 def listar_gastos_programados(
     estado: Optional[str] = None,

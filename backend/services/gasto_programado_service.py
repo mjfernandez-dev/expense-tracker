@@ -5,6 +5,8 @@ dentro del ciclo activo, reserva dinero como PresupuestoItem (descuenta el
 saldo disponible). Al registrar el pago se crea un Movimiento real vinculado al
 item y el gasto pasa a "pagado" sin descontar dos veces.
 """
+import calendar
+from datetime import date
 from decimal import Decimal
 from typing import Optional
 
@@ -86,6 +88,56 @@ def crear_gasto_programado(
     reconciliar_reserva(db, user_id, gp)
     db.commit()
     return _gp_con_categorias(gp.id, db)
+
+
+def sumar_meses(fecha: date, meses: int) -> date:
+    """Suma meses manteniendo el día, con clamp al último día del mes
+    (31 de enero + 1 mes → 28/29 de febrero)."""
+    anio = fecha.year + (fecha.month - 1 + meses) // 12
+    mes = (fecha.month - 1 + meses) % 12 + 1
+    dia = min(fecha.day, calendar.monthrange(anio, mes)[1])
+    return date(anio, mes, dia)
+
+
+def crear_serie_gastos_programados(
+    data,
+    user_id: int,
+    db: Session,
+) -> list[models.GastoProgramado]:
+    """Genera las cuotas restantes de una deuda en un solo comando.
+
+    Crea un GastoProgramado pendiente por cuota (cuota_inicial..cuota_total,
+    para registrar deudas ya en curso con solo lo que falta pagar), cada una
+    con su vencimiento mensual. Las que vencen dentro del ciclo activo quedan
+    reservadas por reconciliar_reserva.
+    """
+    _validate_categoria(data.categoria_id, data.user_category_id, user_id, db)
+
+    gps: list[models.GastoProgramado] = []
+    for offset, numero in enumerate(range(data.cuota_inicial, data.cuota_total + 1)):
+        gp = models.GastoProgramado(
+            user_id=user_id,
+            importe=data.importe,
+            vencimiento=sumar_meses(data.primer_vencimiento, offset),
+            descripcion=f"{data.producto} — cuota {numero}/{data.cuota_total}",
+            nota=data.nota,
+            categoria_id=data.categoria_id,
+            user_category_id=data.user_category_id,
+            medio_pago=data.medio_pago,
+            clasificacion=data.clasificacion,
+            estado="pendiente",
+            cuota_actual=numero,
+            cuota_total=data.cuota_total,
+        )
+        db.add(gp)
+        gps.append(gp)
+    db.flush()
+
+    for gp in gps:
+        reconciliar_reserva(db, user_id, gp)
+    db.commit()
+
+    return [_gp_con_categorias(gp.id, db) for gp in gps]
 
 
 def listar_gastos_programados(
