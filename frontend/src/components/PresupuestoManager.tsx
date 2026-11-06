@@ -1,9 +1,10 @@
 // COMPONENTE: Gestión de presupuesto base (plantilla) + categorías personalizadas
 // Reemplaza CategoryManager agregando monto_default, tiene_monto_fijo y ahorro_objetivo_default
-import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
-import type { UserCategory } from '../types';
+import { useState, useEffect, useCallback, useRef, useMemo, type FormEvent } from 'react';
+import type { UserCategory, Ciclo } from '../types';
 import type { MovimientoAfectado } from '../services/api';
 import {
+  getCicloActivo,
   getUserCategories,
   createCategory,
   updateCategory,
@@ -13,6 +14,8 @@ import {
   reasignarYEliminarCategoria,
   updateUserPreferences,
 } from '../services/api';
+import MatrizPresupuesto from './MatrizPresupuesto';
+import { armarMatrizPresupuesto, type FilaMatrizPresupuesto } from '../utils/matrizPresupuesto';
 import { useAuth } from '../context/useAuth';
 import SaveIndicator from './SaveIndicator';
 import type { SaveState } from './SaveIndicator';
@@ -37,6 +40,7 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
 
   // ── Categorías ────────────────────────────────────────────────────
   const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [cicloActivo, setCicloActivo] = useState<Ciclo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +77,36 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories, refreshKey]);
+
+  // ── Ciclo activo: fuente de presupuestado/ejecutado de la matriz ──
+  const fetchCicloActivo = useCallback(async () => {
+    try {
+      setCicloActivo(await getCicloActivo());
+    } catch {
+      // Sin ciclo activo la matriz solo muestra categorías; no es error bloqueante
+      setCicloActivo(null);
+    }
+  }, []);
+
+  // Re-carga ciclo activo + categorías tras cada mutación saliente de la matriz
+  const recargarDatos = useCallback(async () => {
+    await Promise.all([fetchCicloActivo(), fetchCategories()]);
+  }, [fetchCicloActivo, fetchCategories]);
+
+  useEffect(() => {
+    fetchCicloActivo();
+  }, [fetchCicloActivo]);
+
+  // ── Filas unificadas de la matriz (memo: solo ciclo confirmados) ──
+  const filasMatriz = useMemo(() => {
+    const resumen = cicloActivo?.resumen;
+    if (!resumen) return [];
+    return armarMatrizPresupuesto(
+      resumen.presupuesto_items.filter(item => item.confirmado),
+      resumen.gastos_sin_presupuesto,
+      categories,
+    );
+  }, [cicloActivo, categories]);
 
   // ── Ahorro: auto-save con debounce 600ms ──────────────────────────
   const handlePorcentajeChange = (value: string) => {
@@ -205,6 +239,30 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
     setFormError(null);
   };
 
+  // ── Matriz: adaptadores fila → handlers existentes ───────────────
+  // Las filas de categoría del sistema (userCategoryId null) solo se
+  // muestran; renombrar/eliminar/sugerencia no les aplican.
+  const handleMatrizSugerenciaChange = (fila: FilaMatrizPresupuesto, valor: string) => {
+    if (fila.userCategoryId !== null) handleMontoChange(fila.userCategoryId, valor);
+  };
+
+  const handleMatrizSugerenciaGuardada = (fila: FilaMatrizPresupuesto, valor: string) => {
+    if (fila.userCategoryId !== null) handleMontoBlur(fila.userCategoryId, valor);
+  };
+
+  const handleMatrizToggleMontoFijo = (fila: FilaMatrizPresupuesto) => {
+    if (fila.userCategoryId !== null) handleToggleMontoFijo(fila.userCategoryId, !!fila.tieneMontoFijo);
+  };
+
+  const handleMatrizRenombrar = (fila: FilaMatrizPresupuesto) => {
+    const cat = categories.find(c => c.id === fila.userCategoryId);
+    if (cat) handleEdit(cat);
+  };
+
+  const handleMatrizEliminar = (fila: FilaMatrizPresupuesto) => {
+    if (fila.userCategoryId !== null) openDeleteModal(fila.userCategoryId);
+  };
+
   // ── Eliminación ───────────────────────────────────────────────────
   const openDeleteModal = async (id: number) => {
     setDeleteTarget(id);
@@ -266,7 +324,7 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
       <div>
         <h2 className="text-2xl font-bold text-white mb-1">Presupuesto</h2>
         <p className="text-slate-400 text-sm">
-          Estos valores se usan para iniciar tu próximo ciclo financiero.
+          La matriz une tus categorías con el ciclo activo: la sugerencia pre-carga próximos ciclos, el presupuestado es propio de este ciclo y nunca se escribe automáticamente.
         </p>
       </div>
 
@@ -276,6 +334,33 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
           <button onClick={() => setAutoSaveError(null)} className="text-red-300 hover:text-red-100 ml-4">✕</button>
         </div>
       )}
+
+      {/* ── Matriz de presupuesto (ciclo activo) ───────────────────── */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Matriz de presupuesto</h2>
+          <p className="text-slate-400 text-xs mt-0.5">
+            Toca el nombre para renombrar · Presupuestado es editable con un solo ítem · Al sobre-gastar podés actualizar la sugerencia en dos pasos.
+          </p>
+        </div>
+        {categories.length === 0 ? (
+          <div className="text-center py-6 text-slate-400 text-sm bg-slate-900/60 border border-slate-700/40 rounded-2xl">
+            Todavía no creaste categorías. Escribí un nombre abajo y dale Crear.
+          </div>
+        ) : (
+          <MatrizPresupuesto
+            filas={filasMatriz}
+            cicloActivoId={cicloActivo?.id ?? null}
+            onSugerenciaChange={handleMatrizSugerenciaChange}
+            onSugerenciaGuardada={handleMatrizSugerenciaGuardada}
+            onRenombrar={handleMatrizRenombrar}
+            onEliminar={handleMatrizEliminar}
+            onToggleMontoFijo={handleMatrizToggleMontoFijo}
+            onCambios={recargarDatos}
+            onError={setAutoSaveError}
+          />
+        )}
+      </section>
 
       {/* ── Desktop: 2 columnas / Mobile: 1 columna ─────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -307,69 +392,6 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
               </button>
             </form>
           </div>
-
-          <div>
-            <h3 className="text-white font-semibold text-sm">Categorías con monto fijo</h3>
-            <p className="text-slate-400 text-xs mt-0.5">
-              Al activar una categoría se pre-carga su monto en el Paso 3 del wizard.
-            </p>
-          </div>
-
-          {categories.length === 0 ? (
-            <div className="text-center py-6 text-slate-400 text-sm">Todavía no creaste categorías. Escribí un nombre y dale Crear.</div>
-          ) : (
-            <div className="space-y-2">
-              {categories.map(cat => (
-                <div
-                  key={cat.id}
-                  className={`flex items-center gap-3 bg-slate-800/60 rounded-xl px-3 py-2.5 border transition-colors ${
-                    cat.tiene_monto_fijo ? 'border-blue-500/30' : 'border-slate-700/40'
-                  }`}
-                >
-                  <button
-                    onClick={() => handleToggleMontoFijo(cat.id, !!cat.tiene_monto_fijo)}
-                    className={`w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-colors ${
-                      cat.tiene_monto_fijo ? 'bg-blue-600 border-blue-600' : 'border-slate-500'
-                    }`}
-                    title={cat.tiene_monto_fijo ? 'Desactivar monto fijo' : 'Activar monto fijo'}
-                  >
-                    {cat.tiene_monto_fijo && <span className="text-white text-xs font-bold">✓</span>}
-                  </button>
-
-                  <span
-                    className={`flex-1 text-sm truncate cursor-pointer hover:text-white transition-colors ${
-                      cat.tiene_monto_fijo ? 'text-slate-200' : 'text-slate-400'
-                    }`}
-                    onClick={() => handleEdit(cat)}
-                    title="Renombrar"
-                  >
-                    {cat.nombre}
-                  </span>
-
-                  <input
-                    type="number"
-                    min="0"
-                    step="100"
-                    value={cat.monto_default != null ? cat.monto_default : ''}
-                    onChange={e => handleMontoChange(cat.id, e.target.value)}
-                    onBlur={e => handleMontoBlur(cat.id, e.target.value)}
-                    placeholder="$0"
-                    disabled={!cat.tiene_monto_fijo}
-                    className={`w-24 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-white text-sm text-right focus:outline-none focus:border-blue-500 transition-opacity ${
-                      cat.tiene_monto_fijo ? 'opacity-100' : 'opacity-30 cursor-not-allowed'
-                    }`}
-                  />
-                  <button
-                    onClick={() => openDeleteModal(cat.id)}
-                    className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 px-2 py-1 rounded text-xs font-medium transition-all flex-shrink-0"
-                    title="Eliminar"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Columna derecha: Ahorro + Nueva categoría */}
