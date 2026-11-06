@@ -223,4 +223,25 @@ export interface GastoProgramadoCreate {
 
 export type GastoProgramadoUpdate = Partial<GastoProgramadoCreate>;
 
+// Alta de una serie de cuotas (deuda en tarjeta): genera N gasto programados
+// de una vez con vencimientos mensuales desde el primer vencimiento.
+export interface SerieGastoCreate {
+  producto: string;
+  importe: number;
+  cuota_inicial: number;
+  cuota_total: number;
+  primer_vencimiento: string; // ISO date (yyyy-mm-dd)
+  nota?: string | null;
+  categoria_id?: number | null;
+  user_category_id?: number | null;
+  medio_pago?: string | null;
+  clasificacion?: 'necesidad' | 'deseo' | null;
+}
+
+// Resultado del botón "Pagar mes": cuotas pagadas del ciclo con su movimiento.
+export interface PagarMesResult {
+  pagados: { programado: GastoProgramado; movimiento: Movimiento }[];
+  total: number;
+}
+
 // ============== TIPOS DE CUENTA ==============

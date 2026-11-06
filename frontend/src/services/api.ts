@@ -25,6 +25,8 @@ import type {
   GastoProgramado,
   GastoProgramadoCreate,
   GastoProgramadoUpdate,
+  SerieGastoCreate,
+  PagarMesResult,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -539,6 +541,18 @@ export const pagarGastoProgramado = async (
 // POST /gastos-programados/{id}/cancelar → cancela un gasto programado pendiente
 export const cancelarGastoProgramado = async (id: number): Promise<GastoProgramado> => {
   const response = await api.post<GastoProgramado>(`/gastos-programados/${id}/cancelar`);
+  return response.data;
+};
+
+// POST /gastos-programados/serie → genera las cuotas restantes de una deuda de una vez
+export const crearSerieGastoProgramado = async (data: SerieGastoCreate): Promise<GastoProgramado[]> => {
+  const response = await api.post<GastoProgramado[]>('/gastos-programados/serie', data);
+  return response.data;
+};
+
+// POST /gastos-programados/pagar-mes → paga todas las cuotas pendientes del ciclo activo
+export const pagarMesGastosProgramados = async (): Promise<PagarMesResult> => {
+  const response = await api.post<PagarMesResult>('/gastos-programados/pagar-mes');
   return response.data;
 };
 

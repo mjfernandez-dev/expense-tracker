@@ -15,6 +15,7 @@ import {
   updateUserPreferences,
 } from '../services/api';
 import MatrizPresupuesto from './MatrizPresupuesto';
+import GastosProgramadosSection from './GastosProgramadosSection';
 import { armarMatrizPresupuesto, type FilaMatrizPresupuesto } from '../utils/matrizPresupuesto';
 import { useAuth } from '../context/useAuth';
 import SaveIndicator from './SaveIndicator';
@@ -361,6 +362,13 @@ function PresupuestoManager({ refreshKey }: PresupuestoManagerProps) {
           />
         )}
       </section>
+
+      {/* ── Gastos programados: deudas en cuotas (Pagar mes, alta de serie) ── */}
+      <GastosProgramadosSection
+        userCategories={categories}
+        cicloActivo={cicloActivo}
+        onCambios={recargarDatos}
+      />
 
       {/* ── Desktop: 2 columnas / Mobile: 1 columna ─────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">

@@ -19,8 +19,8 @@ Runner backend: `$env:SECRET_KEY='test'; python -m pytest backend/tests/ -v` · 
 
 ## Tasks
 
-- T1 (S6, S9, S1): backend — `SerieCreate` schema + `crear_serie_gastos_programados` service + endpoint `POST /gastos-programados/serie`. Tests RED→GREEN en `backend/tests/test_gasto_programado_serie.py`. Route: inline. Commit: pending.
-- T2 (S3, S5): backend — `pagar_mes_gastos_programados` service + endpoint `POST /gastos-programados/pagar-mes` (paga cuotas pendientes con vencimiento ≤ hoy; devuelve resumen). Tests RED→GREEN. Route: inline. Commit: pending.
+- T1 (S6, S9, S1): backend — `SerieGastoCreate` schema + `crear_serie_gastos_programados` service + `POST /gastos-programados/serie`. Route: inline. Commit: `6043718`. Verificación: RED→GREEN 6/6 en `test_gasto_programado_serie.py` (cuotas restantes, reserva en ciclo activo, validaciones).
+- T2 (S3, S5): backend — `pagar_mes_gastos_programados` service + `POST /gastos-programados/pagar-mes` (paga cuotas pendientes con vencimiento ≤ fecha_fin del ciclo activo; devuelve `pagados[]` + `total`). Route: inline. Commit: `88db39e`. Verificación: RED→GREEN 3/3; suite completa 171 passed.
 - T3 (S6, S3): frontend — wrappers en `api.ts` (`crearSerieGastoProgramado`, `pagarMesGastosProgramados`) + tipos (`SerieGastoCreate`). Route: inline. Commit: pending.
 - T4 (S4, S6, S7): frontend — `GastosProgramadosSection.tsx`: listado de cuotas pendientes agrupadas por producto, alta de serie (form), botón Pagar mes (n · $X), cancelar cuota. Route: inline. Commit: pending.
 - T5 (S4): integración — card "Gastos programados" en la sub-pestaña Plantilla de `CicloTab`, debajo de la Matriz; `onChanges` refresca ciclo activo. Route: inline. Commit: pending.
