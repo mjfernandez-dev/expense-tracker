@@ -21,7 +21,7 @@
 - T2 (S1) Frontend: util pura `armarMatrizPresupuesto` (join items/sin-presupuesto/categorías, excede, sugerencia) + vitest RED→GREEN. Route: inline. Commit: `frontend matriz util`.
 - T3 (S1, S2, S3, S6) UI: componente MatrizPresupuesto + integración en PresupuestoManager (ciclo activo via API) + tipos. Route: inline. Commit: `33d6344` (feat: matriz de presupuesto en plantilla). Verificación: tsc --noEmit limpio, vitest 44/44.
 - T4 (S4) EditCicloModal: retirar sección presupuesto y syncDefaults (quedar fechas+ahorro), verificar DashboardCiclo. Route: inline. Commit: `f70d77f` (refactor: simplificar EditCicloModal a fechas y ahorro). Verificación: tsc limpio, vitest 44/44, suite backend completa 162 passed.
-- T5 (S7) CicloTab read-only: retirar Presupuestar/Editar monto de Ejecución presupuestaria, mantener Liberar + % + Restante. Route: inline. Commit: pending.
+- T5 (S7) CicloTab read-only: retirar Presupuestar/Editar monto de Ejecución presupuestaria, mantener Liberar + % + Restante. Route: inline. Commit: `1988742` (refactor: ejecucion presupuestaria en ciclo queda solo lectura, -192 líneas netas). Verificación: tsc limpio, vitest 44/44; sin RED componente (no hay infra de testing-library en el repo — suite solo utils puras; verificación de render manual).
 
 ## Log
 
