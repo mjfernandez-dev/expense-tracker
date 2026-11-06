@@ -274,6 +274,41 @@ def pagar_gasto_programado(
     return _gp_con_categorias(gp.id, db), _movimiento_con_categorias(movimiento.id, db)
 
 
+def pagar_mes_gastos_programados(
+    user_id: int,
+    db: Session,
+) -> dict:
+    """Paga de una vez todas las cuotas pendientes cuyo vencimiento cae dentro
+    del ciclo activo (el pago único del resumen de la tarjeta). Cada cuota se
+    paga vía pagar_gasto_programado: movimiento real con la categoría propia y
+    ejecución de su item de presupuesto."""
+    ciclo = ciclo_service.get_ciclo_activo(db, user_id)
+    if ciclo is None:
+        raise ValueError("No hay un ciclo activo para pagar el mes")
+
+    pendientes = (
+        db.query(models.GastoProgramado)
+        .filter(
+            models.GastoProgramado.user_id == user_id,
+            models.GastoProgramado.estado == "pendiente",
+            models.GastoProgramado.vencimiento <= ciclo.fecha_fin,
+        )
+        .all()
+    )
+
+    pagados = []
+    total = Decimal("0")
+    for gp in pendientes:
+        programado, movimiento = pagar_gasto_programado(gp.id, user_id, db)
+        total += programado.importe
+        pagados.append({
+            "programado": programado,
+            "movimiento": movimiento,
+        })
+
+    return {"pagados": pagados, "total": total}
+
+
 def reconciliar_reserva(
     db: Session,
     user_id: int,

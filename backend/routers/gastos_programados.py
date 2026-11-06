@@ -76,6 +76,30 @@ def actualizar_gasto_programado(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.post("/pagar-mes")
+def pagar_mes_gastos_programados(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    """Paga de una vez todas las cuotas pendientes del ciclo activo (resumen).
+
+    Cada cuota genera su Movimiento; las cuotas de ciclos futuros quedan pendientes."""
+    try:
+        resultado = gasto_programado_service.pagar_mes_gastos_programados(current_user.id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        "pagados": [
+            {
+                "programado": schemas.GastoProgramadoRead.model_validate(p["programado"]),
+                "movimiento": schemas.MovimientoRead.model_validate(p["movimiento"]),
+            }
+            for p in resultado["pagados"]
+        ],
+        "total": resultado["total"],
+    }
+
+
 @router.post("/{gasto_programado_id}/pagar")
 def pagar_gasto_programado(
     gasto_programado_id: int,
