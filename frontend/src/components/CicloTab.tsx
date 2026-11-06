@@ -2,8 +2,8 @@
 // El backend (calcular_resumen) es la única fuente de verdad; NO se recalculan totales
 // desde movimientos para el reporte.
 import { useState, useEffect, useRef } from 'react';
-import type { Ciclo, Category, UserCategory, PresupuestoItemCreate } from '../types';
-import { getCiclo, getCiclos, actualizarMontoPresupuestoItem, liberarRestoPresupuestoItem, crearItemPresupuesto, getUserCategories, getCategories } from '../services/api';
+import type { Ciclo } from '../types';
+import { getCiclo, getCiclos, liberarRestoPresupuestoItem } from '../services/api';
 import ClasificacionPie from './ClasificacionPie';
 import AhorroModal from './AhorroModal';
 import ConfirmModal from './ConfirmModal';
@@ -55,42 +55,12 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
   const [subTab, setSubTab] = useState<SubTab>('ciclo');
 
   // ── Edición inline del monto estimado ─────────────────────────────
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingValue, setEditingValue] = useState<string>('');
-  const [savingId, setSavingId] = useState<number | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
-
-  // ── Presupuestar gastos sin comprometer ──────────────────────────
-  const [presupuestandoCategoria, setPresupuestandoCategoria] = useState<string | null>(null);
-  const [montoPresupuestar, setMontoPresupuestar] = useState<string>('');
-  const [guardandoPresupuesto, setGuardandoPresupuesto] = useState<boolean>(false);
-  const [errorPresupuesto, setErrorPresupuesto] = useState<string | null>(null);
-  const [userCategories, setUserCategories] = useState<UserCategory[]>([]);
-  const [categoriasSistema, setCategoriasSistema] = useState<Category[]>([]);
-  const [errorCategorias, setErrorCategorias] = useState<string | null>(null);
-  const [loadingCategorias, setLoadingCategorias] = useState<boolean>(true);
-  const [mostrarAhorroModal, setMostrarAhorroModal] = useState<boolean>(false);
 
   // ── Liberar el saldo no gastado de un item ───────────────────────
   const [liberarTarget, setLiberarTarget] = useState<{ id: number; monto: number } | null>(null);
   const [isLiberando, setIsLiberando] = useState<boolean>(false);
-
-  // Carga best-effort de categorías para resolver el nombre del grupo a un id
-  useEffect(() => {
-    const cargarCategorias = async () => {
-      setLoadingCategorias(true);
-      try {
-        const [userCats, sysCats] = await Promise.all([getUserCategories(), getCategories()]);
-        setUserCategories(userCats);
-        setCategoriasSistema(sysCats);
-      } catch {
-        setErrorCategorias('No se pudieron cargar las categorías.');
-      } finally {
-        setLoadingCategorias(false);
-      }
-    };
-    cargarCategorias();
-  }, []);
+  const [mostrarAhorroModal, setMostrarAhorroModal] = useState<boolean>(false);
 
   // Refrescar la plantilla al volver a la pestaña, solo si la última carga ya no es fresca.
   // Antes: refetch completo (remount + /ciclos) en CADA vuelta a la pestaña.
@@ -146,41 +116,6 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
     }
   };
 
-  const iniciarEdicion = (id: number, montoEstimado: number) => {
-    setEditingId(id);
-    setEditingValue(String(montoEstimado));
-    setInlineError(null);
-  };
-
-  const cancelarEdicion = () => {
-    setEditingId(null);
-    setEditingValue('');
-    setInlineError(null);
-  };
-
-  const guardarEdicion = async (itemId: number) => {
-    if (!selectedCiclo) return;
-    const nuevo = parseFloat(editingValue);
-    if (isNaN(nuevo) || nuevo < 0) {
-      setInlineError('Ingresá un monto válido.');
-      return;
-    }
-    setSavingId(itemId);
-    setInlineError(null);
-    try {
-      // El PATCH devuelve el CicloRead actualizado → reemplazar selección sin re-fetch
-      const actualizado = await actualizarMontoPresupuestoItem(selectedCiclo.id, itemId, nuevo);
-      setSelectedCiclo(actualizado);
-      setEditingId(null);
-      setEditingValue('');
-    } catch (err) {
-      const e = err as { response?: { data?: { detail?: string } } };
-      setInlineError(e.response?.data?.detail ?? 'No se pudo actualizar el monto.');
-    } finally {
-      setSavingId(null);
-    }
-  };
-
   // ── Liberar resto: baja monto estimado al ejecutado (server-side atómico) ──
   const iniciarLiberar = (itemId: number, pendiente: number) => {
     setInlineError(null);
@@ -205,58 +140,6 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
       setInlineError(e.response?.data?.detail ?? 'No se pudo liberar el saldo.');
     } finally {
       setIsLiberando(false);
-    }
-  };
-
-  // ── Presupuestar una categoría de gastos sin comprometer ─────────
-  const iniciarPresupuestar = (categoria: string, importe: number) => {
-    setPresupuestandoCategoria(categoria);
-    setMontoPresupuestar(String(importe));
-    setErrorPresupuesto(null);
-  };
-
-  const cancelarPresupuestar = () => {
-    setPresupuestandoCategoria(null);
-    setMontoPresupuestar('');
-    setErrorPresupuesto(null);
-  };
-
-  const resolverCategoria = (nombre: string): Pick<PresupuestoItemCreate, 'categoria_id' | 'user_category_id'> => {
-    const key = nombre.trim().toLowerCase();
-    const userCat = userCategories.find(c => c.nombre.trim().toLowerCase() === key);
-    if (userCat) return { categoria_id: null, user_category_id: userCat.id };
-    const sysCat = categoriasSistema.find(c => c.nombre.trim().toLowerCase() === key);
-    if (sysCat) return { categoria_id: sysCat.id, user_category_id: null };
-    return { categoria_id: null, user_category_id: null };
-  };
-
-  const confirmarPresupuestar = async (categoria: string) => {
-    if (!selectedCiclo) return;
-    const monto = parseFloat(montoPresupuestar);
-    if (isNaN(monto) || monto < 0) {
-      setErrorPresupuesto('Ingresá un monto válido.');
-      return;
-    }
-    setGuardandoPresupuesto(true);
-    setErrorPresupuesto(null);
-    try {
-      const categoriaIds = resolverCategoria(categoria);
-      const payload: PresupuestoItemCreate = {
-        descripcion: categoria,
-        monto_estimado: monto,
-        confirmado: true,
-        ...categoriaIds,
-      };
-      // El POST devuelve el CicloRead actualizado → reemplazar selección sin re-fetch
-      const actualizado = await crearItemPresupuesto(selectedCiclo.id, payload);
-      setSelectedCiclo(actualizado);
-      setPresupuestandoCategoria(null);
-      setMontoPresupuestar('');
-    } catch (err) {
-      const e = err as { response?: { data?: { detail?: string } } };
-      setErrorPresupuesto(e.response?.data?.detail ?? 'No se pudo presupuestar la categoría.');
-    } finally {
-      setGuardandoPresupuesto(false);
     }
   };
 
@@ -364,9 +247,6 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
       estado === 'efectivizado' ? 'text-green-400' :
       estado === 'parcial' ? 'text-blue-300' : 'text-slate-500';
 
-    const isEditing = editingId === itemId;
-    const isSaving = savingId === itemId;
-
     return (
       <div key={itemId} className="px-4 py-2.5">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-1.5">
@@ -404,49 +284,14 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
               <p className="text-xs font-mono text-green-400">Completado</p>
             )}
           </div>
-          {isEditing ? (
-            <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                min="0"
-                value={editingValue}
-                onChange={e => setEditingValue(e.target.value)}
-                autoFocus
-                className="w-28 bg-slate-800 border border-blue-500/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none tabular-nums"
-              />
-              <button
-                onClick={() => guardarEdicion(itemId)}
-                disabled={isSaving}
-                className="rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isSaving ? '...' : 'OK'}
-              </button>
-              <button
-                onClick={cancelarEdicion}
-                className="text-xs text-slate-400 hover:text-slate-200"
-              >
-                ✕
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {pendiente > 0 && gastoProgramadoId == null && (
-                <button
-                  onClick={() => iniciarLiberar(itemId, pendiente)}
-                  className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700"
-                  aria-label={`Liberar resto de ${descripcion || 'categoría'}`}
-                >
-                  Liberar
-                </button>
-              )}
-              <button
-                onClick={() => iniciarEdicion(itemId, estimado)}
-                className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700"
-                aria-label={`Editar monto estimado de ${descripcion || 'categoría'}`}
-              >
-                Editar
-              </button>
-            </div>
+          {pendiente > 0 && gastoProgramadoId == null && (
+            <button
+              onClick={() => iniciarLiberar(itemId, pendiente)}
+              className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700"
+              aria-label={`Liberar resto de ${descripcion || 'categoría'}`}
+            >
+              Liberar
+            </button>
           )}
         </div>
         {inlineError && (
@@ -595,15 +440,16 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
                         {formatARS(totalSinPresupuesto)}
                       </span>
                     </div>
-                    {errorCategorias && (
-                      <p className="text-xs text-slate-500 mt-1 ml-1.5">{errorCategorias}</p>
+                    {selectedCiclo.activo && (
+                      <p className="text-xs text-slate-500 mt-1 ml-1.5">
+                        Presupuestalos desde la Matriz de la Plantilla.
+                      </p>
                     )}
                   </div>
                 )}
 
                 {sinPresupuesto.map((g) => {
                   const pct = r.total_gastos > 0 ? (g.importe / r.total_gastos) * 100 : 0;
-                  const isPresupuestando = presupuestandoCategoria === g.categoria;
                   return (
                     <div key={g.categoria} className="px-4 py-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-1.5">
@@ -624,46 +470,6 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
                           style={{ width: `${pct}%` }}
                         />
                       </div>
-                      <div className="mt-1.5 flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          {isPresupuestando && errorPresupuesto && (
-                            <p className="text-xs text-red-400">{errorPresupuesto}</p>
-                          )}
-                        </div>
-                        {isPresupuestando ? (
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <input
-                              type="number"
-                              min="0"
-                              value={montoPresupuestar}
-                              onChange={e => setMontoPresupuestar(e.target.value)}
-                              autoFocus
-                              className="w-28 bg-slate-800 border border-blue-500/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none tabular-nums"
-                            />
-                            <button
-                              onClick={() => confirmarPresupuestar(g.categoria)}
-                              disabled={guardandoPresupuesto || loadingCategorias}
-                              className="rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-                            >
-                              {loadingCategorias ? 'Cargando...' : guardandoPresupuesto ? '...' : 'Confirmar'}
-                            </button>
-                            <button
-                              onClick={cancelarPresupuestar}
-                              className="text-xs text-slate-400 hover:text-slate-200"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : selectedCiclo.activo ? (
-                          <button
-                            onClick={() => iniciarPresupuestar(g.categoria, g.importe)}
-                            className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition hover:bg-blue-700 flex-shrink-0"
-                            aria-label={`Presupuestar ${g.categoria}`}
-                          >
-                            Presupuestar
-                          </button>
-                        ) : null}
-                      </div>
                     </div>
                   );
                 })}
@@ -671,7 +477,7 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
               </div>
             )}
           </div>
-          {inlineError && editingId === null && (
+          {inlineError && (
             <p className="text-xs text-red-400 mt-2">{inlineError}</p>
           )}
         </section>
