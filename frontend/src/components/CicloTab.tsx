@@ -62,6 +62,9 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
   const [isLiberando, setIsLiberando] = useState<boolean>(false);
   const [mostrarAhorroModal, setMostrarAhorroModal] = useState<boolean>(false);
 
+  // ── Categorías completadas: grupo colapsable al pie de la lista ───
+  const [verCompletadas, setVerCompletadas] = useState<boolean>(false);
+
   // Refrescar la plantilla al volver a la pestaña, solo si la última carga ya no es fresca.
   // Antes: refetch completo (remount + /ciclos) en CADA vuelta a la pestaña.
   const lastLoadedAt = useRef<number>(Date.now());
@@ -214,6 +217,11 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
     .sort((a, b) =>
       (a.descripcion ?? '').localeCompare(b.descripcion ?? '', 'es', { sensitivity: 'base' }) || a.id - b.id
     );
+  // Categorías completadas (mismo criterio del label "Completado") salen
+  // del scan a un grupo colapsable al pie; el total del encabezado las sigue sumando.
+  const itemsActivos = items.filter((i) => i.monto_pendiente > 0);
+  const itemsCompletados = items.filter((i) => i.monto_pendiente <= 0);
+  const totalCompletados = itemsCompletados.reduce((s, i) => s + i.monto_ejecutado, 0);
   const sinPresupuesto = [...r.gastos_sin_presupuesto].sort((a, b) => b.importe - a.importe);
   const totalSinPresupuesto = sinPresupuesto.reduce((s, g) => s + g.importe, 0);
 
@@ -425,7 +433,7 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
               <p className="text-slate-400 text-sm text-center py-6">Sin gastos en este ciclo</p>
             ) : (
               <div className="divide-y divide-slate-700/50">
-                {items.map((item) =>
+                {itemsActivos.map((item) =>
                   renderItem(item.id, item.descripcion ?? '', item.monto_ejecutado, item.monto_estimado, item.estado, item.monto_pendiente, item.gasto_programado_id ?? null)
                 )}
 
@@ -473,6 +481,29 @@ export default function CicloTab({ refreshKey, onRefresh }: CicloTabProps) {
                     </div>
                   );
                 })}
+
+                {itemsCompletados.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setVerCompletadas(v => !v)}
+                    aria-expanded={verCompletadas}
+                    className="w-full px-4 py-2 bg-slate-800/80 text-left flex items-center gap-2 hover:bg-slate-800 transition-colors"
+                  >
+                    <div className="w-px h-4 bg-slate-600/60" />
+                    <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">
+                      Completadas ({itemsCompletados.length})
+                    </span>
+                    <span className="text-xs font-mono text-slate-500 flex-1">
+                      {formatARS(totalCompletados)}
+                    </span>
+                    <span className="text-xs text-slate-500 flex-shrink-0" aria-hidden="true">
+                      {verCompletadas ? '▲' : '▼'}
+                    </span>
+                  </button>
+                )}
+                {verCompletadas && itemsCompletados.map((item) =>
+                  renderItem(item.id, item.descripcion ?? '', item.monto_ejecutado, item.monto_estimado, item.estado, item.monto_pendiente, item.gasto_programado_id ?? null)
+                )}
 
               </div>
             )}

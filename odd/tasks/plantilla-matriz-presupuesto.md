@@ -14,6 +14,7 @@
 - S5 (implementación): GastoNoPlanificadoRead expone `user_category_id` y `categoria_id` opcionales para que la matriz junte datos por id y no por nombre; cambio aditivo, sin migraciones.
 - S6: al presupuestar desde la matriz una categoría sin item (gasto sin comprometer), se reusa el flujo existente `crearItemPresupuesto` con `user_category_id`; no se re-implementa la creación
 - S7 (usuario, verbatim, 2026-11-06): "1. Liberar que quede en Ciclo." — unificación hacia la Matriz: "Ejecución presupuestaria" de CicloTab pasa a SOLO LECTURA (% y Restante conservados); el botón Liberar queda en Ciclo; Presupuestar sin comprometer y Editar monto del item se retiraron de CicloTab y son acción exclusiva de la Matriz (Plantilla).
+- S8 (usuario): "analizar posibilidad: cuando en Ciclo actual una categoria es completada sacarla del listado a otra seccion/lugar" + elección "1" — grupo colapsable "Completadas (n) — $total" al pie de la misma sección Ejecución presupuestaria, colapsado por defecto; el total del encabezado sigue sumando todo; conservar badge `programado` en filas del grupo.
 
 ## Tasks
 
@@ -22,6 +23,7 @@
 - T3 (S1, S2, S3, S6) UI: componente MatrizPresupuesto + integración en PresupuestoManager (ciclo activo via API) + tipos. Route: inline. Commit: `33d6344` (feat: matriz de presupuesto en plantilla). Verificación: tsc --noEmit limpio, vitest 44/44.
 - T4 (S4) EditCicloModal: retirar sección presupuesto y syncDefaults (quedar fechas+ahorro), verificar DashboardCiclo. Route: inline. Commit: `f70d77f` (refactor: simplificar EditCicloModal a fechas y ahorro). Verificación: tsc limpio, vitest 44/44, suite backend completa 162 passed.
 - T5 (S7) CicloTab read-only: retirar Presupuestar/Editar monto de Ejecución presupuestaria, mantener Liberar + % + Restante. Route: inline. Commit: `1988742` (refactor: ejecucion presupuestaria en ciclo queda solo lectura, -192 líneas netas). Verificación: tsc limpio, vitest 44/44; sin RED componente (no hay infra de testing-library en el repo — suite solo utils puras; verificación de render manual).
+- T6 (S8) Grupo colapsable "Completadas (n)" al pie de Ejecución presupuestaria (itemsActivos/itemsCompletados por `monto_pendiente`). Route: inline. Commit: `2e37cff` (feat: colapsar categorias completadas en ejecucion presupuestaria) — directo en main local, no pusheado aún.
 
 ## Log
 
