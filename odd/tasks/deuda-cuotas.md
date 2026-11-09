@@ -21,9 +21,9 @@ Runner backend: `$env:SECRET_KEY='test'; python -m pytest backend/tests/ -v` · 
 
 - T1 (S6, S9, S1): backend — `SerieGastoCreate` schema + `crear_serie_gastos_programados` service + `POST /gastos-programados/serie`. Route: inline. Commit: `6043718`. Verificación: RED→GREEN 6/6 en `test_gasto_programado_serie.py` (cuotas restantes, reserva en ciclo activo, validaciones).
 - T2 (S3, S5): backend — `pagar_mes_gastos_programados` service + `POST /gastos-programados/pagar-mes` (paga cuotas pendientes con vencimiento ≤ fecha_fin del ciclo activo; devuelve `pagados[]` + `total`). Route: inline. Commit: `88db39e`. Verificación: RED→GREEN 3/3; suite completa 171 passed.
-- T3 (S6, S3): frontend — wrappers en `api.ts` (`crearSerieGastoProgramado`, `pagarMesGastosProgramados`) + tipos (`SerieGastoCreate`). Route: inline. Commit: pending.
-- T4 (S4, S6, S7): frontend — `GastosProgramadosSection.tsx`: listado de cuotas pendientes agrupadas por producto, alta de serie (form), botón Pagar mes (n · $X), cancelar cuota. Route: inline. Commit: pending.
-- T5 (S4): integración — card "Gastos programados" en la sub-pestaña Plantilla de `CicloTab`, debajo de la Matriz; `onChanges` refresca ciclo activo. Route: inline. Commit: pending.
+- T3 (S6, S3): frontend — tipos `SerieGastoCreate`/`PagarMesResult` + wrappers `crearSerieGastoProgramado`/`pagarMesGastosProgramados` en `api.ts`. Route: inline. Commit: `c98b8c8`. Verificación: tsc limpio.
+- T4 (S4, S6, S7): frontend — `GastosProgramadosSection.tsx`: cuotas pendientes agrupadas por producto, alta de serie (solo cuotas restantes, categoría personal/sistema, `medio_pago: 'credito'`), Pagar mes en dos pasos (armar → Confirmar $X), cancelar cuota. Route: inline. Commit: `c98b8c8`. Verificación: tsc limpio, vitest 44/44; render manual (no hay testing-library en el repo).
+- T5 (S4): integración — `GastosProgramadosSection` dentro de `PresupuestoManager` debajo de la Matriz; `onCambios={recargarDatos}` refresca ciclo activo + categorías tras cada mutación. Route: inline. Commit: `c98b8c8`.
 
 ## Log
 
