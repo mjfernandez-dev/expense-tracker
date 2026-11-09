@@ -2,7 +2,7 @@
 
 Objetivo: gestionar consumos en tarjeta (cuotas por producto) con el sistema existente `GastoProgramado`; alta de series en Plantilla, pago con botón "Pagar mes".
 Branch: `main` (flujo acordado: commit → push main → deploy Cloud Run → revisar en prod, revert si se arrepiente)
-Entrega: `ask-on-risk` — push a main lo decide el usuario al cierre.
+Entrega: `ask-on-risk` — push a main decidido por el usuario: pusheado 2026-11-09 (beafc69..d2de8cb), deploy automático Cloud Run disparado.
 Runner backend: `$env:SECRET_KEY='test'; python -m pytest backend/tests/ -v` · frontend: `npx tsc --noEmit` + `npm run test` (vitest; sin infra de tests de componente → checks estructurales + verificación de render manual).
 
 ## Specs
