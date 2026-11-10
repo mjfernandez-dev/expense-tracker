@@ -110,7 +110,7 @@ export default function GastosProgramadosSection({
     return acc;
   }, []).map(grupo => ({
     ...grupo,
-    cuotas: [...grupo.cuotas].sort((a, b) => a.vencimiento.localeCompare(b.vencimiento) || a.cuota_actual - b.cuota_actual),
+    cuotas: [...grupo.cuotas].sort((a, b) => a.vencimiento.localeCompare(b.vencimiento) || ((a.cuota_actual ?? 0) - (b.cuota_actual ?? 0))),
   }));
 
   // Cuotas que abarca el pago único del resumen (vencimiento dentro del ciclo activo)
