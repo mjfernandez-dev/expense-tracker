@@ -698,6 +698,42 @@ def test_crear_item_presupuesto_vincular_gastos_sueltos(logged_in_client, user_c
     assert item["estado"] == "parcial"
 
 
+def test_exceso_item_sin_descripcion_muestra_nombre_categoria(logged_in_client, user_category_id):
+    """El exceso de un item sin descripcion (items viejos) se rotula con el
+    nombre de la categoría del item, no con 'Sin categoría'."""
+    ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
+    ciclo = _crear_ciclo(logged_in_client, ingreso["id"])
+
+    # Item del ciclo sin descripcion (como los creados antes de que la matriz
+    # la enviara), con presupuesto $100
+    r = logged_in_client.post(f"/ciclos/{ciclo['id']}/presupuesto/items/", json={
+        "user_category_id": user_category_id,
+        "monto_estimado": 100.0,
+        "confirmado": True,
+    })
+    assert r.status_code == 201, r.text
+    item = next(
+        i for i in r.json()["resumen"]["presupuesto_items"]
+        if i["user_category_id"] == user_category_id
+    )
+    assert item["descripcion"] == "Test Categoria"  # el resumen ya lo resuelve por categoría
+
+    # Gasto vinculado al item: ejecutado 300 > reservado 100 → exceso 200
+    gasto = logged_in_client.post(
+        "/movimientos/",
+        json=_gasto(user_category_id, 300.0, presupuesto_item_id=item["id"]),
+    )
+    assert gasto.status_code == 200, gasto.text
+
+    resumen = logged_in_client.get("/ciclos/activo").json()["resumen"]
+    assert resumen["gastos_sin_presupuesto"] == [{
+        "categoria": "Test Categoria",
+        "importe": 200.0,
+        "user_category_id": user_category_id,
+        "categoria_id": None,
+    }]
+
+
 def test_crear_item_presupuesto_actualiza_item_existente_sin_duplicar(logged_in_client, user_category_id):
     ingreso = logged_in_client.post("/movimientos/", json=_ingreso(user_category_id, 2000.0)).json()
     ciclo = _crear_ciclo(logged_in_client, ingreso["id"])

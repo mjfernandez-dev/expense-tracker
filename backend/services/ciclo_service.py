@@ -626,7 +626,7 @@ def calcular_resumen(ciclo: models.Ciclo, db: Session, user_id: int) -> schemas.
         progreso = progresos[item.id]
         if progreso.ejecutado > progreso.reservado:
             exceso = progreso.ejecutado - progreso.reservado
-            clave = (item.descripcion or "Sin categoría", item.user_category_id, item.categoria_id)
+            clave = (_descripcion_item(item) or "Sin categoría", item.user_category_id, item.categoria_id)
             sin_presupuesto_por_categoria[clave] = (
                 sin_presupuesto_por_categoria.get(clave, Decimal("0")) + exceso
             )
