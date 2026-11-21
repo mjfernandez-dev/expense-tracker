@@ -309,7 +309,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             <div className="flex-1 min-w-0">
               <p className="text-amber-200 font-semibold text-sm mb-1">Guardado sin conexión</p>
               <p className="text-amber-300/80 text-xs leading-relaxed">
-                El movimiento fue guardado localmente en tu dispositivo.
+                El movimiento fue guardado localmente en tu dispositivo. El progreso de la categoría se va a ver al sincronizar.
               </p>
             </div>
           </div>

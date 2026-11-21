@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom';
 import type { Movimiento } from './types';
 import MovimientoModal from './components/MovimientoModal';
+import ProgresoCategoriaToast from './components/ProgresoCategoriaToast';
 import { OfflineIndicator } from './components/OfflineIndicator';
 
 // Chunks de tab cargados a demanda: el entry chunk queda chico y cada tab baja su propio chunk.
@@ -12,7 +13,10 @@ const CicloTab = lazy(() => import('./components/CicloTab'));
 const CicloWizard = lazy(() => import('./components/CicloWizard'));
 
 import { useAuth } from './context/useAuth';
-import { createMovimiento } from './services/api';
+import { createMovimiento, getCicloActivo } from './services/api';
+import { getCurrentBADateInputValue } from './utils/buenosAiresDate';
+import { calcularProgresoCategoria } from './utils/progresoCategoria';
+import type { ProgresoCategoria } from './utils/progresoCategoria';
 
 type Tab = 'inicio' | 'movimientos' | 'ciclo';
 import { getPendingOperations, removePendingOperation } from './services/offlineDB';
@@ -23,6 +27,7 @@ function App() {
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [progresoToast, setProgresoToast] = useState<{ nombre: string; progreso: ProgresoCategoria } | null>(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -30,6 +35,26 @@ function App() {
   const [showWizard, setShowWizard] = useState<boolean>(false);
   const [wizardMovimientoId, setWizardMovimientoId] = useState<number | null>(null);
   const [wizardImporte, setWizardImporte] = useState<number>(0);
+
+  const cerrarProgresoCategoria = useCallback(() => setProgresoToast(null), []);
+
+  const mostrarProgresoCategoria = useCallback(async (movimiento: Movimiento) => {
+    const nombre = movimiento.user_category?.nombre ?? movimiento.categoria?.nombre ?? 'Sin categoría';
+    try {
+      const ciclo = await getCicloActivo();
+      const progreso = calcularProgresoCategoria(
+        ciclo?.resumen ?? null,
+        { categoria_id: movimiento.categoria_id, user_category_id: movimiento.user_category_id },
+        movimiento.fecha,
+        getCurrentBADateInputValue(),
+      );
+      // Sin ciclo activo el gasto queda sin comprometer: no hay progreso que mostrar.
+      if (progreso.tipo === 'sin_ciclo') return;
+      setProgresoToast({ nombre, progreso });
+    } catch {
+      // El feedback es opcional: nunca rompe el alta del movimiento.
+    }
+  }, []);
 
   const handleMovimientoCreated = (movimiento?: Movimiento) => {
     setShowModal(false);
@@ -39,6 +64,11 @@ function App() {
       setWizardMovimientoId(movimiento.id);
       setWizardImporte(movimiento.importe);
       setShowWizard(true);
+    }
+    // Progreso de la categoría: solo los gastos se vinculan a presupuesto.
+    // No se espera el fetch para devolverle el control al usuario.
+    if (movimiento && movimiento.tipo === 'gasto') {
+      void mostrarProgresoCategoria(movimiento);
     }
   };
 
@@ -224,6 +254,13 @@ function App() {
           <span className="text-2xl leading-none font-light -mt-0.5">+</span>
         </button>
       )}
+
+      {/* PROGRESO DE LA CATEGORÍA TRAS CARGAR UN GASTO */}
+      <ProgresoCategoriaToast
+        categoriaNombre={progresoToast?.nombre ?? ''}
+        progreso={progresoToast?.progreso ?? null}
+        onDismiss={cerrarProgresoCategoria}
+      />
 
       {/* MODAL */}
       <MovimientoModal
