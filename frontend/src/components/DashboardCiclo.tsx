@@ -2,15 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Ciclo } from '../types';
 import { getCicloActivo, cerrarCiclo } from '../services/api';
 import { restantePresupuesto } from '../utils/restantePresupuesto';
+import {
+  formatARSOcultable,
+  guardarMontosOcultos,
+  leerMontosOcultos,
+} from '../utils/montosOcultos';
 import EditCicloModal from './EditCicloModal';
 import ConfirmModal from './ConfirmModal';
 
 interface DashboardCicloProps {
   refreshKey: number;
 }
-
-const formatARS = (n: number) =>
-  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
 const SEMAFORO_COLORS = {
   verde: {
@@ -37,6 +39,15 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
   const [showConfirmCerrar, setShowConfirmCerrar] = useState<boolean>(false);
   const [closingCiclo, setClosingCiclo] = useState<boolean>(false);
   const [errorCiclo, setErrorCiclo] = useState<string | null>(null);
+  const [montosOcultos, setMontosOcultos] = useState<boolean>(() =>
+    leerMontosOcultos(window.localStorage),
+  );
+
+  const alternarMontosOcultos = () => {
+    const siguiente = !montosOcultos;
+    setMontosOcultos(siguiente);
+    guardarMontosOcultos(window.localStorage, siguiente);
+  };
 
   const fetchCiclo = useCallback(async () => {
     setLoadingCiclo(true);
@@ -144,6 +155,15 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
           </div>
           <div className="flex gap-1 items-center">
             <button
+              onClick={alternarMontosOcultos}
+              aria-pressed={montosOcultos}
+              aria-label={montosOcultos ? 'Mostrar montos del ciclo' : 'Ocultar montos del ciclo'}
+              title={montosOcultos ? 'Mostrar montos' : 'Ocultar montos'}
+              className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 rounded-lg hover:bg-slate-700/50 transition-colors"
+            >
+              {montosOcultos ? '🙈' : '👁'}
+            </button>
+            <button
               onClick={() => setShowEdit(true)}
               className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 rounded-lg hover:bg-slate-700/50 transition-colors"
             >
@@ -171,7 +191,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
             <div className="text-center">
               <p className="text-slate-400 text-xs font-mono mb-2 tracking-widest uppercase">Podés gastar hoy</p>
               <p className={`text-5xl font-mono font-bold tracking-tight leading-none ${colors.text}`}>
-                {formatARS(r.daily_cap)}
+                {formatARSOcultable(r.daily_cap, montosOcultos)}
               </p>
             </div>
 
@@ -181,13 +201,13 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                 <p className="text-xs font-mono text-slate-400 uppercase tracking-widest font-semibold">Disponible del ciclo</p>
                 <p className="text-xs text-slate-500 mt-0.5">Base del gasto diario</p>
               </div>
-              <p className="text-xl font-bold text-emerald-300 tabular-nums whitespace-nowrap">{formatARS(r.saldo_disponible_actual)}</p>
+              <p className="text-xl font-bold text-emerald-300 tabular-nums whitespace-nowrap">{formatARSOcultable(r.saldo_disponible_actual, montosOcultos)}</p>
             </div>
 
             <div className="space-y-1.5">
               <div className="flex justify-between items-center text-xs font-mono">
                 <span className="text-slate-400">Gastaste hoy</span>
-                <span className="text-slate-200 font-medium">{formatARS(r.gasto_hoy)}</span>
+                <span className="text-slate-200 font-medium">{formatARSOcultable(r.gasto_hoy, montosOcultos)}</span>
               </div>
               <div className="w-full h-1.5 bg-slate-700/80 rounded-full overflow-hidden">
                 <div className={`h-full rounded-full transition-all duration-700 ${colors.bar}`} style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -233,9 +253,9 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                     <span className="text-xs font-mono text-slate-500">{pct}%</span>
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-mono text-slate-200 font-semibold">{formatARS(totalEjecutado)}</span>
+                    <span className="text-sm font-mono text-slate-200 font-semibold">{formatARSOcultable(totalEjecutado, montosOcultos)}</span>
                     <span className="text-xs font-mono text-slate-500">
-                      de <span className="text-slate-300">{formatARS(totalPresupuestado)}</span> presupuestados
+                      de <span className="text-slate-300">{formatARSOcultable(totalPresupuestado, montosOcultos)}</span> presupuestados
                     </span>
                   </div>
                   <div className="w-full h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
@@ -243,7 +263,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                   </div>
                   <p className="text-xs text-slate-500">
                     {totalPresupuestado - totalEjecutado > 0
-                      ? `Restan ${formatARS(totalPresupuestado - totalEjecutado)} por ejecutar`
+                      ? `Restan ${formatARSOcultable(totalPresupuestado - totalEjecutado, montosOcultos)} por ejecutar`
                       : 'Presupuesto completamente ejecutado'}
                   </p>
                   {/* Total líquido: disponible + lo que resta por ejecutar */}
@@ -252,7 +272,7 @@ export default function DashboardCiclo({ refreshKey }: DashboardCicloProps) {
                       Disponible + restante
                     </span>
                     <span className="text-sm font-mono font-bold text-slate-100 tabular-nums">
-                      {formatARS(r.saldo_disponible_actual + restante)}
+                      {formatARSOcultable(r.saldo_disponible_actual + restante, montosOcultos)}
                     </span>
                   </div>
                 </div>
