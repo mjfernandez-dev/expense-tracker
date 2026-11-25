@@ -148,14 +148,12 @@ export default function GastosProgramadosSection({
     const inicial = parseInt(form.cuotaInicial, 10);
     const total = parseInt(form.cuotaTotal, 10);
     const esUser = form.categoria.startsWith('u:');
-    // Las cuotas de tarjeta son consumo a crédito: queda registrado en medio_pago
     const payload = {
       producto: form.producto.trim(),
       importe: parseFloat(form.importe),
       cuota_inicial: inicial,
       cuota_total: total,
       primer_vencimiento: form.primerVencimiento,
-      medio_pago: 'credito',
       ...(esUser ? { user_category_id: Number(form.categoria.slice(2)), categoria_id: null } : { categoria_id: Number(form.categoria.slice(2)), user_category_id: null }),
     };
     try {
@@ -213,7 +211,11 @@ export default function GastosProgramadosSection({
           <button
             onClick={() => {
               if (pagandoMes) return;
-              pagarMesArmado ? confirmarPagarMes() : setPagarMesArmado(true);
+              if (pagarMesArmado) {
+                confirmarPagarMes();
+              } else {
+                setPagarMesArmado(true);
+              }
             }}
             disabled={pagandoMes}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors flex-shrink-0 ${

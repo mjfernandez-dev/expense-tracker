@@ -22,7 +22,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [categoriaId, setCategoriaId] = useState<string>('');
   const [fecha, setFecha] = useState<string>(getCurrentBADateInputValue());
   const [esInicioCiclo, setEsInicioCiclo] = useState<boolean>(false);
-  const [medioPago, setMedioPago] = useState<string>('');
   const [clasificacion, setClasificacion] = useState<string>('');
 
   const [categories, setCategories] = useState<UserCategory[]>([]);
@@ -112,7 +111,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     setNota('');
     setFecha(getCurrentBADateInputValue());
     setEsInicioCiclo(false);
-    setMedioPago('');
     setClasificacion('');
     if (categories.length > 0) {
       setCategoriaId(categories[0].id.toString());
@@ -128,7 +126,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setFecha(movimientoToEdit.fecha.split('T')[0]);
       const catId = movimientoToEdit.categoria_id ?? movimientoToEdit.user_category_id;
       setCategoriaId(catId ? catId.toString() : '');
-      setMedioPago(movimientoToEdit.medio_pago || '');
       setClasificacion(movimientoToEdit.clasificacion || '');
     } else {
       resetForm();
@@ -230,7 +227,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         categoria_id: null,
         user_category_id: parseInt(categoriaId) || null,
         es_inicio_ciclo: !movimientoToEdit && tipo === 'ingreso' && esInicioCiclo,
-        medio_pago: medioPago || null,
         presupuesto_item_id: null,
         clasificacion: tipo === 'gasto' ? (clasificacion as 'necesidad' | 'deseo' | null) || null : null,
       };
@@ -498,24 +494,6 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               placeholder="Información adicional"
               className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
-              Medio de pago
-            </label>
-            <select
-              value={medioPago}
-              onChange={e => setMedioPago(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
-              <option value="">Sin especificar</option>
-              <option value="efectivo">Efectivo</option>
-              <option value="debito">Débito</option>
-              <option value="credito">Crédito</option>
-              <option value="transferencia">Transferencia</option>
-              <option value="otro">Otro</option>
-            </select>
           </div>
 
           {!isIngreso && (

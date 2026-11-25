@@ -300,7 +300,6 @@ def actualizar_movimiento(
     db_movimiento.tipo = movimiento_update.tipo
     db_movimiento.categoria_id = movimiento_update.categoria_id
     db_movimiento.user_category_id = movimiento_update.user_category_id
-    db_movimiento.medio_pago = movimiento_update.medio_pago
     db_movimiento.es_inicio_ciclo = movimiento_update.es_inicio_ciclo
     db_movimiento.clasificacion = resolve_clasificacion(movimiento_update.tipo, movimiento_update.clasificacion)
 
