@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend:
-    name: Backend (lint + tests)
+    name: Backend (tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -34,7 +34,7 @@ jobs:
         run: python -m pytest tests/ -v --tb=short
 
   frontend:
-    name: Frontend (lint + build)
+    name: Frontend (lint + tests + build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -53,8 +53,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
-        run: npx tsc --noEmit
+      # `npm run build` (tsc -b + vite build) es el type check real de este
+      # repo: `npx tsc --noEmit` da falso verde por como esta armado el tsconfig.
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test -- --run
 
       - name: Build
         env:
