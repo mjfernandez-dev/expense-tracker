@@ -267,3 +267,25 @@ export interface ApiCredentialUpdate {
   clave?: string;
   tier?: string | null;
 }
+
+// ============== LECTOR DE TICKETS ==============
+
+// Lo que devuelve POST /tickets/leer. No crea nada: precarga el formulario.
+export interface TicketItemLeido {
+  descripcion: string;
+  cantidad: number | null;
+  importe: number | null;
+}
+
+export interface TicketDescuentoLeido {
+  descripcion: string;
+  importe: number;
+}
+
+export interface TicketLeido {
+  comercio: string | null;
+  total: number | null;
+  subtotal: number | null;
+  items: TicketItemLeido[];
+  descuentos: TicketDescuentoLeido[];
+}

@@ -34,12 +34,16 @@ function MovimientoModal({
     }
   }, [isOpen]);
 
-  // Mover foco al campo de importe al abrir el modal
+  // Mover el foco al abrir el modal. Al crear, el primer paso es leer el
+  // ticket: enfocar el importe haría scroll y dejaría el botón de la cámara
+  // fuera de vista. Al editar, el foco va directo al importe como siempre.
   useEffect(() => {
     if (!isOpen) return;
     const frame = requestAnimationFrame(() => {
-      const amountInput = modalRef.current?.querySelector<HTMLElement>('input[type="number"]');
-      amountInput?.focus();
+      const target =
+        modalRef.current?.querySelector<HTMLElement>('[data-autofocus]') ??
+        modalRef.current?.querySelector<HTMLElement>('input[type="number"]');
+      target?.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [isOpen]);

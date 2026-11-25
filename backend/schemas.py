@@ -486,3 +486,26 @@ class ApiCredentialRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============== SCHEMAS DEL LECTOR DE TICKETS ==============
+
+class TicketItemLeido(BaseModel):
+    descripcion: str
+    cantidad: Optional[float] = None
+    importe: Optional[MoneyDecimal] = None
+
+
+class TicketDescuentoLeido(BaseModel):
+    descripcion: str
+    importe: MoneyDecimal
+
+
+class TicketLeido(BaseModel):
+    """Datos de un ticket. No crea nada: el humano confirma el movimiento."""
+
+    comercio: Optional[str] = None
+    total: Optional[MoneyDecimal] = None
+    subtotal: Optional[MoneyDecimal] = None
+    items: List[TicketItemLeido] = []
+    descuentos: List[TicketDescuentoLeido] = []

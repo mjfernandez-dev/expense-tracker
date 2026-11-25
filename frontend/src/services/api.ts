@@ -30,6 +30,7 @@ import type {
   ApiCredential,
   ApiCredentialCreate,
   ApiCredentialUpdate,
+  TicketLeido,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -596,6 +597,22 @@ export const activarCredencial = async (id: number): Promise<ApiCredential> => {
 // DELETE /configuracion/credenciales/{id} → elimina (promueve otra si era la activa)
 export const deleteCredencial = async (id: number): Promise<void> => {
   await api.delete(`/configuracion/credenciales/${id}`);
+};
+
+// ============== LECTOR DE TICKETS ==============
+
+// POST /tickets/leer → manda la foto y devuelve los datos extraidos.
+// Timeout propio: una extraccion fresca tarda ~31 s y el timeout global de 35 s
+// se queda corto cuando la foto sube por datos moviles. El backend puede tardar
+// hasta 300 s, asi que aca se espera bastante mas que eso.
+export const leerTicket = async (archivo: File): Promise<TicketLeido> => {
+  const formData = new FormData();
+  formData.append('archivo', archivo);
+
+  const response = await api.post<TicketLeido>('/tickets/leer', formData, {
+    timeout: 300000,
+  });
+  return response.data;
 };
 
 export default api;

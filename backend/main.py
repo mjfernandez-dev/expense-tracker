@@ -44,7 +44,7 @@ from slowapi.errors import RateLimitExceeded
 from services.scheduler_service import create_scheduler
 
 # Routers
-from routers import auth, categorias, movimientos, ciclos, gastos_programados, configuracion
+from routers import auth, categorias, movimientos, ciclos, gastos_programados, configuracion, tickets
 from routers.categorias import categories_router
 
 # Crear las tablas SOLO en desarrollo (APP_ENV distinto de production) para
@@ -153,6 +153,7 @@ api_router.include_router(movimientos.router)
 api_router.include_router(ciclos.router)
 api_router.include_router(gastos_programados.router)
 api_router.include_router(configuracion.router)
+api_router.include_router(tickets.router)
 
 app.include_router(api_router)
 

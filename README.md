@@ -128,6 +128,26 @@ La clave es **write-only**: se envía al crear o actualizar y la API solo devuel
 `clave_preview` (primeros y últimos 4 caracteres). Se guarda cifrada con
 `EncryptedString` y no se expone en ningún otro endpoint.
 
+### Lector de tickets
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/tickets/leer` | Recibe una foto del ticket (`multipart`, campo `archivo`) y devuelve los datos extraídos |
+
+Requisitos: una credencial `llamacloud` activa, imagen JPEG/PNG/WebP de hasta 10 MB.
+El endpoint **no crea movimientos**: devuelve `comercio`, `total`, `subtotal`, `items`
+y `descuentos` para que el cliente precargue el formulario. La imagen se borra del
+proveedor apenas termina la extracción.
+
+| Código | Significado |
+|--------|-------------|
+| `402` | La credencial activa se quedó sin créditos: hay que activar otra |
+| `413` / `415` | Imagen demasiado grande / formato no soportado |
+| `502` | Fallo del proveedor o credencial inválida o revocada |
+| `503` | No hay credencial activa: el lector está apagado |
+
+El endpoint nunca responde `401` por un problema de credencial del proveedor: el
+frontend interpretaría la sesión como vencida.
+
 ## Deploy con Docker
 
 ```bash

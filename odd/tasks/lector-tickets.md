@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-Registrar un gasto desde la foto de un ticket de supermercado: el usuario saca la foto, el sistema extrae total, comercio, fecha y el detalle de ítems, y **precarga** el formulario de movimiento. El detalle del ticket queda en `nota` del movimiento; se crea **un solo movimiento** por el total del ticket.
+Registrar un gasto desde la foto de un ticket de supermercado: el usuario saca la foto, el sistema extrae total, comercio y el detalle de ítems, y **precarga** el formulario de movimiento. El detalle del ticket queda en `nota` del movimiento; se crea **un solo movimiento** por el total del ticket. La fecha la define el humano.
 
-Rama: `main` · Runner: `pytest` (backend) · Estado: **T7 completo (módulo de credenciales); T0 sigue bloqueado por la foto**
+Rama: `main` · Runner: `pytest` (backend) · Estado: **T0–T7 completos; pendiente una prueba real contra el endpoint desplegado**
 
 ## Specs
 
@@ -44,14 +44,14 @@ Credenciales por usuario y por proveedor, guardadas con `EncryptedString`. La cl
 
 | ID | Tarea | Spec | Ruta | Estado |
 | --- | --- | --- | --- | --- |
-| T7 | Módulo de credenciales: tabla + migración + servicio + router + pantalla Integraciones + tests | S7 | inline | **hecho** |
-| T0 | Spike: una foto real → JSON extraído + calidad + latencia + créditos | S5 | inline | **hecho** (ver Progreso T0) |
-| T1 | `services/ticket_service.py`: cliente LlamaCloud + schema Pydantic + formateo de nota | S1,S5 | inline | pendiente de T0 |
-| T2 | `routers/tickets.py`: `POST /tickets/leer` multipart, auth, rate limit, límites de tamaño/tipo | S4,S6 | inline | pendiente |
-| T3 | Tests pytest con cliente mockeado (503 sin credencial, 415 tipo inválido, 413 tamaño, 401 sin auth, mapeo de campos, no persiste) | S1,S4,S6 | inline | pendiente |
-| T4 | Frontend: `leerTicket()` en `api.ts` (timeout propio ≥120 s) + botón cámara en `MovimientoForm` + precarga de importe/descripción/nota + filas borrables con X (S1b, L7) | S1,S1b,S4 | inline | pendiente |
-| T5 | "Ver completo" de nota en `MovimientoList` | S2 | inline | pendiente |
-| T6 | `requirements.txt` (`llama-cloud`), README del módulo de credenciales | S6,S7 | inline | parcial (README hecho) |
+| T7 | Módulo de credenciales: tabla + migración + servicio + router + pantalla Integraciones + tests | S7 | inline | **hecho** (commit `27d2f6f`) |
+| T0 | Spike: una foto real → JSON extraído + calidad + latencia + créditos | S5 | inline | **hecho** (commit `9875f9e`) |
+| T1 | `services/ticket_service.py`: cliente LlamaCloud + schema Pydantic + formateo de nota | S1,S5 | inline | **hecho** |
+| T2 | `routers/tickets.py`: `POST /tickets/leer` multipart, auth, rate limit, límites de tamaño/tipo | S4,S6 | inline | **hecho** |
+| T3 | Tests pytest con cliente mockeado (503 sin credencial, 415 tipo inválido, 413 tamaño, 401 sin auth, mapeo de campos, no persiste) | S1,S4,S6 | inline | **hecho** (13 tests) |
+| T4 | Frontend: `leerTicket()` en `api.ts` (timeout propio) + botón cámara en `MovimientoForm` + precarga + filas borrables con X | S1,S1b,S4 | inline | **hecho** |
+| T5 | "Ver completo" de nota en `MovimientoList` | S2 | inline | **hecho** |
+| T6 | `requirements.txt` (`llama-cloud`), README del módulo de credenciales | S6,S7 | inline | **hecho** |
 
 ## Log
 
@@ -84,6 +84,40 @@ Elección de motor, verbatim: `"LlamaParse (hosted de LlamaIndex)"`.
 
 **L7** — Sobre el borrado del detalle, verbatim: *"ademas, dentro de la nota, cada renglon podria ser un 'objeto' facil de borrar completo? o tengo q borrar caracter por caracter si no quiero cargar algo?"*
 Decisión: la nota no es el input, es el **resultado**. El endpoint devuelve los ítems como lista, la pantalla los muestra como filas con una X, y el texto se regenera con lo que queda. El textarea queda como escape hatch para edición manual. Consecuencia: `Movimiento.nota` sigue siendo un solo campo de texto; la estructura existe solo durante la precarga.
+
+**L8** — Ubicación del botón, verbatim: *"Se me ocurre o al lago del boton registrar movimiento o directamente dentro del modal"*.
+Decisión (aprobada por el usuario con *"si"*): **dentro del modal, arriba del toggle Gasto/Ingreso**. Hay dos puntos de entrada al modal (pill del tab Inicio y FAB del tab Movimientos); poner el botón afuera obligaba a implementarlo dos veces y a que el usuario lo buscara en dos lugares. `capture="environment"` para abrir la cámara trasera directo.
+
+**L9** — Verificación real del servicio contra el proveedor: **falló por 401**. La key del `.env` local (`llx-ibCR…`, 52 chars) fue revocada — es la vieja, el usuario ya cargó una nueva en la app. El fallo destapó un defecto real: `_traducir_error` solo contemplaba cuota agotada, así que una key inválida caía en *"Probá con otra foto"*, un mensaje que miente sobre la causa. Corregido con una rama explícita para 401/403 que manda a Integraciones, **nunca devolviendo 401** (el frontend lo interpreta como sesión vencida e intenta refrescar el token: `api.ts:86`).
+
+## Progreso T1–T6
+
+| Archivo | Cambio |
+| --- | --- |
+| `backend/services/ticket_service.py` | schema de extracción (sin fecha), `limpiar_descripcion()` con `_CODIGO_IVA` y `_SUFIJO_REPETIDO`, `extraer_ticket()` (sube, extrae, borra la imagen en `finally`), `_traducir_error()` con ramas 402 / 401-403 / genérica, `leer_ticket()` con validación de tipo y tamaño |
+| `backend/routers/tickets.py` | `POST /tickets/leer` (multipart, auth, `10/minute`); lee `MAX_BYTES + 1` para distinguir "justo en el límite" de "se pasó" sin cargar un archivo arbitrario en memoria |
+| `backend/schemas.py` | `TicketItemLeido`, `TicketDescuentoLeido`, `TicketLeido` |
+| `backend/main.py` | router incluido bajo `/api` |
+| `backend/requirements.txt` | `llama-cloud==2.20.0` |
+| `backend/tests/test_tickets.py` | 13 tests |
+| `frontend/src/utils/notaTicket.ts` | `formatearImporte()` (con centavos) y `formatearNotaTicket()` |
+| `frontend/src/components/MovimientoForm.tsx` | botón cámara + input `capture="environment"`, precarga de importe/descripción/nota, filas borrables (ítems y descuentos), nota como `textarea` |
+| `frontend/src/components/MovimientoModal.tsx` | el autofoco va a `[data-autofocus]` (botón cámara) al crear, y al importe al editar: enfocar el importe hacía scroll y dejaba la cámara fuera de vista |
+| `frontend/src/components/MovimientoList.tsx` | nota con `whitespace-pre-line` (antes los saltos de línea se colapsaban) y `max-h-[70vh] overflow-y-auto` en vez de `max-h-40` |
+| `frontend/src/services/api.ts` | `leerTicket()` con `timeout: 300000` propio |
+| `frontend/src/types/index.ts` | tipos del ticket |
+
+### Evidencia de verificación
+
+```
+pytest backend/tests/test_tickets.py:  13 passed
+pytest backend/tests/ (suite completa): 195 passed (antes 183)
+npm test (vitest):                     66 passed (9 files)
+npm run build (tsc -b + vite):         ✓ built
+npm run lint:                          limpio
+```
+
+**No verificado**: una extracción real a través del endpoint. El SDK sí quedó validado en T0 con el mismo código de llamada, y el import de `llama_cloud` se comprobó en el Python local.
 
 ## Decisiones de diseño
 
@@ -193,16 +227,9 @@ Una extracción fresca tarda **~31 s**. `frontend/src/services/api.ts` tiene `ti
 
 ## Próximo paso
 
-T0 cerrado. T1-T5 pueden escribirse con el formato de nota ya validado contra un ticket real:
+T0–T7 cerrados. Falta la única prueba que los mocks no dan: **una foto real contra el
+endpoint desplegado**. La key del `.env` local fue revocada (401 al probarla), así que
+la verificación real se hace desde la app, con la credencial que el usuario ya cargó
+en Cuenta → Integraciones.
 
-```
-Vea Rio IV - Shopping
-Leche Uat Proteina La serenisima 1l BOT — $2.993,00
-...
-OFERTA QUESO LS — -$1.440,00
-OFERTA DON VICENTE — -$1.040,00
-OFERTA LA SERENISIMA — -$800,00
-Total — $21.349,13
-```
-
-Pendiente de decisión del usuario: los cambios de T7 siguen **sin commitear ni pushear**.
+Pendiente de decisión del usuario: los cambios de T1–T6 siguen **sin commitear**.

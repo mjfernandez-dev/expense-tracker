@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FormEvent } from 'react';
-import type { UserCategory, MovimientoCreate, Movimiento } from '../types';
-import { getUserCategories, createMovimiento, updateMovimiento, createCategory, searchDescripciones } from '../services/api';
+import type { UserCategory, MovimientoCreate, Movimiento, TicketItemLeido, TicketDescuentoLeido } from '../types';
+import { getUserCategories, createMovimiento, updateMovimiento, createCategory, searchDescripciones, leerTicket } from '../services/api';
 import type { DescripcionSuggestion } from '../services/api';
 import { getCurrentBADateInputValue } from '../utils/buenosAiresDate';
 import { obtenerCategoriaSugerida } from '../utils/sugerenciaCategoria';
+import { formatearNotaTicket, formatearImporte } from '../utils/notaTicket';
+import { getApiErrorMessage } from '../utils/apiError';
 
 interface MovimientoFormProps {
   onMovimientoCreated: (movimiento?: Movimiento) => void;
@@ -23,6 +25,16 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [fecha, setFecha] = useState<string>(getCurrentBADateInputValue());
   const [esInicioCiclo, setEsInicioCiclo] = useState<boolean>(false);
   const [clasificacion, setClasificacion] = useState<string>('');
+
+  // Lector de tickets: mientras haya items, el formulario muestra las filas
+  // borrables y la nota se regenera con lo que queda.
+  const [ticketItems, setTicketItems] = useState<TicketItemLeido[] | null>(null);
+  const [ticketDescuentos, setTicketDescuentos] = useState<TicketDescuentoLeido[]>([]);
+  const [ticketComercio, setTicketComercio] = useState<string | null>(null);
+  const [ticketTotal, setTicketTotal] = useState<number | null>(null);
+  const [leyendoTicket, setLeyendoTicket] = useState<boolean>(false);
+  const archivoTicketRef = useRef<HTMLInputElement>(null);
+  const notaRef = useRef<HTMLDivElement>(null);
 
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -112,6 +124,10 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     setFecha(getCurrentBADateInputValue());
     setEsInicioCiclo(false);
     setClasificacion('');
+    setTicketItems(null);
+    setTicketDescuentos([]);
+    setTicketComercio(null);
+    setTicketTotal(null);
     if (categories.length > 0) {
       setCategoriaId(categories[0].id.toString());
     }
@@ -257,6 +273,48 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
   const isIngreso = tipo === 'ingreso';
 
+  const handleLeerTicket = async (archivo: File) => {
+    try {
+      setLeyendoTicket(true);
+      setError(null);
+      const ticket = await leerTicket(archivo);
+
+      setTicketItems(ticket.items);
+      setTicketDescuentos(ticket.descuentos);
+      setTicketComercio(ticket.comercio);
+      setTicketTotal(ticket.total);
+      // Un ticket de supermercado siempre es un gasto.
+      setTipo('gasto');
+      if (ticket.total !== null) setImporte(String(ticket.total));
+      if (ticket.comercio) setDescripcion(ticket.comercio);
+      setNota(formatearNotaTicket(ticket.comercio, ticket.items, ticket.descuentos, ticket.total));
+      // El detalle quedó al fondo del formulario: sin esto el usuario que
+      // esperó 30 s no ve el resultado.
+      requestAnimationFrame(() => {
+        notaRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'No se pudo leer el ticket'));
+    } finally {
+      setLeyendoTicket(false);
+      // Permite volver a elegir el mismo archivo sin tener que recargar.
+      if (archivoTicketRef.current) archivoTicketRef.current.value = '';
+    }
+  };
+
+  const quitarItemTicket = (indice: number) => {
+    if (!ticketItems) return;
+    const restantes = ticketItems.filter((_, i) => i !== indice);
+    setTicketItems(restantes);
+    setNota(formatearNotaTicket(ticketComercio, restantes, ticketDescuentos, ticketTotal));
+  };
+
+  const quitarDescuentoTicket = (indice: number) => {
+    const restantes = ticketDescuentos.filter((_, i) => i !== indice);
+    setTicketDescuentos(restantes);
+    setNota(formatearNotaTicket(ticketComercio, ticketItems ?? [], restantes, ticketTotal));
+  };
+
   return (
     <div className={`bg-slate-800/70 rounded-2xl border border-slate-600/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-6 mb-6`}>
       <h2 className="text-2xl font-bold mb-4 text-white">
@@ -264,6 +322,37 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           ? `✏️ Editar ${isIngreso ? 'Ingreso' : 'Gasto'}`
           : `➕ Registrar Movimiento`}
       </h2>
+
+      {!movimientoToEdit && (
+        <div className="mb-5">
+          <input
+            ref={archivoTicketRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const archivo = e.target.files?.[0];
+              if (archivo) void handleLeerTicket(archivo);
+            }}
+          />
+          <button
+            type="button"
+            data-autofocus
+            onClick={() => archivoTicketRef.current?.click()}
+            disabled={leyendoTicket}
+            className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl border border-blue-400/50 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20 disabled:opacity-60 disabled:cursor-wait text-sm font-semibold transition-colors"
+          >
+            <span aria-hidden="true">{leyendoTicket ? '⏳' : '📷'}</span>
+            {leyendoTicket ? 'Leyendo el ticket…' : 'Leer ticket'}
+          </button>
+          <p className="text-xs text-slate-500 mt-1">
+            {leyendoTicket
+              ? 'Puede tardar hasta 30 segundos.'
+              : 'Saca la foto del ticket y se completan importe, descripción y nota.'}
+          </p>
+        </div>
+      )}
 
       {!movimientoToEdit && (
         <div className="flex gap-2 mb-5 p-1 bg-slate-900/50 rounded-xl w-fit">
@@ -483,16 +572,82 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         </div>
 
         <div className="space-y-3">
-          <div>
+          <div ref={notaRef}>
             <label className="block text-xs font-medium text-slate-400 mb-1">
               Nota
             </label>
-            <input
-              type="text"
+
+            {ticketItems !== null && (
+              <div className="mb-2 rounded-xl border border-slate-600/50 bg-slate-900/40 divide-y divide-slate-700/40">
+                {ticketComercio && (
+                  <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                    {ticketComercio}
+                  </p>
+                )}
+
+                {ticketItems.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-slate-500">
+                    No quedan productos. La nota queda solo con el total.
+                  </p>
+                )}
+
+                {ticketItems.map((item, indice) => (
+                  <div key={`item-${indice}-${item.descripcion}`} className="flex items-center gap-2 px-3 py-2">
+                    <span className="flex-1 truncate text-sm text-slate-200">
+                      {item.descripcion}
+                      {item.cantidad !== null && item.cantidad !== 1
+                        ? ` x${String(item.cantidad).replace('.', ',')}`
+                        : ''}
+                    </span>
+                    <span className="font-mono text-xs text-slate-400">
+                      {formatearImporte(item.importe)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => quitarItemTicket(indice)}
+                      aria-label={`Quitar ${item.descripcion}`}
+                      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+
+                {ticketDescuentos.map((descuento, indice) => (
+                  <div key={`descuento-${indice}-${descuento.descripcion}`} className="flex items-center gap-2 px-3 py-2">
+                    <span className="flex-1 truncate text-sm text-emerald-300">
+                      {descuento.descripcion}
+                    </span>
+                    <span className="font-mono text-xs text-emerald-400">
+                      -{formatearImporte(descuento.importe)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => quitarDescuentoTicket(indice)}
+                      aria-label={`Quitar ${descuento.descripcion}`}
+                      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <span className="flex-1 text-sm font-semibold text-slate-200">Total</span>
+                  <span className="font-mono text-sm font-semibold text-slate-200">
+                    {formatearImporte(ticketTotal)}
+                  </span>
+                  <span className="w-7 flex-shrink-0" aria-hidden="true" />
+                </div>
+              </div>
+            )}
+
+            <textarea
+              rows={ticketItems !== null ? 9 : 3}
               value={nota}
               onChange={(e) => setNota(e.target.value)}
               placeholder="Información adicional"
-              className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-y"
             />
           </div>
 
