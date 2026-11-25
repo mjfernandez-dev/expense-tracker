@@ -182,7 +182,8 @@ class Movimiento(Base):
     es_inicio_ciclo = Column(Boolean, default=False, nullable=False)
     # FLAG: indica si el movimiento fue generado automáticamente (ej. gastos fijos)
     is_auto_generated = Column(Boolean, default=False, nullable=False)
-    # MEDIO DE PAGO: "efectivo" | "debito" | "credito" | "transferencia" | "otro"
+    # MEDIO DE PAGO: columna legacy, fuera de la API y de la UI (2026-11-25).
+    # Se conserva para no perder datos historicos; no volver a exponerla.
     medio_pago = Column(String, nullable=True)
 
     def __init__(self, **kwargs):
@@ -230,6 +231,7 @@ class GastoProgramado(Base):
     nota = Column(EncryptedString, nullable=True)
     categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     user_category_id = Column(Integer, ForeignKey("user_categories.id"), nullable=True)
+    # Columna legacy: fuera de la API y de la UI (2026-11-25). No volver a exponerla.
     medio_pago = Column(String, nullable=True)
     clasificacion = Column(String, nullable=True)
     estado = Column(String, nullable=False, default="pendiente")
@@ -267,3 +269,29 @@ class Ciclo(Base):
     usuario = relationship("User")
     movimiento_origen = relationship("Movimiento", foreign_keys=[movimiento_origen_id])
     presupuesto_items = relationship("PresupuestoItem", back_populates="ciclo", cascade="all, delete-orphan")
+
+
+# ============== CREDENCIALES DE PROVEEDORES EXTERNOS ==============
+
+# MODELO: Credencial de un proveedor externo (ej. LlamaCloud para leer tickets).
+# La clave se guarda cifrada con EncryptedString y NUNCA se devuelve al cliente:
+# la API expone solo un preview enmascarado.
+class ApiCredential(Base):
+    __tablename__ = "api_credentials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    proveedor = Column(String, nullable=False, index=True)  # "llamacloud"
+    nombre = Column(String, nullable=False)  # Etiqueta del usuario: "LlamaCloud principal"
+    clave = Column(EncryptedString, nullable=False)  # Cifrada en reposo, write-only en la API
+    tier = Column(String, nullable=True)  # Nivel de servicio del proveedor (ej. "agentic_plus")
+    activa = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=ahora_buenos_aires)
+    updated_at = Column(DateTime, default=ahora_buenos_aires, onupdate=ahora_buenos_aires)
+
+    # RELACIONES
+    usuario = relationship("User")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "proveedor", "nombre", name="uq_api_credential_nombre"),
+    )

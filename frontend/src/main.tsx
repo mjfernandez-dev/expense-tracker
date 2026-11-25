@@ -17,6 +17,7 @@ import App from './App.tsx';
 // Páginas protegidas secundarias: lazy loading (solo las ve el usuario autenticado)
 const AccountPage = lazy(() => import('./pages/AccountPage.tsx'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword.tsx'));
+const Integraciones = lazy(() => import('./pages/Integraciones.tsx'));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -42,6 +43,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <ProtectedRoute>
                     <ChangePassword />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/account/integraciones"
+                element={
+                  <ProtectedRoute>
+                    <Integraciones />
                   </ProtectedRoute>
                 }
               />

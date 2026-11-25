@@ -42,6 +42,20 @@ function AccountPage() {
             </p>
           </div>
 
+          {/* Card: Integraciones */}
+          <div
+            onClick={() => navigate('/account/integraciones')}
+            className="bg-slate-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-700/70 p-6 hover:border-blue-400/50 hover:shadow-blue-500/30 transition-all duration-300 cursor-pointer group"
+          >
+            <div className="text-4xl mb-4">🔌</div>
+            <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
+              Integraciones
+            </h3>
+            <p className="text-sm text-slate-400">
+              Claves de servicios externos, como el lector de tickets.
+            </p>
+          </div>
+
         </div>
       </div>
     </div>

@@ -66,7 +66,6 @@ export interface Movimiento {
   es_inicio_ciclo: boolean;
   is_auto_generated: boolean;
   gasto_fijo_id: number | null;
-  medio_pago: string | null;
   clasificacion: 'necesidad' | 'deseo' | null;
 }
 
@@ -80,7 +79,6 @@ export interface MovimientoCreate {
   user_category_id: number | null;
   presupuesto_item_id?: number | null;
   es_inicio_ciclo?: boolean;
-  medio_pago?: string | null;
   clasificacion?: 'necesidad' | 'deseo' | null;
 }
 
@@ -196,7 +194,6 @@ export interface GastoProgramado {
   nota: string | null;
   categoria_id: number | null;
   user_category_id: number | null;
-  medio_pago: string | null;
   clasificacion: 'necesidad' | 'deseo' | null;
   estado: 'pendiente' | 'pagado' | 'cancelado';
   cuota_actual: number | null;
@@ -215,7 +212,6 @@ export interface GastoProgramadoCreate {
   nota?: string | null;
   categoria_id?: number | null;
   user_category_id?: number | null;
-  medio_pago?: string | null;
   clasificacion?: 'necesidad' | 'deseo' | null;
   cuota_actual?: number | null;
   cuota_total?: number | null;
@@ -234,7 +230,6 @@ export interface SerieGastoCreate {
   nota?: string | null;
   categoria_id?: number | null;
   user_category_id?: number | null;
-  medio_pago?: string | null;
   clasificacion?: 'necesidad' | 'deseo' | null;
 }
 
@@ -245,3 +240,30 @@ export interface PagarMesResult {
 }
 
 // ============== TIPOS DE CUENTA ==============
+
+// ============== CREDENCIALES DE PROVEEDORES EXTERNOS ==============
+
+// La clave NUNCA viaja al cliente: solo un preview enmascarado.
+export interface ApiCredential {
+  id: number;
+  proveedor: string;
+  nombre: string;
+  tier: string | null;
+  activa: boolean;
+  clave_preview: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ApiCredentialCreate {
+  proveedor: string;
+  nombre: string;
+  clave: string;
+  tier?: string | null;
+}
+
+export interface ApiCredentialUpdate {
+  nombre?: string;
+  clave?: string;
+  tier?: string | null;
+}

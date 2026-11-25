@@ -27,6 +27,9 @@ import type {
   GastoProgramadoUpdate,
   SerieGastoCreate,
   PagarMesResult,
+  ApiCredential,
+  ApiCredentialCreate,
+  ApiCredentialUpdate,
 } from '../types';
 
 // URL base del backend (FastAPI corriendo en puerto 8000)
@@ -321,7 +324,6 @@ export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Mo
       es_inicio_ciclo: movimiento.es_inicio_ciclo ?? false,
       is_auto_generated: false,
       gasto_fijo_id: null,
-      medio_pago: movimiento.medio_pago ?? null,
       clasificacion: movimiento.clasificacion ?? null,
     };
   };
@@ -559,6 +561,41 @@ export const pagarMesGastosProgramados = async (): Promise<PagarMesResult> => {
 // DELETE /gastos-programados/{id} → elimina un gasto programado
 export const eliminarGastoProgramado = async (id: number): Promise<void> => {
   await api.delete(`/gastos-programados/${id}`);
+};
+
+// ============== CREDENCIALES DE PROVEEDORES EXTERNOS ==============
+// La clave es write-only: se envía al crear/actualizar y la API solo devuelve
+// un preview enmascarado (clave_preview).
+
+// GET /configuracion/credenciales → credenciales del usuario (sin claves)
+export const getCredenciales = async (proveedor?: string): Promise<ApiCredential[]> => {
+  const response = await api.get<ApiCredential[]>('/configuracion/credenciales', {
+    params: proveedor ? { proveedor } : undefined,
+  });
+  return response.data;
+};
+
+// POST /configuracion/credenciales → crea una credencial (la primera queda activa)
+export const createCredencial = async (data: ApiCredentialCreate): Promise<ApiCredential> => {
+  const response = await api.post<ApiCredential>('/configuracion/credenciales', data);
+  return response.data;
+};
+
+// PUT /configuracion/credenciales/{id} → actualiza nombre, clave o tier
+export const updateCredencial = async (id: number, patch: ApiCredentialUpdate): Promise<ApiCredential> => {
+  const response = await api.put<ApiCredential>(`/configuracion/credenciales/${id}`, patch);
+  return response.data;
+};
+
+// POST /configuracion/credenciales/{id}/activar → deja esta como la única activa
+export const activarCredencial = async (id: number): Promise<ApiCredential> => {
+  const response = await api.post<ApiCredential>(`/configuracion/credenciales/${id}/activar`);
+  return response.data;
+};
+
+// DELETE /configuracion/credenciales/{id} → elimina (promueve otra si era la activa)
+export const deleteCredencial = async (id: number): Promise<void> => {
+  await api.delete(`/configuracion/credenciales/${id}`);
 };
 
 export default api;

@@ -18,6 +18,7 @@ PWA de gestión de gastos personales y grupales (estilo Splitwise para Argentina
 - Contactos con información bancaria encriptada (alias, CVU)
 - Integración Mercado Pago (preferencia de pago, webhook, consulta de estado)
 - Datos sensibles encriptados con Fernet (descripciones, notas, contactos)
+- Credenciales de proveedores externos encriptadas y administrables desde la app (Integraciones)
 
 ## Instalación local
 
@@ -113,6 +114,19 @@ SECRET_KEY=test-key python -m pytest tests/ -v
 |--------|------|-------------|
 | GET | `/docs` | Swagger UI (solo en desarrollo) |
 | GET | `/health` | Healthcheck |
+
+### Configuración (credenciales de proveedores)
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/configuracion/credenciales` | Lista las credenciales del usuario (solo preview enmascarado) |
+| POST | `/configuracion/credenciales` | Crea una credencial; la primera de cada proveedor queda activa |
+| PUT | `/configuracion/credenciales/{id}` | Actualiza nombre, clave o tier |
+| POST | `/configuracion/credenciales/{id}/activar` | Deja esta como la única activa del proveedor |
+| DELETE | `/configuracion/credenciales/{id}` | Elimina; si era la activa, promueve otra |
+
+La clave es **write-only**: se envía al crear o actualizar y la API solo devuelve
+`clave_preview` (primeros y últimos 4 caracteres). Se guarda cifrada con
+`EncryptedString` y no se expone en ningún otro endpoint.
 
 ## Deploy con Docker
 

@@ -172,7 +172,6 @@ class MovimientoBase(BaseModel):
     user_category_id: Optional[int] = None  # ID de categoría personalizada
     es_inicio_ciclo: bool = False  # Si True, este ingreso inició un ciclo financiero
     is_auto_generated: bool = False  # Indica si el movimiento fue generado automáticamente
-    medio_pago: Optional[str] = None  # "efectivo" | "debito" | "credito" | "transferencia" | "otro"
     presupuesto_item_id: Optional[int] = None  # Vincula un gasto real a un item del presupuesto
     clasificacion: Optional[str] = None  # "necesidad" | "deseo" | None (solo aplica a gastos)
 
@@ -223,7 +222,6 @@ class GastoProgramadoCreate(BaseModel):
     nota: Optional[str] = None
     categoria_id: Optional[int] = None
     user_category_id: Optional[int] = None
-    medio_pago: Optional[str] = None
     clasificacion: Optional[str] = None
     cuota_actual: Optional[int] = Field(None, ge=1)
     cuota_total: Optional[int] = Field(None, ge=1)
@@ -249,7 +247,6 @@ class SerieGastoCreate(BaseModel):
     nota: Optional[str] = None
     categoria_id: Optional[int] = None
     user_category_id: Optional[int] = None
-    medio_pago: Optional[str] = None
     clasificacion: Optional[str] = None
 
     @model_validator(mode="after")
@@ -270,7 +267,6 @@ class GastoProgramadoUpdate(BaseModel):
     nota: Optional[str] = None
     categoria_id: Optional[int] = None
     user_category_id: Optional[int] = None
-    medio_pago: Optional[str] = None
     clasificacion: Optional[str] = None
     cuota_actual: Optional[int] = Field(None, ge=1)
     cuota_total: Optional[int] = Field(None, ge=1)
@@ -296,7 +292,6 @@ class GastoProgramadoRead(BaseModel):
     nota: Optional[str] = None
     categoria_id: Optional[int] = None
     user_category_id: Optional[int] = None
-    medio_pago: Optional[str] = None
     clasificacion: Optional[str] = None
     estado: str
     cuota_actual: Optional[int] = None
@@ -438,6 +433,56 @@ class CicloRead(BaseModel):
     activo: bool
     created_at: datetime
     resumen: Optional[CicloResumen] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ============== SCHEMAS PARA CREDENCIALES DE PROVEEDORES ==============
+
+PROVEEDOR_PATTERN = r"^[a-z][a-z0-9_]{2,31}$"
+# Tiers de LlamaCloud *Extract* (no de parse: ahí el más barato es `turbo`,
+# no `fast`). Verificado contra llama-cloud 2.20.0.
+TIERS_LLAMACLOUD = ("turbo", "cost_effective", "agentic", "agentic_plus")
+
+
+class ApiCredentialCreate(BaseModel):
+    proveedor: str = Field(default="llamacloud", pattern=PROVEEDOR_PATTERN)
+    nombre: str = Field(min_length=1, max_length=60)
+    clave: str = Field(min_length=8, max_length=500)
+    tier: Optional[str] = None
+
+    @field_validator("tier")
+    @classmethod
+    def validar_tier(cls, valor: Optional[str]) -> Optional[str]:
+        if valor is not None and valor not in TIERS_LLAMACLOUD:
+            raise ValueError(f"Tier inválido. Valores permitidos: {', '.join(TIERS_LLAMACLOUD)}")
+        return valor
+
+
+class ApiCredentialUpdate(BaseModel):
+    nombre: Optional[str] = Field(default=None, min_length=1, max_length=60)
+    clave: Optional[str] = Field(default=None, min_length=8, max_length=500)
+    tier: Optional[str] = None
+
+    @field_validator("tier")
+    @classmethod
+    def validar_tier(cls, valor: Optional[str]) -> Optional[str]:
+        if valor is not None and valor not in TIERS_LLAMACLOUD:
+            raise ValueError(f"Tier inválido. Valores permitidos: {', '.join(TIERS_LLAMACLOUD)}")
+        return valor
+
+
+class ApiCredentialRead(BaseModel):
+    """Vista de la credencial: la clave NUNCA viaja completa al cliente."""
+    id: int
+    proveedor: str
+    nombre: str
+    tier: Optional[str] = None
+    activa: bool
+    clave_preview: str  # ej. "llx-…3f9a"
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
