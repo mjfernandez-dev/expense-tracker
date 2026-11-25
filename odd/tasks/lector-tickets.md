@@ -1,0 +1,208 @@
+# Lector de tickets con LlamaParse
+
+## Objetivo
+
+Registrar un gasto desde la foto de un ticket de supermercado: el usuario saca la foto, el sistema extrae total, comercio, fecha y el detalle de ítems, y **precarga** el formulario de movimiento. El detalle del ticket queda en `nota` del movimiento; se crea **un solo movimiento** por el total del ticket.
+
+Rama: `main` · Runner: `pytest` (backend) · Estado: **T7 completo (módulo de credenciales); T0 sigue bloqueado por la foto**
+
+## Specs
+
+**S1 — Un movimiento por ticket, detalle en nota.** (L1 verbatim: *"movimiento unico + detalle en nota"*)
+El lector nunca crea un movimiento por renglón. El total del ticket es el `importe`; los ítems van a `Movimiento.nota` como texto legible.
+
+**S1b — Qué precarga el lector y qué llena el humano.** (L6 verbatim: *"que se autocomplete el importe total, la descripcion con el nombre del supermercado y la nota. El resto el humano"*)
+
+| Campo | Origen |
+| --- | --- |
+| `importe` | total del ticket |
+| `descripcion` | nombre del comercio |
+| `nota` | detalle generado |
+| `fecha`, `categoria_id`/`user_category_id`, `tipo` | **humano** |
+
+La fecha **no se extrae**: la define el humano al crear el movimiento (L5 verbatim: *"no hace falta q lea la fecha. Eso lo indico yo cuando creo el movimiento"*).
+
+**S2 — "Ver completo" para notas largas.** (L1 verbatim: *"un ver completo me parece bien"*)
+`MovimientoList` hoy corta la nota con `max-h-40 overflow-hidden` (`MovimientoList.tsx:242`). Con un ticket completo adentro, la nota se trunca visualmente. Debe poder verse entera.
+
+**S3 — `nota` sigue encriptada.** (decisión confirmada)
+El detalle de un ticket revela hábitos de consumo: es el dato más sensible de la app. Se mantiene `EncryptedString` (`models.py:152`). Consecuencia aceptada: la búsqueda sobre `nota` no puede usar SQL; se resuelve con el patrón in-memory ya existente (`movimiento_service.py:374`).
+
+**S4 — El lector precarga, no crea.** (supuesto de diseño, ver Decisiones)
+`POST /tickets/leer` devuelve datos extraídos y **no** persiste nada. El usuario revisa y confirma con el flujo actual `POST /movimientos`. Un parse equivocado nunca ensucia el libro.
+
+**S5 — Motor: LlamaCloud Extract.** (elección del usuario: *"modo agentic_plus"*)
+Extracción guiada por JSON Schema (Pydantic), tier `agentic_plus`, `extraction_target="per_doc"`, `confidence_scores=True`. El tier se guarda por credencial (S7), no hardcodeado.
+Verificado sobre un ticket real (ver Progreso T0): 9/9 ítems, total y descuentos cierran al centavo, **~31 s** por extracción fresca.
+
+**S6 — El lector es opcional y no puede tumbar la app.** Si no hay ninguna credencial activa cargada, el endpoint responde `503` con mensaje claro. El arranque de la app no falla.
+
+**S7 — La API key se administra desde la app.** (pedido del usuario, verbatim: *"Habria que hacer un modulo de configuracion donde haya un campo para poner la api key usado para llamaindex (si em quedo sin credito en uno podria usar otro)"*)
+Credenciales por usuario y por proveedor, guardadas con `EncryptedString`. La clave es **write-only**: la API solo devuelve `clave_preview` enmascarado. Puede haber varias por proveedor con **una sola activa**, para rotar cuando se agotan los créditos. El tier es un campo de la credencial (default `agentic_plus`, elegido por el usuario).
+
+## Tasks
+
+| ID | Tarea | Spec | Ruta | Estado |
+| --- | --- | --- | --- | --- |
+| T7 | Módulo de credenciales: tabla + migración + servicio + router + pantalla Integraciones + tests | S7 | inline | **hecho** |
+| T0 | Spike: una foto real → JSON extraído + calidad + latencia + créditos | S5 | inline | **hecho** (ver Progreso T0) |
+| T1 | `services/ticket_service.py`: cliente LlamaCloud + schema Pydantic + formateo de nota | S1,S5 | inline | pendiente de T0 |
+| T2 | `routers/tickets.py`: `POST /tickets/leer` multipart, auth, rate limit, límites de tamaño/tipo | S4,S6 | inline | pendiente |
+| T3 | Tests pytest con cliente mockeado (503 sin credencial, 415 tipo inválido, 413 tamaño, 401 sin auth, mapeo de campos, no persiste) | S1,S4,S6 | inline | pendiente |
+| T4 | Frontend: `leerTicket()` en `api.ts` (timeout propio ≥120 s) + botón cámara en `MovimientoForm` + precarga de importe/descripción/nota + filas borrables con X (S1b, L7) | S1,S1b,S4 | inline | pendiente |
+| T5 | "Ver completo" de nota en `MovimientoList` | S2 | inline | pendiente |
+| T6 | `requirements.txt` (`llama-cloud`), README del módulo de credenciales | S6,S7 | inline | parcial (README hecho) |
+
+## Log
+
+**L1** — Pedido del usuario, verbatim:
+
+> "sobre la posibilidad de sumar un lector de imagenes que me permita detallar un moviimento, habiamos quedado que era complicado que cada renglon genere un movimiento? y era mas sencillo agregar el detalle en una nota del movimiento?"
+
+> "por que se encripta la nota? es necesario? / un ver completo me parece bien. / movimiento unico + detalle en nota"
+
+> "lector" (elige arrancar por el lector de imágenes)
+
+Elección de motor, verbatim: `"LlamaParse (hosted de LlamaIndex)"`.
+
+**L2** — Verificaciones hechas antes de diseñar (no supuestos):
+
+- `backend/requirements.txt`: sin `llama-index` ni SDK de LLM. `python-multipart==0.0.22` presente → multipart viable.
+- Sin ningún endpoint de upload en el repo: `grep UploadFile|File(|FormData` → 0 matches. Feature greenfield.
+- `llama-cloud==2.20.0` (PyPI): deps `anyio`, `distro`, `httpx`, `pydantic`, `sniffio`, `typing-extensions` — todas ya satisfechas. Árbol liviano.
+- Precios (llamaindex.ai/pricing): 10.000 créditos gratis/mes; parse `fast`=1, `cost_effective`=3, `agentic`=10, `agentic_plus`=25 cr/página; **extract suma créditos aparte**; re-parse cacheado = 0; soporta imágenes (PNG/JPG) entre 130+ formatos.
+- Cloud Run (`cloudbuild.yaml`): sin `--timeout` (default 300s), sin `--memory` (512Mi), sin `--set-secrets`. Un parse de 1 página entra en el timeout; conviene igual medirlo en T0.
+- `openspec/specs/router-service-boundaries/spec.md:11` exige que `config.py` defina **solo** `APP_ENV`/`IS_PRODUCTION`/`ENCRYPTION_KEY`. **Queda satisfecho sin tocarlo**: la key vive cifrada en la DB (S7), no en el entorno.
+
+**L3** — Spike corrido sobre la foto real. Resultado: 9/9 ítems, aritmética cerrada al centavo, ~31 s fresca. Detectado que la extracción de fecha erraba el año (`2024` por `2026`) → se eliminó el campo (S1b).
+
+**L4** — El usuario ofrece la foto del ticket: *"en raiz de disco D deje la imagen de wsp del ticket"*.
+
+**L5** — Recorte de alcance, verbatim: *"pero no hace falta q lea la fecha. Eso lo indico yo cuando creo el movimiento"*.
+
+**L6** — Alcance de la precarga, verbatim: *"que se autocomplete el importe total, la descripcion con el nombre del supermercado y la nota. El resto el humano"*.
+
+**L7** — Sobre el borrado del detalle, verbatim: *"ademas, dentro de la nota, cada renglon podria ser un 'objeto' facil de borrar completo? o tengo q borrar caracter por caracter si no quiero cargar algo?"*
+Decisión: la nota no es el input, es el **resultado**. El endpoint devuelve los ítems como lista, la pantalla los muestra como filas con una X, y el texto se regenera con lo que queda. El textarea queda como escape hatch para edición manual. Consecuencia: `Movimiento.nota` sigue siendo un solo campo de texto; la estructura existe solo durante la precarga.
+
+## Decisiones de diseño
+
+1. **Precargar, no crear (S4).** El parser va a equivocarse: tickets arrugados, totales con descuentos, ítems cortados. Si el lector escribe directo en la DB, cada error es un movimiento falso en el libro y en el presupuesto del ciclo. Precargar deja al humano en el punto de control y reusa `POST /movimientos` sin duplicar lógica.
+2. **Nota en texto legible, no JSON.** Se guarda `comercio`, una línea por ítem y el total. Un blob JSON en `nota` rompe la lectura humana, el "ver completo" y la futura búsqueda in-memory.
+3. **El spike va primero (T0).** La incógnita real del feature no es el plumbing: es si LlamaParse lee bien un ticket argentino. Endpoint + UI + tests antes de ver un parse real es trabajo a ciegas.
+4. **503 si falta la key, no crash.** `ENCRYPTION_KEY` sí aborta el arranque en producción porque sin ella no hay datos legibles. El lector es opcional: si falta, solo esa feature queda apagada.
+5. **No se guarda la imagen.** El registro es la nota; la foto no se persiste (ni en DB ni en storage).
+
+## Checks aplicables
+
+- `SECRET_KEY=test python -m pytest backend/tests/ -v`
+- `cd frontend; npm test`
+- `cd frontend; npm run build` (tsc -b + vite build; `tsc --noEmit` da falso verde en este repo)
+- `cd frontend; npm run lint`
+
+**L3** — Decisiones y pedido del usuario, verbatim:
+
+> "modo agentic_plus. Ya tengo cuenta en llamaindex, debere registrar mi api key en alguna parte de la app? Habria que hacer un modulo de configuracion donde haya un campo para poner la api key usado para llamaindex (si em quedo sin credito en uno podria usar otro). Si, el humano es el responsable del paso final. La foto luego la vemos."
+
+Consecuencias:
+
+- **Tier = `agentic_plus`** (25 cr/página + extract). Con 10.000 créditos gratis/mes quedan ~250-350 tickets/mes sin pagar. Se guarda por credencial, no hardcodeado.
+- **Sin variable de entorno.** La clave vive en la DB del usuario, cifrada. Esto **anula** la necesidad de agregar `LLAMA_CLOUD_API_KEY` a `config.py`, así que `openspec/specs/router-service-boundaries/spec.md:11` (config.py define solo `APP_ENV`/`IS_PRODUCTION`/`ENCRYPTION_KEY`) queda satisfecho sin tocarlo.
+- **S4 confirmado por el usuario**: "el humano es el responsable del paso final".
+- **T7 implementado** en esta sesión, antes de la foto, porque no depende de LlamaParse.
+
+## Progreso T7
+
+Archivos:
+
+| Archivo | Cambio |
+| --- | --- |
+| `backend/models.py` | nuevo `ApiCredential` (`api_credentials`): `proveedor`, `nombre`, `clave` cifrada, `tier`, `activa`, unique `(user_id, proveedor, nombre)` |
+| `backend/alembic/versions/f3c8d1a7b2e4_add_api_credentials.py` | migración sobre head `9c3e7b1d4a58` |
+| `backend/schemas.py` | `ApiCredentialCreate/Update/Read`; `Read` expone solo `clave_preview`; tier validado contra los 4 valores de LlamaCloud |
+| `backend/services/api_credential_service.py` | CRUD + activación + `obtener_clave_activa()` / `obtener_tier_activo()` para el futuro ticket service |
+| `backend/routers/configuracion.py` | `/configuracion/credenciales` (GET, POST, PUT, activar, DELETE) |
+| `backend/main.py` | router incluido bajo `/api` |
+| `backend/tests/test_api_credentials.py` | 11 tests |
+| `frontend/src/pages/Integraciones.tsx` | pantalla de configuración (lista, alta, rotar clave, activar, eliminar con confirmación) |
+| `frontend/src/pages/AccountPage.tsx` | card "Integraciones" |
+| `frontend/src/main.tsx` | ruta `/account/integraciones` (protegida) |
+| `frontend/src/services/api.ts`, `types/index.ts` | cliente y tipos |
+| `README.md` | sección de endpoints de configuración |
+
+Reglas de seguridad implementadas:
+
+1. La clave **nunca** se devuelve: `GET` solo trae `clave_preview` (`llx-…cdef`).
+2. Multi-tenant: todo filtra por `user_id`; otro usuario recibe 404.
+3. Exactamente una activa por proveedor; borrar la activa promueve la más reciente.
+4. La primera credencial de un proveedor queda activa sola: el lector funciona sin paso extra.
+
+### Evidencia de verificación
+
+```
+pytest backend/tests/test_api_credentials.py:  11 passed
+pytest backend/tests/ (suite completa):        183 passed (antes 172)
+npm test (vitest):                             61 passed (8 files)
+npm run build (tsc -b + vite):                 ✓ built in 4.78s
+npm run lint:                                  1 error PREEXISTENTE en
+                                               components/GastosProgramadosSection.tsx:216
+                                               (archivo no tocado por esta feature)
+```
+
+## Progreso T0 (completo: spike corrido sobre la foto real)
+
+Foto: `D:\WhatsApp Image 2026-11-25 at 12.23.56.jpeg` — ticket de **Vea Río IV Shopping**, 23/11/2026, **TOTAL $21.349,13**, subtotal sin descuentos $24.629,13, tres descuentos por línea por -$3.280,00. Foto inclinada sobre tela, con QR al pie: caso realista, no un escaneo limpio.
+
+### Resultado de la extracción (`agentic_plus`, 1 corrida fresca + cacheadas)
+
+| Medición | Valor |
+| --- | --- |
+| Ítems extraídos | **9 de 9** |
+| Suma de ítems vs subtotal impreso | **$24.629,13 = $24.629,13** ✓ |
+| Descuentos detallados vs total de descuentos | **-$3.280,00 = -$3.280,00** ✓ (los 3, atribuidos por nombre) |
+| Subtotal − descuentos vs total | **$21.349,13 = $21.349,13** ✓ |
+| ~~`medio_pago`~~ | Detectado (`PAGO QR GENERAL TRANSFERENCIA`), pero el campo se eliminó del proyecto: no se extrae ni se precarga |
+| Latencia fresca | **30,9 s** |
+| Latencia cacheada | 4,3–4,7 s |
+| Créditos | **no reportados**: `extract.run` y `extract.get` devuelven `usage` vacío. Medir desde el dashboard de LlamaCloud |
+
+La verificación aritmética quedó como código (`verificar_aritmetica`) y el script sale con exit code 1 si algo no cierra: no se confía en que el modelo diga "listo".
+
+### Defectos encontrados y su resolución
+
+| Defecto | Resolución |
+| --- | --- |
+| La fecha salió `2024-11-23` cuando el ticket dice `23/11/2026` (**un año mal**) | **Campo eliminado del schema.** El usuario define la fecha al crear el movimiento: pedirla solo agregaba un campo donde inventar |
+| El modelo copiaba el código de IVA en el nombre: `Queso LS Cremon Light Pote 280GR POT 28 (21,00)` | `_CODIGO_IVA` lo quita al renderizar la nota. El JSON se queda fiel al ticket |
+| Sufijo duplicado por OCR: `Papa Granel S/E 1 Kg S/E 1 Kg` | `_SUFIJO_REPETIDO` lo colapsa al renderizar |
+| Cantidades con punto decimal (`0.832`) | Se formatean con coma en la nota |
+
+### Corrección del SDK, verificada por introspección (`llama-cloud==2.20.0`, venv temporal fuera del repo)
+
+| Supuesto (docs de terceros) | Realidad en 2.20.0 |
+| --- | --- |
+| `extract.run(file_input=(nombre, bytes, mime), data_schema=..., tier=..., confidence_scores=...)` | `extract.run(*, file_input: str, configuration: {...})`. Los kwargs sueltos **no existen**: revientan con `TypeError` |
+| `file_input` = archivo | `file_input` = **File ID o parse job ID**. Hay que subir primero con `files.create(file=..., purpose="extract")` |
+| Tiers de extract = `fast / cost_effective / agentic / agentic_plus` | Extract usa `turbo / cost_effective / agentic / agentic_plus`. **`fast` es tier de parse, no de extract** |
+
+Por eso se corrigió `TIERS_LLAMACLOUD` en `schemas.py` y el selector de `Integraciones.tsx` (que además ya no muestra créditos por página: los publicados son de parse y extract suma los suyos, mostrarlos sería mentir).
+
+### Restricción para T2/T4: el timeout
+
+Una extracción fresca tarda **~31 s**. `frontend/src/services/api.ts` tiene `timeout: 35000` global: con una foto de celular subiendo por datos móviles, ese margen se pasa y el usuario ve un error con la extracción ya cobrada. El lector necesita su propio timeout (≥120 s) o un flujo asíncrono.
+
+## Próximo paso
+
+T0 cerrado. T1-T5 pueden escribirse con el formato de nota ya validado contra un ticket real:
+
+```
+Vea Rio IV - Shopping
+Leche Uat Proteina La serenisima 1l BOT — $2.993,00
+...
+OFERTA QUESO LS — -$1.440,00
+OFERTA DON VICENTE — -$1.040,00
+OFERTA LA SERENISIMA — -$800,00
+Total — $21.349,13
+```
+
+Pendiente de decisión del usuario: los cambios de T7 siguen **sin commitear ni pushear**.
