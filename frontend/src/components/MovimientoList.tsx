@@ -239,9 +239,9 @@ function MovimientoList({ onEdit, refreshKey = 0 }: MovimientoListProps) {
 
         {/* Nota expandible */}
         {hasNote && (
-          <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? 'max-h-[70vh] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0'}`}>
             <div className="px-4 pb-3 pt-1 border-t border-slate-600/50">
-              <p className="text-xs text-slate-400"><span className="text-slate-500">Nota:</span> {mov.nota}</p>
+              <p className="text-xs text-slate-400 whitespace-pre-line break-words"><span className="text-slate-500">Nota:</span> {mov.nota}</p>
             </div>
           </div>
         )}
