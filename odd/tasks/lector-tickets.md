@@ -232,4 +232,6 @@ endpoint desplegado**. La key del `.env` local fue revocada (401 al probarla), a
 la verificación real se hace desde la app, con la credencial que el usuario ya cargó
 en Cuenta → Integraciones.
 
-Pendiente de decisión del usuario: los cambios de T1–T6 siguen **sin commitear**.
+Pendiente: confirmar con una foto real desde la app ya desplegada.
+
+Commits: `104bbe7` (lector) y `1844469` (nota completa), pusheados a `main`.
