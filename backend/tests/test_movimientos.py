@@ -676,3 +676,133 @@ def test_service_crear_movimiento_fuera_de_la_ventana_del_ciclo_no_autovincula(d
         db_session,
     )
     assert mov.presupuesto_item_id is None
+
+
+# ============== TICKET COMO LOTE DE MOVIMIENTOS ==============
+
+def _renglon(user_category_id: int, descripcion: str, importe: float, **extra) -> dict:
+    """Un renglón de ticket: movimiento de gasto con cantidad y comercio opcionales."""
+    return {
+        "importe": importe,
+        "fecha": datetime.now().isoformat(),
+        "descripcion": descripcion,
+        "tipo": "gasto",
+        "user_category_id": user_category_id,
+        **extra,
+    }
+
+
+def test_crear_lote_crea_un_movimiento_por_renglon(logged_in_client, user_category_id):
+    payload = {
+        "movimientos": [
+            _renglon(user_category_id, "Banana S/E 1 Kg", 2411.97,
+                     cantidad=0.832, comercio="Vea"),
+            _renglon(user_category_id, "Queso Cremon 280g", 2850.0,
+                     cantidad=1, comercio="Vea"),
+        ]
+    }
+
+    r = logged_in_client.post("/movimientos/lote", json=payload)
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert len(data["movimientos"]) == 2
+    assert data["lote_id"]
+    assert [m["descripcion"] for m in data["movimientos"]] == ["Banana S/E 1 Kg", "Queso Cremon 280g"]
+    assert all(m["lote_id"] == data["lote_id"] for m in data["movimientos"])
+    assert data["movimientos"][0]["cantidad"] == 0.832
+    assert data["movimientos"][0]["comercio"] == "Vea"
+
+    listado = logged_in_client.get("/movimientos/").json()
+    assert len(listado) == 2
+
+
+def test_crear_lote_no_deja_movimientos_a_medias_si_un_renglon_falla(
+    logged_in_client, user_category_id
+):
+    """O entran todos, o no entra ninguno: el renglón inválido deshace el lote."""
+    invalido = _renglon(user_category_id, "Sin categoria", 100.0)
+    invalido.pop("user_category_id")
+
+    r = logged_in_client.post("/movimientos/lote", json={
+        "movimientos": [
+            _renglon(user_category_id, "Valido", 200.0),
+            invalido,
+        ]
+    })
+
+    assert r.status_code == 400, r.text
+    assert logged_in_client.get("/movimientos/").json() == []
+
+
+def test_crear_lote_no_acepta_lista_vacia(logged_in_client):
+    r = logged_in_client.post("/movimientos/lote", json={"movimientos": []})
+    assert r.status_code == 422
+
+
+def test_service_crear_lote_cuenta_todos_los_renglones_en_el_presupuesto(db_session):
+    """El estado del item se recalcula con el lote completo, no solo el último renglón."""
+    from decimal import Decimal
+
+    import schemas
+    from services import movimiento_service, user_category_service
+    from services.ciclo_time_service import ahora_buenos_aires
+
+    user = _crear_user(db_session, "u_lote_presupuesto")
+    cat = user_category_service.crear_user_category(
+        user.id, schemas.UserCategoryCreate(nombre="Super"), db_session
+    )
+    ciclo = _crear_ciclo(db_session, user.id)
+    item = _crear_item_presupuesto(db_session, ciclo.id, cat.id, monto="1000")
+
+    ahora = ahora_buenos_aires()
+    lote = schemas.MovimientoLoteCreate(movimientos=[
+        schemas.MovimientoCreate(
+            importe=Decimal("400"), fecha=ahora, descripcion="A",
+            tipo="gasto", user_category_id=cat.id,
+        ),
+        schemas.MovimientoCreate(
+            importe=Decimal("700"), fecha=ahora, descripcion="B",
+            tipo="gasto", user_category_id=cat.id,
+        ),
+    ])
+
+    resultado = movimiento_service.crear_movimientos_lote(lote, user.id, db_session)
+
+    assert [m.presupuesto_item_id for m in resultado.movimientos] == [item.id, item.id]
+    db_session.refresh(item)
+    # 400 + 700 = 1100 supera el monto estimado de 1000. Si solo contara el
+    # último renglón (700) el estado quedaría "parcial".
+    assert item.estado == "efectivizado"
+
+
+def test_eliminar_lote_borra_el_ticket_completo(logged_in_client, user_category_id):
+    r = logged_in_client.post("/movimientos/lote", json={
+        "movimientos": [
+            _renglon(user_category_id, "A", 100.0),
+            _renglon(user_category_id, "B", 200.0),
+            _renglon(user_category_id, "C", 300.0),
+        ]
+    })
+    lote_id = r.json()["lote_id"]
+
+    borrado = logged_in_client.delete(f"/movimientos/lote/{lote_id}")
+
+    assert borrado.status_code == 200, borrado.text
+    assert "3 movimientos" in borrado.json()["message"]
+    assert logged_in_client.get("/movimientos/").json() == []
+
+
+def test_eliminar_lote_ajeno_retorna_404(
+    logged_in_client, second_logged_in_client, user_category_id
+):
+    """El lote es del usuario: otro usuario no lo puede borrar."""
+    r = logged_in_client.post("/movimientos/lote", json={
+        "movimientos": [_renglon(user_category_id, "A", 100.0)]
+    })
+    lote_id = r.json()["lote_id"]
+
+    borrado = second_logged_in_client.delete(f"/movimientos/lote/{lote_id}")
+
+    assert borrado.status_code == 404
+    assert len(logged_in_client.get("/movimientos/").json()) == 1

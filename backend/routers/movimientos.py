@@ -23,6 +23,16 @@ def crear_movimiento(
     return movimiento_service.crear_movimiento(movimiento, current_user.id, db)
 
 
+@router.post("/lote", response_model=schemas.MovimientoLoteRead)
+def crear_movimientos_lote(
+    lote: schemas.MovimientoLoteCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Alta transaccional de un ticket completo: N renglones, un solo lote."""
+    return movimiento_service.crear_movimientos_lote(lote, current_user.id, db)
+
+
 @router.get("/descripciones/search")
 def search_descripciones(
     q: str = Query(..., min_length=1, description="Texto de búsqueda"),
@@ -38,6 +48,16 @@ def search_descripciones(
     en memoria.
     """
     return movimiento_service.buscar_descripciones(q, limit, current_user.id, db)
+
+
+@router.delete("/lote/{lote_id}")
+def eliminar_lote(
+    lote_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Deshace un ticket completo: borra todos los movimientos de ese lote."""
+    return movimiento_service.eliminar_lote(lote_id, current_user.id, db)
 
 
 @router.delete("/{movimiento_id}")
