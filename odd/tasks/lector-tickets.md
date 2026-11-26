@@ -90,6 +90,15 @@ Decisión (aprobada por el usuario con *"si"*): **dentro del modal, arriba del t
 
 **L9** — Verificación real del servicio contra el proveedor: **falló por 401**. La key del `.env` local (`llx-ibCR…`, 52 chars) fue revocada — es la vieja, el usuario ya cargó una nueva en la app. El fallo destapó un defecto real: `_traducir_error` solo contemplaba cuota agotada, así que una key inválida caía en *"Probá con otra foto"*, un mensaje que miente sobre la causa. Corregido con una rama explícita para 401/403 que manda a Integraciones, **nunca devolviendo 401** (el frontend lo interpreta como sesión vencida e intenta refrescar el token: `api.ts:86`).
 
+**L10** — Prueba en el celular, dos defectos reportados:
+> "di clic en registrar movimiento y no se abrio el teclado numerico ni se hizo foco en ese campo como debe ser"
+
+Causa: al agregar el lector, el autofoco del modal apuntaba al botón de la cámara en vez del importe. Regresión introducida en T4.
+
+> "en celu el modal requiere que haga scroll hacia abajo para cerrar el movimiento. Me gustaria en entre el form completo en la pantalla sin scroll"
+
+Decisión: el foco vuelve al importe y el form se compacta hasta entrar en un celular. Los dos pedidos se resuelven juntos: si el form entra completo, enfocar el importe no deja la cámara fuera de vista. Se quitó el título del form al crear (el modal ya se llama "Nuevo movimiento"), la cámara pasó a un botón compacto al lado del toggle, categoría y fecha van en 2 columnas también en mobile, y el modal usa `100dvh` en vez de `90vh` porque en iOS `vh` mide el viewport grande (con la barra del navegador oculta).
+
 ## Progreso T1–T6
 
 | Archivo | Cambio |

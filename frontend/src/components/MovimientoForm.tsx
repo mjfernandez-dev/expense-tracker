@@ -316,68 +316,68 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   };
 
   return (
-    <div className={`bg-slate-800/70 rounded-2xl border border-slate-600/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-6 mb-6`}>
-      <h2 className="text-2xl font-bold mb-4 text-white">
-        {movimientoToEdit
-          ? `✏️ Editar ${isIngreso ? 'Ingreso' : 'Gasto'}`
-          : `➕ Registrar Movimiento`}
-      </h2>
-
-      {!movimientoToEdit && (
-        <div className="mb-5">
-          <input
-            ref={archivoTicketRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              const archivo = e.target.files?.[0];
-              if (archivo) void handleLeerTicket(archivo);
-            }}
-          />
-          <button
-            type="button"
-            data-autofocus
-            onClick={() => archivoTicketRef.current?.click()}
-            disabled={leyendoTicket}
-            className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl border border-blue-400/50 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20 disabled:opacity-60 disabled:cursor-wait text-sm font-semibold transition-colors"
-          >
-            <span aria-hidden="true">{leyendoTicket ? '⏳' : '📷'}</span>
-            {leyendoTicket ? 'Leyendo el ticket…' : 'Leer ticket'}
-          </button>
-          <p className="text-xs text-slate-500 mt-1">
-            {leyendoTicket
-              ? 'Puede tardar hasta 30 segundos.'
-              : 'Saca la foto del ticket y se completan importe, descripción y nota.'}
-          </p>
-        </div>
+    <div className={`bg-slate-800/70 rounded-2xl border border-slate-600/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-4`}>
+      {movimientoToEdit && (
+        <h2 className="mb-3 text-base font-semibold text-white">
+          ✏️ Editando {isIngreso ? 'ingreso' : 'gasto'}
+        </h2>
       )}
 
       {!movimientoToEdit && (
-        <div className="flex gap-2 mb-5 p-1 bg-slate-900/50 rounded-xl w-fit">
-          <button
-            type="button"
-            onClick={() => setTipo('gasto')}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-              tipo === 'gasto'
-                ? 'bg-red-600 text-white shadow-glow-red'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Gasto
-          </button>
-          <button
-            type="button"
-            onClick={() => setTipo('ingreso')}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-              tipo === 'ingreso'
-                ? 'bg-green-600 text-white shadow-glow-green'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Ingreso
-          </button>
+        <div className="mb-3">
+          <div className="flex items-center gap-2 pr-9">
+            <div className="flex gap-1 rounded-xl bg-slate-900/50 p-1">
+              <button
+                type="button"
+                onClick={() => setTipo('gasto')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                  tipo === 'gasto'
+                    ? 'bg-red-600 text-white shadow-glow-red'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Gasto
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipo('ingreso')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                  tipo === 'ingreso'
+                    ? 'bg-green-600 text-white shadow-glow-green'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Ingreso
+              </button>
+            </div>
+
+            <input
+              ref={archivoTicketRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                if (archivo) void handleLeerTicket(archivo);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => archivoTicketRef.current?.click()}
+              disabled={leyendoTicket}
+              className="ml-auto flex items-center gap-1.5 rounded-lg border border-blue-400/50 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-500/20 disabled:cursor-wait disabled:opacity-60"
+            >
+              <span aria-hidden="true">{leyendoTicket ? '⏳' : '📷'}</span>
+              {leyendoTicket ? 'Leyendo…' : 'Leer ticket'}
+            </button>
+          </div>
+
+          {leyendoTicket && (
+            <p className="mt-1 text-xs text-slate-500">
+              Puede tardar hasta 30 segundos. No cierres esta pantalla.
+            </p>
+          )}
         </div>
       )}
 
@@ -410,17 +410,17 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-3">
 
         {/* ═══════ DATOS PRINCIPALES ═══════ */}
-        <div className="space-y-4">
+        <div className="space-y-3">
 
-        <div className={`rounded-xl border p-4 text-center ${isIngreso ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
-          <label className={`block text-xs font-semibold uppercase tracking-widest mb-2 ${isIngreso ? 'text-green-400' : 'text-red-400'}`}>
+        <div className={`rounded-xl border p-3 text-center ${isIngreso ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+          <label className={`mb-1 block text-xs font-semibold uppercase tracking-widest ${isIngreso ? 'text-green-400' : 'text-red-400'}`}>
             {isIngreso ? 'Ingreso' : 'Gasto'} *
           </label>
           <div className="flex items-center justify-center gap-2">
-            <span className={`text-3xl font-light ${isIngreso ? 'text-green-400' : 'text-red-400'}`}>$</span>
+            <span className={`text-2xl font-light ${isIngreso ? 'text-green-400' : 'text-red-400'}`}>$</span>
             <input
               type="number"
               step="0.01"
@@ -429,7 +429,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               onChange={(e) => setImporte(e.target.value)}
               placeholder="0"
               autoFocus
-              className={`w-full max-w-xs text-4xl font-bold text-center bg-transparent border-b-2 ${isIngreso ? 'border-green-500 text-green-100 placeholder:text-green-800' : 'border-red-500 text-red-100 placeholder:text-red-900'} focus:outline-none`}
+              className={`w-full max-w-xs border-b-2 bg-transparent text-center text-3xl font-bold ${isIngreso ? 'border-green-500 text-green-100 placeholder:text-green-800' : 'border-red-500 text-red-100 placeholder:text-red-900'} focus:outline-none`}
             />
           </div>
         </div>
@@ -492,7 +492,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm font-medium text-slate-100">
@@ -571,9 +571,9 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div ref={notaRef}>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
+            <label className="mb-1 block text-xs font-medium text-slate-400">
               Nota
             </label>
 
@@ -643,11 +643,11 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             )}
 
             <textarea
-              rows={ticketItems !== null ? 9 : 3}
+              rows={ticketItems !== null ? 4 : 2}
               value={nota}
               onChange={(e) => setNota(e.target.value)}
               placeholder="Información adicional"
-              className="w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-y"
+              className="w-full resize-y rounded-lg border border-slate-500/80 bg-slate-700/80 px-3 py-2 text-sm text-white placeholder:text-slate-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -656,7 +656,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               <label className="block text-xs font-medium text-slate-400 mb-1">
                 Clasificación
               </label>
-              <div className="flex gap-1 p-1 rounded-xl bg-slate-900/60 border border-slate-600/30">
+              <div className="flex gap-1 rounded-xl border border-slate-600/30 bg-slate-900/60 p-1">
                 {[
                   { value: '', label: '— Sin clasificar' },
                   { value: 'necesidad', label: '🏠 Necesidad' },
@@ -666,7 +666,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                     key={opt.value}
                     type="button"
                     onClick={() => setClasificacion(opt.value)}
-                    className={`flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-all duration-150 ${
+                    className={`flex-1 rounded-lg px-1 py-1.5 text-xs font-medium transition-all duration-150 ${
                       clasificacion === opt.value
                         ? opt.value === 'necesidad'
                           ? 'bg-gradient-to-r from-emerald-500 to-emerald-700 text-white shadow-md shadow-emerald-500/30'
@@ -687,27 +687,27 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         {!movimientoToEdit && isIngreso && (
           <div
             onClick={() => setEsInicioCiclo(prev => !prev)}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all select-none ${
+            className={`flex cursor-pointer select-none items-center gap-3 rounded-lg border px-3 py-2 transition-all ${
               esInicioCiclo
                 ? 'bg-blue-500/15 border-blue-400/50'
                 : 'bg-slate-700/50 border-slate-500/50 hover:border-slate-400'
             }`}
           >
-            <div className={`relative w-10 h-5 rounded-full transition-colors duration-200 flex-shrink-0 ${esInicioCiclo ? 'bg-blue-500' : 'bg-slate-600'}`}>
-              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${esInicioCiclo ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            <div className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors duration-200 ${esInicioCiclo ? 'bg-blue-500' : 'bg-slate-600'}`}>
+              <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${esInicioCiclo ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </div>
             <div>
-              <span className={`text-sm font-medium ${esInicioCiclo ? 'text-blue-300' : 'text-slate-300'}`}>
+              <span className={`text-xs font-medium ${esInicioCiclo ? 'text-blue-300' : 'text-slate-300'}`}>
                 Marcar como inicio de ciclo
               </span>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Activa el Daily Cap y seguimiento de solvencia diaria
+              <p className="mt-0.5 text-xs text-slate-400">
+                Activa el Daily Cap y solvencia diaria
               </p>
             </div>
           </div>
         )}
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex gap-3 pt-1">
           <button
             type="submit"
             disabled={loading}
@@ -715,7 +715,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               isIngreso
                 ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 shadow-glow-green-lg border-green-300/70'
                 : 'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 shadow-glow-red-lg border-red-300/70'
-            } disabled:from-slate-700 disabled:to-slate-700 text-white font-semibold px-6 py-2 rounded-full border tracking-wide uppercase text-sm transition-all duration-200`}
+            } w-full rounded-full border px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-all duration-200 disabled:from-slate-700 disabled:to-slate-700`}
           >
             {loading ? 'Guardando...' : movimientoToEdit
               ? `Actualizar ${isIngreso ? 'Ingreso' : 'Gasto'}`

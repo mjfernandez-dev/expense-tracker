@@ -34,18 +34,14 @@ function MovimientoModal({
     }
   }, [isOpen]);
 
-  // Mover el foco al abrir el modal. Al crear, el primer paso es leer el
-  // ticket: enfocar el importe haría scroll y dejaría el botón de la cámara
-  // fuera de vista. Al editar, el foco va directo al importe como siempre.
+  // Mover el foco al importe al abrir el modal: en el celular eso abre el
+  // teclado numerico. El foco se pide de forma sincrona (sin rAF ni timeout):
+  // iOS Safari solo muestra el teclado si el focus ocurre dentro del gesto
+  // del usuario, y un frame despues ya lo considera programatico.
   useEffect(() => {
     if (!isOpen) return;
-    const frame = requestAnimationFrame(() => {
-      const target =
-        modalRef.current?.querySelector<HTMLElement>('[data-autofocus]') ??
-        modalRef.current?.querySelector<HTMLElement>('input[type="number"]');
-      target?.focus();
-    });
-    return () => cancelAnimationFrame(frame);
+    const target = modalRef.current?.querySelector<HTMLElement>('input[type="number"]');
+    target?.focus();
   }, [isOpen]);
 
   // Escape y focus trap
@@ -84,7 +80,7 @@ function MovimientoModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/75 p-2 backdrop-blur-sm sm:p-4"
       onClick={onClose}
       aria-hidden="true"
     >
@@ -93,13 +89,13 @@ function MovimientoModal({
         role="dialog"
         aria-modal="true"
         aria-label={movimientoToEdit ? 'Editar movimiento' : 'Nuevo movimiento'}
-        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto supports-[height:100dvh]:max-h-[calc(100dvh-0.5rem)]"
         onClick={(e) => e.stopPropagation()}
         aria-hidden={undefined}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg p-1.5 transition-colors leading-none"
+          className="absolute top-2 right-2 z-10 rounded-lg bg-slate-700 p-1.5 leading-none text-slate-400 transition-colors hover:bg-slate-600 hover:text-white"
           aria-label="Cerrar"
         >
           ✕
