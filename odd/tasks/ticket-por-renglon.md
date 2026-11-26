@@ -90,7 +90,7 @@ Riesgo conocido: un ticket con muchas filas siempre va a necesitar scroll dentro
 - Sin verificación end-to-end contra LlamaCloud: la key local está revocada (401) y la válida vive cifrada en producción. Queda como deuda conocida, no como pase.
 - `gentle-ai review assess --base-ref main --committed-only --json` sobre la rama completa → `risk: medium`, `review_due: false`, `review_due_reason: under_budget`. No se abrió ninguna transacción de revisión.
 
-**L6** — Entregas en `ticket-por-renglon` (sin push):
+**L6** — Entregas en `feat/ticket-por-renglon`:
 
 | Commit | Contenido | Specs |
 | --- | --- | --- |
@@ -99,6 +99,7 @@ Riesgo conocido: un ticket con muchas filas siempre va a necesitar scroll dentro
 | `1f867e3` | revisión por renglón, guard aritmético y alta del lote | S1,S2,S7,S8 |
 | `4d629d6` | README y S1 del lector marcada como reemplazada | — |
 | `99269f5` | estrategia de entrega e issue aprobado | — |
+| `0825a72` | registro del PR #6 | — |
 
 **L7** — Entrega (2026-11-26). El usuario autorizó push y PR. Con ~1726 líneas cambiadas, `chained-pr` exigía elegir estrategia: el usuario eligió explícitamente **un solo PR con `size:exception`** (aceptación del tamaño). Issue vinculado: **#5** (`status:approved`, `type:feature`), creado porque `branch-pr` exige un issue aprobado por PR y el repo no tenía ninguno. Rama renombrada a `feat/ticket-por-renglon` para cumplir el patrón `type/description`.
 
