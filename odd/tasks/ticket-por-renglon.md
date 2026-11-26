@@ -4,7 +4,7 @@
 
 Convertir un ticket leído en **N movimientos, uno por renglón**, cada uno con el precio final pagado (precio de lista menos el descuento que le corresponde). El objetivo declarado por el usuario no es contable sino de información: saber cuánto paga por la unidad de un producto y poder compararlo en el tiempo.
 
-Rama: `feat/ticket-por-renglon` (creada desde `main`) · Runner: `pytest` (backend) + `npm test` (frontend) · Estado: **implementado, verificado y commiteado; push en curso**
+Rama: `feat/ticket-por-renglon` (creada desde `main`) · Runner: `pytest` (backend) + `npm test` (frontend) · Estado: **implementado, verificado, pusheado; PR #6 abierto**
 
 Esta feature **reemplaza S1 de `odd/tasks/lector-tickets.md`** (un movimiento por ticket con el detalle en la nota). El lector sigue igual: cambia qué se hace con lo que devuelve.
 
@@ -102,4 +102,6 @@ Riesgo conocido: un ticket con muchas filas siempre va a necesitar scroll dentro
 
 **L7** — Entrega (2026-11-26). El usuario autorizó push y PR. Con ~1726 líneas cambiadas, `chained-pr` exigía elegir estrategia: el usuario eligió explícitamente **un solo PR con `size:exception`** (aceptación del tamaño). Issue vinculado: **#5** (`status:approved`, `type:feature`), creado porque `branch-pr` exige un issue aprobado por PR y el repo no tenía ninguno. Rama renombrada a `feat/ticket-por-renglon` para cumplir el patrón `type/description`.
 
-**L8** — La etapa 2 (comparación histórica de precio por unidad) queda diferida hasta que haya datos capturados con este diseño.
+**L8** — Push a `origin/feat/ticket-por-renglon` e **issue #5** / **PR #6** abiertos. PR con `type:feature` y `size:exception` (aceptado explícitamente por el usuario). Base: `main`, head: `feat/ticket-por-renglon`, 5 commits propios sobre `53ebc02`. Merge queda a decisión del usuario.
+
+**L9** — La etapa 2 (comparación histórica de precio por unidad) queda diferida hasta que haya datos capturados con este diseño.
