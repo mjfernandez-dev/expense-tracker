@@ -10,6 +10,9 @@ from services.ciclo_time_service import ahora_buenos_aires
 # Tipo para montos de dinero: precisión Decimal internamente, serializa como float en JSON
 MoneyDecimal = Annotated[Decimal, PlainSerializer(lambda x: float(x), return_type=float)]
 
+# Cantidades de un renglón de ticket: unidades o kg, hasta 3 decimales (0,832 kg).
+CantidadDecimal = Annotated[Decimal, PlainSerializer(lambda x: float(x), return_type=float)]
+
 
 def _validate_password_strength(password: str) -> str:
     """Validación reutilizable de fortaleza de contraseña."""
@@ -174,16 +177,23 @@ class MovimientoBase(BaseModel):
     is_auto_generated: bool = False  # Indica si el movimiento fue generado automáticamente
     presupuesto_item_id: Optional[int] = None  # Vincula un gasto real a un item del presupuesto
     clasificacion: Optional[str] = None  # "necesidad" | "deseo" | None (solo aplica a gastos)
+    cantidad: Optional[CantidadDecimal] = None  # Unidades o kg del renglón (ticket)
+    comercio: Optional[str] = None  # Dónde se compró (ticket); se cifra en la DB
 
 # Schema para CREAR un movimiento (POST)
 class MovimientoCreate(MovimientoBase):
     es_fijo: bool = False  # Si True, crea automáticamente un template de GastoFijo
+
+# Schema para CREAR N movimientos en una sola transacción (un ticket)
+class MovimientoLoteCreate(BaseModel):
+    movimientos: List[MovimientoCreate] = Field(..., min_length=1, max_length=200)
 
 # Schema para LEER un movimiento (GET)
 # Incluye el ID y la categoría completa relacionada
 class MovimientoRead(MovimientoBase):
     id: int  # ID asignado por la BD
     user_id: int  # Usuario propietario
+    lote_id: Optional[str] = None  # Agrupa los movimientos creados desde el mismo ticket
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     presupuesto_item_id: Optional[int] = None  # FK a item de presupuesto
@@ -194,6 +204,13 @@ class MovimientoRead(MovimientoBase):
 
     class Config:
         from_attributes = True  # Convierte modelos SQLAlchemy a JSON
+
+
+class MovimientoLoteRead(BaseModel):
+    """Resultado de crear un ticket completo: el lote y sus movimientos."""
+
+    lote_id: str
+    movimientos: List[MovimientoRead]
 
 
 # ============== SCHEMAS PARA CATEGORÍAS — MOVIMIENTOS AFECTADOS ==============
@@ -491,9 +508,13 @@ class ApiCredentialRead(BaseModel):
 # ============== SCHEMAS DEL LECTOR DE TICKETS ==============
 
 class TicketItemLeido(BaseModel):
+    """Un renglón del ticket, con el descuento ya aplicado a su precio."""
+
     descripcion: str
     cantidad: Optional[float] = None
-    importe: Optional[MoneyDecimal] = None
+    importe_lista: Optional[MoneyDecimal] = None  # El precio impreso, antes de descuentos
+    descuento: MoneyDecimal = Decimal("0")  # Descuento atribuido a este renglón
+    importe: Optional[MoneyDecimal] = None  # El precio final pagado
 
 
 class TicketDescuentoLeido(BaseModel):
@@ -502,7 +523,11 @@ class TicketDescuentoLeido(BaseModel):
 
 
 class TicketLeido(BaseModel):
-    """Datos de un ticket. No crea nada: el humano confirma el movimiento."""
+    """Datos de un ticket. No crea nada: el humano confirma los movimientos.
+
+    Cada ítem trae su precio final (lista menos el descuento que le corresponde),
+    así el alta por renglón registra lo que realmente se pagó por producto.
+    """
 
     comercio: Optional[str] = None
     total: Optional[MoneyDecimal] = None

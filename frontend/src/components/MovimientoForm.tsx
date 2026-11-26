@@ -1,11 +1,19 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FormEvent } from 'react';
-import type { UserCategory, MovimientoCreate, Movimiento, TicketItemLeido, TicketDescuentoLeido } from '../types';
-import { getUserCategories, createMovimiento, updateMovimiento, createCategory, searchDescripciones, leerTicket } from '../services/api';
+import type { UserCategory, MovimientoCreate, Movimiento, TicketLeido } from '../types';
+import { getUserCategories, createMovimiento, createMovimientosLote, updateMovimiento, createCategory, searchDescripciones, leerTicket } from '../services/api';
 import type { DescripcionSuggestion } from '../services/api';
 import { getCurrentBADateInputValue } from '../utils/buenosAiresDate';
 import { obtenerCategoriaSugerida } from '../utils/sugerenciaCategoria';
-import { formatearNotaTicket, formatearImporte } from '../utils/notaTicket';
+import { formatearImporte } from '../utils/formatoMoneda';
+import {
+  diferenciaConTotal,
+  filasDesdeTicket,
+  hayDescuadre,
+  movimientosDesdeFilas,
+  sumaFilas,
+} from '../utils/ticketFilas';
+import type { FilaTicket } from '../utils/ticketFilas';
 import { getApiErrorMessage } from '../utils/apiError';
 
 interface MovimientoFormProps {
@@ -26,15 +34,15 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [esInicioCiclo, setEsInicioCiclo] = useState<boolean>(false);
   const [clasificacion, setClasificacion] = useState<string>('');
 
-  // Lector de tickets: mientras haya items, el formulario muestra las filas
-  // borrables y la nota se regenera con lo que queda.
-  const [ticketItems, setTicketItems] = useState<TicketItemLeido[] | null>(null);
-  const [ticketDescuentos, setTicketDescuentos] = useState<TicketDescuentoLeido[]>([]);
-  const [ticketComercio, setTicketComercio] = useState<string | null>(null);
-  const [ticketTotal, setTicketTotal] = useState<number | null>(null);
+  // Lector de tickets: con un ticket cargado el formulario pasa a ser una
+  // revisiÃ³n con una fila por renglÃ³n, y se guarda todo junto en un lote.
+  const [ticket, setTicket] = useState<TicketLeido | null>(null);
+  const [filas, setFilas] = useState<FilaTicket[]>([]);
+  const [categoriaTicketId, setCategoriaTicketId] = useState<string>('');
+  const [confirmoDescuadre, setConfirmoDescuadre] = useState<boolean>(false);
   const [leyendoTicket, setLeyendoTicket] = useState<boolean>(false);
   const archivoTicketRef = useRef<HTMLInputElement>(null);
-  const notaRef = useRef<HTMLDivElement>(null);
+  const filasRef = useRef<HTMLDivElement>(null);
 
   const [categories, setCategories] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -53,8 +61,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const descRef = useRef<HTMLInputElement>(null);
   const suggestionListRef = useRef<HTMLUListElement>(null);
   const justSelectedRef = useRef(false);
-  // Guard de toque manual: si el usuario eligió la categoría a mano, la
-  // auto-aplicación de la sugerencia se saltea (la elección explícita gana).
+  // Guard de toque manual: si el usuario eligiÃ³ la categorÃ­a a mano, la
+  // auto-aplicaciÃ³n de la sugerencia se saltea (la elecciÃ³n explÃ­cita gana).
   const categoriaTouchedRef = useRef(false);
 
   useEffect(() => {
@@ -66,7 +74,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           setCategoriaId(data[0].id.toString());
         }
       } catch {
-        setError('Error al cargar categorías');
+        setError('Error al cargar categorÃ­as');
       }
     };
 
@@ -100,7 +108,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         setSelectedSuggestionIndex(-1);
         setSuggestionsError(null);
       } catch {
-        // El autocomplete es opcional: no romper el form, pero sí reportar
+        // El autocomplete es opcional: no romper el form, pero sÃ­ reportar
         // el fallo de forma visible (sin ocultarlo silenciosamente).
         setSuggestions([]);
         setShowSuggestions(false);
@@ -124,10 +132,10 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     setFecha(getCurrentBADateInputValue());
     setEsInicioCiclo(false);
     setClasificacion('');
-    setTicketItems(null);
-    setTicketDescuentos([]);
-    setTicketComercio(null);
-    setTicketTotal(null);
+    setTicket(null);
+    setFilas([]);
+    setCategoriaTicketId('');
+    setConfirmoDescuadre(false);
     if (categories.length > 0) {
       setCategoriaId(categories[0].id.toString());
     }
@@ -156,12 +164,12 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       const nueva = await createCategory(nombre);
       setCategories((prev) => [...prev, nueva]);
       setCategoriaId(nueva.id.toString());
-      // Crear una categoría es una elección explícita: nunca auto-aplicar encima
+      // Crear una categorÃ­a es una elecciÃ³n explÃ­cita: nunca auto-aplicar encima
       categoriaTouchedRef.current = true;
       setNewCatNombre('');
       setShowNewCat(false);
     } catch {
-      setError('Error al crear la categoría');
+      setError('Error al crear la categorÃ­a');
     } finally {
       setSavingCat(false);
     }
@@ -196,8 +204,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     }
   };
 
-  // Auto-aplica la categoría sugerida para una descripción elegida, solo al
-  // crear y si el usuario no tocó la categoría a mano (el helper decide).
+  // Auto-aplica la categorÃ­a sugerida para una descripciÃ³n elegida, solo al
+  // crear y si el usuario no tocÃ³ la categorÃ­a a mano (el helper decide).
   const aplicarCategoriaSugerida = useCallback(
     (desc: string) => {
       const sugerida = obtenerCategoriaSugerida(
@@ -222,8 +230,54 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     setSuggestions([]);
   }, [aplicarCategoriaSugerida]);
 
+  const esTicket = ticket !== null;
+  const sumaTicket = sumaFilas(filas);
+  const diferenciaTicket = diferenciaConTotal(filas, ticket?.total ?? null);
+  const descuadre = hayDescuadre(filas, ticket?.total ?? null);
+
+  const guardarTicket = async () => {
+    if (filas.length === 0) {
+      setError('No quedan renglones para guardar');
+      return;
+    }
+    if (filas.some((fila) => !fila.categoriaId)) {
+      setError('ElegÃ­ una categorÃ­a para todos los renglones');
+      return;
+    }
+    if (descuadre && !confirmoDescuadre) {
+      setError('La suma de los renglones no coincide con el total del ticket');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      await createMovimientosLote(
+        movimientosDesdeFilas(filas, {
+          fecha,
+          comercio: ticket?.comercio ?? null,
+          clasificacion: (clasificacion as 'necesidad' | 'deseo' | null) || null,
+          nota: null,
+        }),
+      );
+
+      resetForm();
+      onMovimientoCreated();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'No se pudo guardar el ticket'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (esTicket) {
+      await guardarTicket();
+      return;
+    }
 
     if (!importe || !descripcion || !categoriaId) {
       setError('Por favor completa todos los campos obligatorios');
@@ -277,21 +331,19 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     try {
       setLeyendoTicket(true);
       setError(null);
-      const ticket = await leerTicket(archivo);
+      const leido = await leerTicket(archivo);
 
-      setTicketItems(ticket.items);
-      setTicketDescuentos(ticket.descuentos);
-      setTicketComercio(ticket.comercio);
-      setTicketTotal(ticket.total);
+      const categoriaDefault = categoriaId || (categories[0] ? String(categories[0].id) : '');
+      setTicket(leido);
+      setCategoriaTicketId(categoriaDefault);
+      setFilas(filasDesdeTicket(leido, categoriaDefault));
+      setConfirmoDescuadre(false);
       // Un ticket de supermercado siempre es un gasto.
       setTipo('gasto');
-      if (ticket.total !== null) setImporte(String(ticket.total));
-      if (ticket.comercio) setDescripcion(ticket.comercio);
-      setNota(formatearNotaTicket(ticket.comercio, ticket.items, ticket.descuentos, ticket.total));
-      // El detalle quedó al fondo del formulario: sin esto el usuario que
-      // esperó 30 s no ve el resultado.
+      // El detalle quedÃ³ al fondo del formulario: sin esto el usuario que
+      // esperÃ³ 30 s no ve el resultado.
       requestAnimationFrame(() => {
-        notaRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        filasRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       });
     } catch (err) {
       setError(getApiErrorMessage(err, 'No se pudo leer el ticket'));
@@ -302,54 +354,71 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     }
   };
 
-  const quitarItemTicket = (indice: number) => {
-    if (!ticketItems) return;
-    const restantes = ticketItems.filter((_, i) => i !== indice);
-    setTicketItems(restantes);
-    setNota(formatearNotaTicket(ticketComercio, restantes, ticketDescuentos, ticketTotal));
+  const descartarTicket = () => {
+    setTicket(null);
+    setFilas([]);
+    setCategoriaTicketId('');
+    setConfirmoDescuadre(false);
+    setError(null);
   };
 
-  const quitarDescuentoTicket = (indice: number) => {
-    const restantes = ticketDescuentos.filter((_, i) => i !== indice);
-    setTicketDescuentos(restantes);
-    setNota(formatearNotaTicket(ticketComercio, ticketItems ?? [], restantes, ticketTotal));
+  /** Cambia la categorÃ­a de todas las filas de una vez (el default del ticket). */
+  const aplicarCategoriaATodos = (nuevaCategoria: string) => {
+    setCategoriaTicketId(nuevaCategoria);
+    setFilas((previas) => previas.map((fila) => ({ ...fila, categoriaId: nuevaCategoria })));
+    setConfirmoDescuadre(false);
+  };
+
+  const actualizarFila = (indice: number, cambios: Partial<FilaTicket>) => {
+    setFilas((previas) =>
+      previas.map((fila, posicion) => (posicion === indice ? { ...fila, ...cambios } : fila)),
+    );
+    // La confirmaciÃ³n vale para una suma concreta: si cambia, se vuelve a pedir.
+    setConfirmoDescuadre(false);
+  };
+
+  const quitarFila = (indice: number) => {
+    setFilas((previas) => previas.filter((_, posicion) => posicion !== indice));
+    setConfirmoDescuadre(false);
   };
 
   return (
     <div className={`bg-slate-800/70 rounded-2xl border border-slate-600/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-4`}>
       {movimientoToEdit && (
         <h2 className="mb-3 text-base font-semibold text-white">
-          ✏️ Editando {isIngreso ? 'ingreso' : 'gasto'}
+          âœï¸ Editando {isIngreso ? 'ingreso' : 'gasto'}
         </h2>
       )}
 
       {!movimientoToEdit && (
         <div className="mb-3">
           <div className="flex items-center gap-2 pr-9">
-            <div className="flex gap-1 rounded-xl bg-slate-900/50 p-1">
-              <button
-                type="button"
-                onClick={() => setTipo('gasto')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                  tipo === 'gasto'
-                    ? 'bg-red-600 text-white shadow-glow-red'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Gasto
-              </button>
-              <button
-                type="button"
-                onClick={() => setTipo('ingreso')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                  tipo === 'ingreso'
-                    ? 'bg-green-600 text-white shadow-glow-green'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Ingreso
-              </button>
-            </div>
+            {!esTicket && (
+              <div className="flex gap-1 rounded-xl bg-slate-900/50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setTipo('gasto')}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                    tipo === 'gasto'
+                      ? 'bg-red-600 text-white shadow-glow-red'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Gasto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipo('ingreso')}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                    tipo === 'ingreso'
+                      ? 'bg-green-600 text-white shadow-glow-green'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Ingreso
+                </button>
+              </div>
+            )}
 
             <input
               ref={archivoTicketRef}
@@ -368,8 +437,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               disabled={leyendoTicket}
               className="ml-auto flex items-center gap-1.5 rounded-lg border border-blue-400/50 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-500/20 disabled:cursor-wait disabled:opacity-60"
             >
-              <span aria-hidden="true">{leyendoTicket ? '⏳' : '📷'}</span>
-              {leyendoTicket ? 'Leyendo…' : 'Leer ticket'}
+              <span aria-hidden="true">{leyendoTicket ? 'â³' : 'ðŸ“·'}</span>
+              {leyendoTicket ? 'Leyendoâ€¦' : esTicket ? 'Otra foto' : 'Leer ticket'}
             </button>
           </div>
 
@@ -390,11 +459,11 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       {offlineQueued && (
         <div role="status" className="bg-amber-500/10 border border-amber-400/50 rounded-xl mb-4 overflow-hidden">
           <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-            <span className="text-amber-400 text-xl leading-none mt-0.5" aria-hidden="true">📶</span>
+            <span className="text-amber-400 text-xl leading-none mt-0.5" aria-hidden="true">ðŸ“¶</span>
             <div className="flex-1 min-w-0">
-              <p className="text-amber-200 font-semibold text-sm mb-1">Guardado sin conexión</p>
+              <p className="text-amber-200 font-semibold text-sm mb-1">Guardado sin conexiÃ³n</p>
               <p className="text-amber-300/80 text-xs leading-relaxed">
-                El movimiento fue guardado localmente en tu dispositivo. El progreso de la categoría se va a ver al sincronizar.
+                El movimiento fue guardado localmente en tu dispositivo. El progreso de la categorÃ­a se va a ver al sincronizar.
               </p>
             </div>
           </div>
@@ -412,7 +481,167 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
       <form onSubmit={handleSubmit} className="space-y-3">
 
-        {/* ═══════ DATOS PRINCIPALES ═══════ */}
+        {esTicket ? (
+          <div ref={filasRef} className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="flex-1 truncate text-sm font-semibold text-slate-200">
+                ðŸ§¾ {ticket?.comercio ?? 'Ticket'}
+              </span>
+              <button
+                type="button"
+                onClick={descartarTicket}
+                className="text-xs text-slate-400 transition-colors hover:text-slate-200"
+              >
+                Descartar
+              </button>
+            </div>
+
+            <div>
+              <label htmlFor="categoria-ticket" className="mb-1 block text-xs font-medium text-slate-400">
+                CategorÃ­a para todos
+              </label>
+              <select
+                id="categoria-ticket"
+                value={categoriaTicketId}
+                onChange={(e) => aplicarCategoriaATodos(e.target.value)}
+                className="w-full rounded-lg border border-slate-500/80 bg-slate-700/80 px-3 py-2 text-sm text-white transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">
+                  {filas.length} {filas.length === 1 ? 'renglÃ³n' : 'renglones'}
+                </span>
+                <span className="font-mono text-xs text-slate-400">
+                  {formatearImporte(sumaTicket)}
+                </span>
+              </div>
+
+              <ul className="divide-y divide-slate-700/40 rounded-xl border border-slate-600/50 bg-slate-900/40">
+                {filas.length === 0 && (
+                  <li className="px-3 py-3 text-xs text-slate-500">
+                    No quedan renglones. DescartÃ¡ el ticket o cargÃ¡ otra foto.
+                  </li>
+                )}
+
+                {filas.map((fila, indice) => (
+                  <li key={`${indice}-${fila.descripcion}`} className="px-3 py-2">
+                    <div className="flex items-start gap-2">
+                      <span className="flex-1 text-sm leading-tight text-slate-200">
+                        {fila.descripcion}
+                      </span>
+                      {fila.importeLista !== null && Number(fila.importeLista) !== Number(fila.importe) && (
+                        <span className="shrink-0 font-mono text-xs text-slate-500 line-through">
+                          {formatearImporte(fila.importeLista)}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => quitarFila(indice)}
+                        aria-label={`Quitar ${fila.descripcion}`}
+                        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
+                      >
+                        Ã—
+                      </button>
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.001"
+                        min="0"
+                        value={fila.cantidad}
+                        onChange={(e) => actualizarFila(indice, { cantidad: e.target.value })}
+                        aria-label={`Cantidad de ${fila.descripcion}`}
+                        placeholder="cant."
+                        className="w-16 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 py-1 text-right text-xs text-white placeholder:text-slate-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
+                      />
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        value={fila.importe}
+                        onChange={(e) => actualizarFila(indice, { importe: e.target.value })}
+                        aria-label={`Importe de ${fila.descripcion}`}
+                        className="w-24 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 py-1 text-right font-mono text-xs text-white focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
+                      />
+                      <select
+                        value={fila.categoriaId}
+                        onChange={(e) => actualizarFila(indice, { categoriaId: e.target.value })}
+                        aria-label={`CategorÃ­a de ${fila.descripcion}`}
+                        className="min-w-0 flex-1 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 py-1 text-xs text-white focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {ticket?.total !== null && ticket?.total !== undefined && (
+              <div
+                className={`rounded-xl border px-3 py-2 text-xs ${
+                  descuadre
+                    ? 'border-amber-400/60 bg-amber-500/10 text-amber-200'
+                    : 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span>Total del ticket</span>
+                  <span className="font-mono">{formatearImporte(ticket.total)}</span>
+                </div>
+                {descuadre && diferenciaTicket !== null && (
+                  <>
+                    <div className="mt-1 flex items-center justify-between">
+                      <span>{diferenciaTicket < 0 ? 'Falta registrar' : 'Sobra'}</span>
+                      <span className="font-mono">{formatearImporte(Math.abs(diferenciaTicket))}</span>
+                    </div>
+                    <label className="mt-2 flex items-start gap-2 leading-tight">
+                      <input
+                        type="checkbox"
+                        checked={confirmoDescuadre}
+                        onChange={(e) => setConfirmoDescuadre(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500"
+                      />
+                      <span>Confirmo guardar aunque la suma no coincida</span>
+                    </label>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="fecha-ticket" className="mb-1 block text-xs font-medium text-slate-400">
+                Fecha (aplica a todos)
+              </label>
+              <input
+                id="fecha-ticket"
+                type="date"
+                max={getCurrentBADateInputValue()}
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                className="w-full rounded-lg border border-slate-500/80 bg-slate-700/80 px-3 py-2 text-sm text-white transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-red-500 [color-scheme:dark]"
+              />
+            </div>
+          </div>
+        ) : (
+          <>
+
+        {/* â•â•â•â•â•â•â• DATOS PRINCIPALES â•â•â•â•â•â•â• */}
         <div className="space-y-3">
 
         <div className={`rounded-xl border p-3 text-center ${isIngreso ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
@@ -436,7 +665,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
         <div>
           <label className="block text-sm font-medium text-slate-100 mb-1">
-            Descripción *
+            DescripciÃ³n *
           </label>
           <input
             ref={descRef}
@@ -448,9 +677,9 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               // Esperar a que el mousedown de la sugerencia se procese
               setTimeout(() => {
                 setShowSuggestions(false);
-                // Exact match en blur: auto-aplica la categoría solo al crear.
-                // Edición, toque manual y sin historial quedan excluidos dentro
-                // del helper (no-op benigno si la lista quedó stale en el debounce).
+                // Exact match en blur: auto-aplica la categorÃ­a solo al crear.
+                // EdiciÃ³n, toque manual y sin historial quedan excluidos dentro
+                // del helper (no-op benigno si la lista quedÃ³ stale en el debounce).
                 aplicarCategoriaSugerida(descripcion);
               }, 200);
             }}
@@ -484,7 +713,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                 >
                   <span>{s.descripcion}</span>
                   <span className="text-xs text-slate-400 ml-2 shrink-0">
-                    ×{s.frecuencia}
+                    Ã—{s.frecuencia}
                   </span>
                 </li>
               ))}
@@ -496,21 +725,21 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm font-medium text-slate-100">
-                Categoría *
+                CategorÃ­a *
               </label>
               <button
                 type="button"
                 onClick={() => { setShowNewCat((v) => !v); setNewCatNombre(''); }}
                 className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
               >
-                {showNewCat ? '✕ Cancelar' : '+ Nueva'}
+                {showNewCat ? 'âœ• Cancelar' : '+ Nueva'}
               </button>
             </div>
             <select
               value={categoriaId}
               onChange={(e) => {
                 setCategoriaId(e.target.value);
-                // Elección manual explícita: la sugerencia no debe pisarla
+                // ElecciÃ³n manual explÃ­cita: la sugerencia no debe pisarla
                 categoriaTouchedRef.current = true;
               }}
               className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
@@ -528,7 +757,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                   value={newCatNombre}
                   onChange={(e) => setNewCatNombre(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
-                  placeholder="Nombre de la categoría"
+                  placeholder="Nombre de la categorÃ­a"
                   autoFocus
                   className="flex-1 px-3 py-2 rounded-lg bg-slate-700/80 border border-blue-500/50 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
@@ -559,7 +788,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
         </div> {/* fin: datos principales */}
 
-        {/* ──────── DETALLES OPCIONALES ──────── */}
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€ DETALLES OPCIONALES â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-slate-600/30" />
@@ -571,118 +800,53 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           </div>
         </div>
 
-        <div className="space-y-2">
-          <div ref={notaRef}>
-            <label className="mb-1 block text-xs font-medium text-slate-400">
-              Nota
-            </label>
-
-            {ticketItems !== null && (
-              <div className="mb-2 rounded-xl border border-slate-600/50 bg-slate-900/40 divide-y divide-slate-700/40">
-                {ticketComercio && (
-                  <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
-                    {ticketComercio}
-                  </p>
-                )}
-
-                {ticketItems.length === 0 && (
-                  <p className="px-3 py-2 text-xs text-slate-500">
-                    No quedan productos. La nota queda solo con el total.
-                  </p>
-                )}
-
-                {ticketItems.map((item, indice) => (
-                  <div key={`item-${indice}-${item.descripcion}`} className="flex items-center gap-2 px-3 py-2">
-                    <span className="flex-1 truncate text-sm text-slate-200">
-                      {item.descripcion}
-                      {item.cantidad !== null && item.cantidad !== 1
-                        ? ` x${String(item.cantidad).replace('.', ',')}`
-                        : ''}
-                    </span>
-                    <span className="font-mono text-xs text-slate-400">
-                      {formatearImporte(item.importe)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => quitarItemTicket(indice)}
-                      aria-label={`Quitar ${item.descripcion}`}
-                      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-
-                {ticketDescuentos.map((descuento, indice) => (
-                  <div key={`descuento-${indice}-${descuento.descripcion}`} className="flex items-center gap-2 px-3 py-2">
-                    <span className="flex-1 truncate text-sm text-emerald-300">
-                      {descuento.descripcion}
-                    </span>
-                    <span className="font-mono text-xs text-emerald-400">
-                      -{formatearImporte(descuento.importe)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => quitarDescuentoTicket(indice)}
-                      aria-label={`Quitar ${descuento.descripcion}`}
-                      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-
-                <div className="flex items-center gap-2 px-3 py-2">
-                  <span className="flex-1 text-sm font-semibold text-slate-200">Total</span>
-                  <span className="font-mono text-sm font-semibold text-slate-200">
-                    {formatearImporte(ticketTotal)}
-                  </span>
-                  <span className="w-7 flex-shrink-0" aria-hidden="true" />
-                </div>
-              </div>
-            )}
-
-            <textarea
-              rows={ticketItems !== null ? 4 : 2}
-              value={nota}
-              onChange={(e) => setNota(e.target.value)}
-              placeholder="Información adicional"
-              className="w-full resize-y rounded-lg border border-slate-500/80 bg-slate-700/80 px-3 py-2 text-sm text-white placeholder:text-slate-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {!isIngreso && (
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">
-                Clasificación
-              </label>
-              <div className="flex gap-1 rounded-xl border border-slate-600/30 bg-slate-900/60 p-1">
-                {[
-                  { value: '', label: '— Sin clasificar' },
-                  { value: 'necesidad', label: '🏠 Necesidad' },
-                  { value: 'deseo', label: '✨ Deseo' },
-                ].map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setClasificacion(opt.value)}
-                    className={`flex-1 rounded-lg px-1 py-1.5 text-xs font-medium transition-all duration-150 ${
-                      clasificacion === opt.value
-                        ? opt.value === 'necesidad'
-                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-700 text-white shadow-md shadow-emerald-500/30'
-                          : opt.value === 'deseo'
-                          ? 'bg-gradient-to-r from-amber-500 to-amber-700 text-white shadow-md shadow-amber-500/30'
-                          : 'bg-gradient-to-r from-slate-500 to-slate-700 text-white shadow-md shadow-slate-500/20'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+        <div>
+          <label htmlFor="nota-movimiento" className="mb-1 block text-xs font-medium text-slate-400">
+            Nota
+          </label>
+          <textarea
+            id="nota-movimiento"
+            rows={2}
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            placeholder="InformaciÃ³n adicional"
+            className="w-full resize-y rounded-lg border border-slate-500/80 bg-slate-700/80 px-3 py-2 text-sm text-white placeholder:text-slate-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
+          </>
+        )}
+
+        {!isIngreso && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">
+              ClasificaciÃ³n
+            </label>
+            <div className="flex gap-1 rounded-xl border border-slate-600/30 bg-slate-900/60 p-1">
+              {[
+                { value: '', label: 'â€” Sin clasificar' },
+                { value: 'necesidad', label: 'ðŸ  Necesidad' },
+                { value: 'deseo', label: 'âœ¨ Deseo' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setClasificacion(opt.value)}
+                  className={`flex-1 rounded-lg px-1 py-1.5 text-xs font-medium transition-all duration-150 ${
+                    clasificacion === opt.value
+                      ? opt.value === 'necesidad'
+                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-700 text-white shadow-md shadow-emerald-500/30'
+                        : opt.value === 'deseo'
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-700 text-white shadow-md shadow-amber-500/30'
+                        : 'bg-gradient-to-r from-slate-500 to-slate-700 text-white shadow-md shadow-slate-500/20'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {!movimientoToEdit && isIngreso && (
           <div
@@ -710,16 +874,20 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         <div className="flex gap-3 pt-1">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (esTicket && descuadre && !confirmoDescuadre)}
             className={`${
               isIngreso
                 ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 shadow-glow-green-lg border-green-300/70'
                 : 'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 shadow-glow-red-lg border-red-300/70'
             } w-full rounded-full border px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-all duration-200 disabled:from-slate-700 disabled:to-slate-700`}
           >
-            {loading ? 'Guardando...' : movimientoToEdit
-              ? `Actualizar ${isIngreso ? 'Ingreso' : 'Gasto'}`
-              : `Registrar ${isIngreso ? 'Ingreso' : 'Gasto'}`}
+            {loading
+              ? 'Guardando...'
+              : esTicket
+                ? `Registrar ${filas.length} ${filas.length === 1 ? 'movimiento' : 'movimientos'}`
+                : movimientoToEdit
+                  ? `Actualizar ${isIngreso ? 'Ingreso' : 'Gasto'}`
+                  : `Registrar ${isIngreso ? 'Ingreso' : 'Gasto'}`}
           </button>
 
           {movimientoToEdit && (

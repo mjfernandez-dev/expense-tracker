@@ -132,11 +132,29 @@ La clave es **write-only**: se envía al crear o actualizar y la API solo devuel
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/tickets/leer` | Recibe una foto del ticket (`multipart`, campo `archivo`) y devuelve los datos extraídos |
+| POST | `/movimientos/lote` | Crea todos los renglones del ticket en una sola transacción |
+| DELETE | `/movimientos/lote/{lote_id}` | Deshace un ticket completo |
 
 Requisitos: una credencial `llamacloud` activa, imagen JPEG/PNG/WebP de hasta 10 MB.
-El endpoint **no crea movimientos**: devuelve `comercio`, `total`, `subtotal`, `items`
-y `descuentos` para que el cliente precargue el formulario. La imagen se borra del
-proveedor apenas termina la extracción.
+El endpoint **no crea movimientos**: devuelve `comercio`, `total`, `subtotal` e `items`.
+Cada item trae `descripcion`, `cantidad`, `importe_lista`, `descuento` e `importe`
+(precio final pagado, con el descuento ya atribuido a ese renglón). La imagen se
+borra del proveedor apenas termina la extracción.
+
+Con esa respuesta el frontend muestra una fila por producto para revisar. Todas
+arrancan en la misma categoría y se pueden cambiar individualmente. Antes de
+guardar se verifica que `suma(importes) == total`; si no cierra, se exige una
+confirmación explícita para que no pase inadvertido un renglón no leído. La
+fecha la elige el humano y aplica a todo el lote.
+
+Los descuentos se atribuyen al producto cuando el texto lo nombra (por ejemplo
+`OFERTA QUESO LS` → la línea del queso); si no, se prorratean por importe de
+lista. Nunca se descartan: ignorarlos registraría más gasto del real e inflaría
+el precio histórico del producto.
+
+Cada movimiento guarda `cantidad` y `comercio` (cifrado, igual que `nota`), y
+comparte un `lote_id`. El precio por unidad **no se guarda**: se calcula como
+`importe / cantidad` al consultarlo, para que no pueda desincronizarse.
 
 | Código | Significado |
 |--------|-------------|

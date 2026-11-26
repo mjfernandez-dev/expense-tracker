@@ -15,6 +15,7 @@ import type {
   UserCategory,
   Movimiento,
   MovimientoCreate,
+  MovimientoLoteRead,
   User,
   UserCreate,
   PasswordResetResponse,
@@ -326,6 +327,9 @@ export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Mo
       is_auto_generated: false,
       gasto_fijo_id: null,
       clasificacion: movimiento.clasificacion ?? null,
+      lote_id: null,
+      cantidad: movimiento.cantidad ?? null,
+      comercio: movimiento.comercio ?? null,
     };
   };
 
@@ -344,10 +348,26 @@ export const createMovimiento = async (movimiento: MovimientoCreate): Promise<Mo
   }
 };
 
+// Crear un ticket completo: N movimientos en una sola transacción.
+// POST /movimientos/lote → envía MovimientoLoteCreate, devuelve el lote creado.
+// Sin conexión no se encola: un ticket a medias es peor que un error claro.
+export const createMovimientosLote = async (
+  movimientos: MovimientoCreate[],
+): Promise<MovimientoLoteRead> => {
+  const response = await api.post('/movimientos/lote', { movimientos });
+  return response.data;
+};
+
 // Eliminar un movimiento
 // DELETE /movimientos/{id}
 export const deleteMovimiento = async (id: number): Promise<void> => {
   await api.delete(`/movimientos/${id}`);
+};
+
+// Deshacer un ticket completo
+// DELETE /movimientos/lote/{lote_id}
+export const deleteMovimientosLote = async (loteId: string): Promise<void> => {
+  await api.delete(`/movimientos/lote/${loteId}`);
 };
 
 // Actualizar un movimiento

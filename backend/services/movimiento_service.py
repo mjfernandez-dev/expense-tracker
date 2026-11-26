@@ -1,4 +1,5 @@
 """Lógica de negocio para movimientos: auto-detección y vinculación de presupuesto."""
+import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Optional
@@ -94,6 +95,38 @@ def eliminar_movimiento(movimiento_id: int, user_id: int, db: Session) -> dict[s
     db.delete(movimiento)
     db.commit()
     return {"message": "Movimiento eliminado correctamente"}
+
+
+def eliminar_lote(lote_id: str, user_id: int, db: Session) -> dict[str, str]:
+    """Elimina un ticket completo y recalcula el presupuesto una sola vez por item.
+
+    Recorrer los movimientos con `unlink_presupuesto_item_on_delete` dejaría el
+    estado del item reflejando solo el último borrado, porque la colección del
+    item todavía contiene las filas que se están eliminando.
+    """
+    movimientos = db.query(models.Movimiento).filter(
+        models.Movimiento.lote_id == lote_id,
+        models.Movimiento.user_id == user_id,
+    ).all()
+
+    if not movimientos:
+        raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
+    items_afectados = {
+        movimiento.presupuesto_item_id
+        for movimiento in movimientos
+        if movimiento.presupuesto_item_id is not None
+    }
+
+    for movimiento in movimientos:
+        db.delete(movimiento)
+
+    db.flush()
+    for item_id in items_afectados:
+        _recalcular_estado_item(item_id, user_id, db)
+
+    db.commit()
+    return {"message": f"{len(movimientos)} movimientos eliminados"}
 
 
 def auto_detectar_presupuesto_item(
@@ -220,11 +253,16 @@ def _movimiento_con_categorias(movimiento_id: int, db: Session) -> models.Movimi
     )
 
 
-def crear_movimiento(
+def _validar_movimiento(
     movimiento: schemas.MovimientoCreate,
     user_id: int,
     db: Session,
-) -> models.Movimiento:
+) -> tuple[datetime, Optional[int]]:
+    """Valida categoría, fecha y vínculo de presupuesto. Read-only: no agrega filas.
+
+    Separar la validación de la construcción permite que un lote falle entero
+    antes de tocar la sesión: si un renglón es inválido, ninguno entra a medias.
+    """
     _validate_categoria(
         movimiento.categoria_id,
         movimiento.user_category_id,
@@ -232,25 +270,6 @@ def crear_movimiento(
         db,
     )
     fecha_movimiento = _fecha_para_creacion(movimiento.fecha)
-
-    datos = movimiento.model_dump(exclude={"presupuesto_item_id", "es_fijo"})
-    datos["fecha"] = fecha_movimiento
-    datos["clasificacion"] = resolve_clasificacion(movimiento.tipo, movimiento.clasificacion)
-    db_movimiento = models.Movimiento(**datos, user_id=user_id)
-    db.add(db_movimiento)
-
-    # Si es un gasto con es_fijo=True, crear template de GastoFijo y vincular
-    if getattr(movimiento, "es_fijo", False) and movimiento.tipo == "gasto":
-        gf = models.GastoFijo(
-            user_id=user_id,
-            descripcion=movimiento.descripcion,
-            user_category_id=movimiento.user_category_id,
-            categoria_id=movimiento.categoria_id,
-            activo=True,
-        )
-        db.add(gf)
-        db.flush()
-        db_movimiento.gasto_fijo_id = gf.id
 
     item_id = movimiento.presupuesto_item_id
     if item_id is None and movimiento.tipo == "gasto":
@@ -262,10 +281,119 @@ def crear_movimiento(
             fecha=fecha_movimiento,
         )
 
+    if item_id is not None:
+        if movimiento.tipo != "gasto":
+            raise HTTPException(
+                status_code=400,
+                detail="Solo los gastos pueden vincularse a items del presupuesto",
+            )
+        item = load_presupuesto_item(item_id, user_id, db)
+        if not item.confirmado:
+            raise HTTPException(
+                status_code=400,
+                detail="El item de presupuesto no está confirmado",
+            )
+
+    return fecha_movimiento, item_id
+
+
+def _construir_movimiento(
+    movimiento: schemas.MovimientoCreate,
+    user_id: int,
+    db: Session,
+    fecha_movimiento: datetime,
+    lote_id: Optional[str] = None,
+) -> models.Movimiento:
+    """Agrega el movimiento a la sesión, sin commit ni vínculo de presupuesto."""
+    datos = movimiento.model_dump(exclude={"presupuesto_item_id", "es_fijo"})
+    datos["fecha"] = fecha_movimiento
+    datos["clasificacion"] = resolve_clasificacion(movimiento.tipo, movimiento.clasificacion)
+    if lote_id is not None:
+        datos["lote_id"] = lote_id
+    db_movimiento = models.Movimiento(**datos, user_id=user_id)
+    db.add(db_movimiento)
+
+    # Si es un gasto con es_fijo=True, crear template de GastoFijo y vincular
+    if movimiento.es_fijo and movimiento.tipo == "gasto":
+        gf = models.GastoFijo(
+            user_id=user_id,
+            descripcion=movimiento.descripcion,
+            user_category_id=movimiento.user_category_id,
+            categoria_id=movimiento.categoria_id,
+            activo=True,
+        )
+        db.add(gf)
+        db.flush()
+        db_movimiento.gasto_fijo_id = gf.id
+
+    return db_movimiento
+
+
+def _recalcular_estado_item(presupuesto_item_id: int, user_id: int, db: Session) -> None:
+    """Recalcula el estado del item desde la base, con todos sus movimientos ya persistidos.
+
+    Necesario en un lote: recalcular por movimiento deja el estado reflejando solo
+    el último, porque la colección `item.movimientos` no incluye las filas nuevas.
+    """
+    item = load_presupuesto_item(presupuesto_item_id, user_id, db)
+    movimientos = db.query(models.Movimiento).filter(
+        models.Movimiento.presupuesto_item_id == item.id,
+        models.Movimiento.tipo == "gasto",
+    ).all()
+    item.estado = calcular_progreso_presupuesto(item, movimientos=movimientos).estado
+
+
+def crear_movimiento(
+    movimiento: schemas.MovimientoCreate,
+    user_id: int,
+    db: Session,
+) -> models.Movimiento:
+    fecha_movimiento, item_id = _validar_movimiento(movimiento, user_id, db)
+    db_movimiento = _construir_movimiento(movimiento, user_id, db, fecha_movimiento)
     apply_presupuesto_item_link(db_movimiento, item_id, user_id, db)
 
     db.commit()
     return _movimiento_con_categorias(db_movimiento.id, db)
+
+
+def crear_movimientos_lote(
+    lote: schemas.MovimientoLoteCreate,
+    user_id: int,
+    db: Session,
+) -> schemas.MovimientoLoteRead:
+    """Crea todos los movimientos de un ticket en una sola transacción.
+
+    O entran todos, o no entra ninguno. La validación completa corre antes de
+    agregar la primera fila, así un renglón inválido no deja nada a medias.
+    Todos comparten `lote_id`, así el ticket se puede deshacer completo.
+    """
+    lote_id = str(uuid.uuid4())
+
+    validados = [_validar_movimiento(movimiento, user_id, db) for movimiento in lote.movimientos]
+
+    creados = [
+        _construir_movimiento(movimiento, user_id, db, fecha_movimiento, lote_id)
+        for movimiento, (fecha_movimiento, _) in zip(lote.movimientos, validados)
+    ]
+
+    for db_movimiento, (_, item_id) in zip(creados, validados):
+        if item_id is not None:
+            db_movimiento.presupuesto_item_id = item_id
+
+    # Persistir las filas antes de recalcular: el estado se deriva consultando
+    # la base y necesita ver los movimientos recién creados.
+    db.flush()
+
+    for item_id in {item_id for _, item_id in validados if item_id is not None}:
+        _recalcular_estado_item(item_id, user_id, db)
+
+    ids = [movimiento.id for movimiento in creados]
+    db.commit()
+
+    return schemas.MovimientoLoteRead(
+        lote_id=lote_id,
+        movimientos=[_movimiento_con_categorias(movimiento_id, db) for movimiento_id in ids],
+    )
 
 
 def actualizar_movimiento(
@@ -302,6 +430,8 @@ def actualizar_movimiento(
     db_movimiento.user_category_id = movimiento_update.user_category_id
     db_movimiento.es_inicio_ciclo = movimiento_update.es_inicio_ciclo
     db_movimiento.clasificacion = resolve_clasificacion(movimiento_update.tipo, movimiento_update.clasificacion)
+    db_movimiento.cantidad = movimiento_update.cantidad
+    db_movimiento.comercio = movimiento_update.comercio
 
     item_id = movimiento_update.presupuesto_item_id
     if item_id is None and movimiento_update.tipo == "gasto":

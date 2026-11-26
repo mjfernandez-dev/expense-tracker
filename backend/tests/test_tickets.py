@@ -186,3 +186,93 @@ def test_limpiar_descripcion_es_idempotente():
 def test_decimal_no_pierde_centavos():
     assert ticket_service._decimal(21349.13) == Decimal("21349.13")
     assert ticket_service._decimal(None) is None
+
+
+# ============== DESCUENTOS ATRIBUIDOS AL PRECIO DE CADA RENGLÓN ==============
+
+def test_atribuye_el_descuento_al_producto_que_nombra():
+    """'OFERTA QUESO LS' descuenta el queso, no el promedio del ticket."""
+    atribuidos = ticket_service.atribuir_descuentos(
+        nombres=["Queso LS Cremon 280g", "Papa Granel 1 Kg"],
+        importes_lista=[Decimal("4290.00"), Decimal("3026.56")],
+        descuentos=[("OFERTA QUESO LS", Decimal("1440.00"))],
+    )
+
+    assert atribuidos == [Decimal("1440.00"), Decimal("0.00")]
+
+
+def test_prorratea_el_descuento_que_no_nombra_ningun_producto():
+    atribuidos = ticket_service.atribuir_descuentos(
+        nombres=["Producto Uno", "Producto Dos"],
+        importes_lista=[Decimal("300.00"), Decimal("100.00")],
+        descuentos=[("DESCUENTO GENERAL", Decimal("40.00"))],
+    )
+
+    assert atribuidos == [Decimal("30.00"), Decimal("10.00")]
+
+
+def test_nunca_descuenta_mas_que_el_precio_del_renglon():
+    """El sobrante de un descuento mayor al precio se prorratea entre los demás."""
+    atribuidos = ticket_service.atribuir_descuentos(
+        nombres=["Queso Cremon", "Papa Granel"],
+        importes_lista=[Decimal("100.00"), Decimal("100.00")],
+        descuentos=[("OFERTA QUESO", Decimal("150.00"))],
+    )
+
+    assert atribuidos == [Decimal("100.00"), Decimal("50.00")]
+
+
+def test_el_prorrateo_conserva_los_centavos():
+    """Repartir 0,10 entre tres líneas iguales no puede perder centavos."""
+    atribuidos = ticket_service.atribuir_descuentos(
+        nombres=["Uno Grande", "Dos Grande", "Tres Grande"],
+        importes_lista=[Decimal("10.00"), Decimal("10.00"), Decimal("10.00")],
+        descuentos=[("SELLO", Decimal("0.10"))],
+    )
+
+    assert sum(atribuidos) == Decimal("0.10")
+
+
+def test_ajusta_el_total_solo_por_ruido_de_redondeo():
+    finales = ticket_service._ajustar_al_total(
+        [Decimal("10.00"), Decimal("20.00")], Decimal("30.01")
+    )
+
+    assert sum(finales) == Decimal("30.01")
+
+
+def test_no_esconde_una_diferencia_grande_contra_el_total():
+    """Un renglón que el modelo no leyó tiene que quedar visible, no repartido."""
+    finales = [Decimal("10.00"), Decimal("20.00")]
+
+    assert ticket_service._ajustar_al_total(finales, Decimal("100.00")) == finales
+
+
+def test_usa_subtotal_menos_total_si_el_modelo_no_devolvio_el_descuento():
+    extraido = ticket_service.TicketExtraido(
+        total=90.0,
+        subtotal_sin_descuentos=100.0,
+        items=[
+            ticket_service.TicketItemExtraido(descripcion="Uno", importe_total=50.0),
+            ticket_service.TicketItemExtraido(descripcion="Dos", importe_total=50.0),
+        ],
+    )
+
+    descuentos = ticket_service._descuentos_del_ticket(extraido)
+
+    assert descuentos == [("Descuentos del ticket", Decimal("10.00"))]
+
+
+def test_lee_el_ticket_con_el_precio_final_por_renglon(logged_in_client, monkeypatch):
+    """El importe que se lleva al movimiento ya tiene el descuento aplicado."""
+    _crear_credencial(logged_in_client)
+    monkeypatch.setattr(ticket_service, "extraer_ticket", lambda *a, **k: TICKET_FAKE)
+
+    items = _subir(logged_in_client).json()["items"]
+
+    assert items[0]["importe_lista"] == 4290.0
+    assert items[0]["descuento"] == 1440.0
+    assert items[0]["importe"] == 2850.0
+    assert items[1]["importe_lista"] == 3026.56
+    assert items[1]["descuento"] == 0.0
+    assert items[1]["importe"] == 3026.56
