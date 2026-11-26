@@ -2,16 +2,19 @@
 
 ## Objetivo
 
-Registrar un gasto desde la foto de un ticket de supermercado: el usuario saca la foto, el sistema extrae total, comercio y el detalle de ítems, y **precarga** el formulario de movimiento. El detalle del ticket queda en `nota` del movimiento; se crea **un solo movimiento** por el total del ticket. La fecha la define el humano.
+Registrar un gasto desde la foto de un ticket de supermercado: el usuario saca la foto, el sistema extrae total, comercio y el detalle de ítems, y **precarga** el formulario de movimiento. La fecha la define el humano.
+
+> **Estado (2026-11-26):** S1 y S1b quedan **reemplazadas** por `odd/tasks/ticket-por-renglon.md`. El lector ya no produce un movimiento único con el detalle en la nota: ahora precarga una revisión con un movimiento por renglón. El endpoint `/tickets/leer` sigue siendo el mismo; cambia qué hace el cliente con la respuesta.
 
 Rama: `main` · Runner: `pytest` (backend) · Estado: **T0–T7 completos; pendiente una prueba real contra el endpoint desplegado**
 
 ## Specs
 
-**S1 — Un movimiento por ticket, detalle en nota.** (L1 verbatim: *"movimiento unico + detalle en nota"*)
+**S1 — Un movimiento por ticket, detalle en nota.** (L1 verbatim: *"movimiento unico + detalle en nota"*) — **REEMPLAZADA** por S1 de `odd/tasks/ticket-por-renglon.md`.
 El lector nunca crea un movimiento por renglón. El total del ticket es el `importe`; los ítems van a `Movimiento.nota` como texto legible.
+Se conserva como registro histórico de la decisión original. El usuario la revocó al explicar su necesidad real (L2 del documento nuevo): necesita el precio final **por producto** para compararlo en el tiempo.
 
-**S1b — Qué precarga el lector y qué llena el humano.** (L6 verbatim: *"que se autocomplete el importe total, la descripcion con el nombre del supermercado y la nota. El resto el humano"*)
+**S1b — Qué precarga el lector y qué llena el humano.** (L6 verbatim: *"que se autocomplete el importe total, la descripcion con el nombre del supermercado y la nota. El resto el humano"*) — **PRECARGA REEMPLAZADA**: en la feature nueva se precargan las filas (descripción, cantidad, precio final y categoría); el humano elige fecha, categorías y confirma el guard aritmético. La fecha sigue siendo del humano, igual que acá.
 
 | Campo | Origen |
 | --- | --- |
