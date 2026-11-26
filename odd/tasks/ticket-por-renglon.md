@@ -4,7 +4,7 @@
 
 Convertir un ticket leído en **N movimientos, uno por renglón**, cada uno con el precio final pagado (precio de lista menos el descuento que le corresponde). El objetivo declarado por el usuario no es contable sino de información: saber cuánto paga por la unidad de un producto y poder compararlo en el tiempo.
 
-Rama: `feat/ticket-por-renglon` (creada desde `main`) · Runner: `pytest` (backend) + `npm test` (frontend) · Estado: **implementado, verificado, pusheado; PR #6 abierto**
+Rama: `feat/ticket-por-renglon` (creada desde `main`) · Runner: `pytest` (backend) + `npm test` (frontend) · Estado: **mergeado en `main` (`a2b374b`); issue #5 cerrado**
 
 Esta feature **reemplaza S1 de `odd/tasks/lector-tickets.md`** (un movimiento por ticket con el detalle en la nota). El lector sigue igual: cambia qué se hace con lo que devuelve.
 
@@ -105,4 +105,8 @@ Riesgo conocido: un ticket con muchas filas siempre va a necesitar scroll dentro
 
 **L8** — Push a `origin/feat/ticket-por-renglon` e **issue #5** / **PR #6** abiertos. PR con `type:feature` y `size:exception` (aceptado explícitamente por el usuario). Base: `main`, head: `feat/ticket-por-renglon`, 5 commits propios sobre `53ebc02`. Merge queda a decisión del usuario.
 
-**L9** — La etapa 2 (comparación histórica de precio por unidad) queda diferida hasta que haya datos capturados con este diseño.
+**L9** — Merge del PR #6 autorizado por el usuario y ejecutado el 2026-11-26: commit de merge `a2b374b` en `main`; el issue #5 quedó `CLOSED`/`COMPLETED`. `main` local actualizado por fast-forward; working tree limpio.
+
+**L10** — CI posterior al merge: run `45896556044` falló en 2 s con el annotation *"The job was not started because your account is locked due to a billing issue"* en ambos jobs (Backend y Frontend). No es falla de tests: los mismos chequeos pasaron en local. Cloudflare Pages pasó. El bloqueo de billing es preexistente: los tres pushes anteriores a `main` muestran el mismo resultado.
+
+**L11** — La etapa 2 (comparación histórica de precio por unidad) queda diferida hasta que haya datos capturados con este diseño.
