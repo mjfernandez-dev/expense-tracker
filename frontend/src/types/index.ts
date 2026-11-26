@@ -58,6 +58,9 @@ export interface Movimiento {
   categoria_id: number | null;
   user_category_id: number | null;
   user_id: number;
+  lote_id: string | null;
+  cantidad: number | null;
+  comercio: string | null;
   created_at: string;
   updated_at: string;
   categoria: Category | null;
@@ -80,6 +83,18 @@ export interface MovimientoCreate {
   presupuesto_item_id?: number | null;
   es_inicio_ciclo?: boolean;
   clasificacion?: 'necesidad' | 'deseo' | null;
+  cantidad?: number | null;
+  comercio?: string | null;
+}
+
+// Un ticket completo se crea de una sola vez: N movimientos, una transacción.
+export interface MovimientoLoteCreate {
+  movimientos: MovimientoCreate[];
+}
+
+export interface MovimientoLoteRead {
+  lote_id: string;
+  movimientos: Movimiento[];
 }
 
 // ============== TIPOS DE PRESUPUESTO POR CICLO ==============
@@ -270,10 +285,13 @@ export interface ApiCredentialUpdate {
 
 // ============== LECTOR DE TICKETS ==============
 
-// Lo que devuelve POST /tickets/leer. No crea nada: precarga el formulario.
+// Lo que devuelve POST /tickets/leer. No crea nada: precarga la revisión.
+// El importe de cada renglón ya tiene aplicado el descuento que le corresponde.
 export interface TicketItemLeido {
   descripcion: string;
   cantidad: number | null;
+  importe_lista: number | null;
+  descuento: number;
   importe: number | null;
 }
 
