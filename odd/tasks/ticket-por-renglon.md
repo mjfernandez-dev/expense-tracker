@@ -4,7 +4,7 @@
 
 Convertir un ticket leído en **N movimientos, uno por renglón**, cada uno con el precio final pagado (precio de lista menos el descuento que le corresponde). El objetivo declarado por el usuario no es contable sino de información: saber cuánto paga por la unidad de un producto y poder compararlo en el tiempo.
 
-Rama: `ticket-por-renglon` (creada desde `main`) · Runner: `pytest` (backend) + `npm test` (frontend) · Estado: **implementado, verificado y commiteado; sin push**
+Rama: `feat/ticket-por-renglon` (creada desde `main`) · Runner: `pytest` (backend) + `npm test` (frontend) · Estado: **implementado, verificado y commiteado; push en curso**
 
 Esta feature **reemplaza S1 de `odd/tasks/lector-tickets.md`** (un movimiento por ticket con el detalle en la nota). El lector sigue igual: cambia qué se hace con lo que devuelve.
 
@@ -97,6 +97,9 @@ Riesgo conocido: un ticket con muchas filas siempre va a necesitar scroll dentro
 | `cdc2a7f` | migración + modelo | S4,S5,S6 |
 | `d5a386b` | lote transaccional, atribución de descuentos y tests backend | S3,S6,S7 |
 | `1f867e3` | revisión por renglón, guard aritmético y alta del lote | S1,S2,S7,S8 |
-| `5272a2a` | README y S1 del lector marcada como reemplazada | — |
+| `4d629d6` | README y S1 del lector marcada como reemplazada | — |
+| `99269f5` | estrategia de entrega e issue aprobado | — |
 
-**L7** — Siguiente paso: push y PR son decisiones del usuario. La etapa 2 (comparación histórica de precio por unidad) queda diferida hasta que haya datos capturados con este diseño.
+**L7** — Entrega (2026-11-26). El usuario autorizó push y PR. Con ~1726 líneas cambiadas, `chained-pr` exigía elegir estrategia: el usuario eligió explícitamente **un solo PR con `size:exception`** (aceptación del tamaño). Issue vinculado: **#5** (`status:approved`, `type:feature`), creado porque `branch-pr` exige un issue aprobado por PR y el repo no tenía ninguno. Rama renombrada a `feat/ticket-por-renglon` para cumplir el patrón `type/description`.
+
+**L8** — La etapa 2 (comparación histórica de precio por unidad) queda diferida hasta que haya datos capturados con este diseño.
