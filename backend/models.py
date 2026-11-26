@@ -186,6 +186,16 @@ class Movimiento(Base):
     # Se conserva para no perder datos historicos; no volver a exponerla.
     medio_pago = Column(String, nullable=True)
 
+    # TICKET: cada renglon de un ticket es un movimiento propio.
+    # CANTIDAD: unidades o kg, tal como la imprime el ticket. Sin esto no hay
+    # precio por unidad ($2.899,00/kg) y la comparacion en el tiempo no existe.
+    cantidad = Column(Numeric(10, 3), nullable=True)
+    # COMERCIO: donde se compro. Cifrado: revela habitos de consumo, igual que nota.
+    comercio = Column(EncryptedString, nullable=True)
+    # LOTE: agrupa los movimientos creados a partir del mismo ticket. Permite
+    # deshacer un ticket completo y agruparlo en la UI.
+    lote_id = Column(String(36), nullable=True, index=True)
+
     def __init__(self, **kwargs):
         """Validar que al menos una categoría esté definida."""
         super().__init__(**kwargs)
