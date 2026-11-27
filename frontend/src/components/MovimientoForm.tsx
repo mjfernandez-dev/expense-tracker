@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import type { UserCategory, MovimientoCreate, Movimiento, TicketLeido } from '../types';
 import { getUserCategories, createMovimiento, createMovimientosLote, updateMovimiento, createCategory, searchDescripciones, leerTicket } from '../services/api';
@@ -35,7 +35,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const [clasificacion, setClasificacion] = useState<string>('');
 
   // Lector de tickets: con un ticket cargado el formulario pasa a ser una
-  // revisiÃ³n con una fila por renglÃ³n, y se guarda todo junto en un lote.
+  // revisión con una fila por renglón, y se guarda todo junto en un lote.
   const [ticket, setTicket] = useState<TicketLeido | null>(null);
   const [filas, setFilas] = useState<FilaTicket[]>([]);
   const [categoriaTicketId, setCategoriaTicketId] = useState<string>('');
@@ -61,8 +61,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
   const descRef = useRef<HTMLInputElement>(null);
   const suggestionListRef = useRef<HTMLUListElement>(null);
   const justSelectedRef = useRef(false);
-  // Guard de toque manual: si el usuario eligiÃ³ la categorÃ­a a mano, la
-  // auto-aplicaciÃ³n de la sugerencia se saltea (la elecciÃ³n explÃ­cita gana).
+  // Guard de toque manual: si el usuario eligió la categoría a mano, la
+  // auto-aplicación de la sugerencia se saltea (la elección explícita gana).
   const categoriaTouchedRef = useRef(false);
 
   useEffect(() => {
@@ -74,7 +74,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           setCategoriaId(data[0].id.toString());
         }
       } catch {
-        setError('Error al cargar categorÃ­as');
+        setError('Error al cargar categorías');
       }
     };
 
@@ -108,7 +108,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         setSelectedSuggestionIndex(-1);
         setSuggestionsError(null);
       } catch {
-        // El autocomplete es opcional: no romper el form, pero sÃ­ reportar
+        // El autocomplete es opcional: no romper el form, pero sí reportar
         // el fallo de forma visible (sin ocultarlo silenciosamente).
         setSuggestions([]);
         setShowSuggestions(false);
@@ -164,12 +164,12 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       const nueva = await createCategory(nombre);
       setCategories((prev) => [...prev, nueva]);
       setCategoriaId(nueva.id.toString());
-      // Crear una categorÃ­a es una elecciÃ³n explÃ­cita: nunca auto-aplicar encima
+      // Crear una categoría es una elección explícita: nunca auto-aplicar encima
       categoriaTouchedRef.current = true;
       setNewCatNombre('');
       setShowNewCat(false);
     } catch {
-      setError('Error al crear la categorÃ­a');
+      setError('Error al crear la categoría');
     } finally {
       setSavingCat(false);
     }
@@ -204,8 +204,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     }
   };
 
-  // Auto-aplica la categorÃ­a sugerida para una descripciÃ³n elegida, solo al
-  // crear y si el usuario no tocÃ³ la categorÃ­a a mano (el helper decide).
+  // Auto-aplica la categoría sugerida para una descripción elegida, solo al
+  // crear y si el usuario no tocó la categoría a mano (el helper decide).
   const aplicarCategoriaSugerida = useCallback(
     (desc: string) => {
       const sugerida = obtenerCategoriaSugerida(
@@ -241,7 +241,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       return;
     }
     if (filas.some((fila) => !fila.categoriaId)) {
-      setError('ElegÃ­ una categorÃ­a para todos los renglones');
+      setError('Elegí una categoría para todos los renglones');
       return;
     }
     if (descuadre && !confirmoDescuadre) {
@@ -340,8 +340,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       setConfirmoDescuadre(false);
       // Un ticket de supermercado siempre es un gasto.
       setTipo('gasto');
-      // El detalle quedÃ³ al fondo del formulario: sin esto el usuario que
-      // esperÃ³ 30 s no ve el resultado.
+      // El detalle quedó al fondo del formulario: sin esto el usuario que
+      // esperó 30 s no ve el resultado.
       requestAnimationFrame(() => {
         filasRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       });
@@ -362,7 +362,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     setError(null);
   };
 
-  /** Cambia la categorÃ­a de todas las filas de una vez (el default del ticket). */
+  /** Cambia la categoría de todas las filas de una vez (el default del ticket). */
   const aplicarCategoriaATodos = (nuevaCategoria: string) => {
     setCategoriaTicketId(nuevaCategoria);
     setFilas((previas) => previas.map((fila) => ({ ...fila, categoriaId: nuevaCategoria })));
@@ -373,7 +373,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     setFilas((previas) =>
       previas.map((fila, posicion) => (posicion === indice ? { ...fila, ...cambios } : fila)),
     );
-    // La confirmaciÃ³n vale para una suma concreta: si cambia, se vuelve a pedir.
+    // La confirmación vale para una suma concreta: si cambia, se vuelve a pedir.
     setConfirmoDescuadre(false);
   };
 
@@ -386,7 +386,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
     <div className={`bg-slate-800/70 rounded-2xl border border-slate-600/70 border-l-4 ${isIngreso ? 'border-l-green-500' : 'border-l-red-500'} p-4`}>
       {movimientoToEdit && (
         <h2 className="mb-3 text-base font-semibold text-white">
-          âœï¸ Editando {isIngreso ? 'ingreso' : 'gasto'}
+          ✏️ Editando {isIngreso ? 'ingreso' : 'gasto'}
         </h2>
       )}
 
@@ -437,8 +437,8 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               disabled={leyendoTicket}
               className="ml-auto flex items-center gap-1.5 rounded-lg border border-blue-400/50 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-500/20 disabled:cursor-wait disabled:opacity-60"
             >
-              <span aria-hidden="true">{leyendoTicket ? 'â³' : 'ðŸ“·'}</span>
-              {leyendoTicket ? 'Leyendoâ€¦' : esTicket ? 'Otra foto' : 'Leer ticket'}
+              <span aria-hidden="true">{leyendoTicket ? '⏳' : '📷'}</span>
+              {leyendoTicket ? 'Leyendo…' : esTicket ? 'Otra foto' : 'Leer ticket'}
             </button>
           </div>
 
@@ -459,11 +459,11 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
       {offlineQueued && (
         <div role="status" className="bg-amber-500/10 border border-amber-400/50 rounded-xl mb-4 overflow-hidden">
           <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-            <span className="text-amber-400 text-xl leading-none mt-0.5" aria-hidden="true">ðŸ“¶</span>
+            <span className="text-amber-400 text-xl leading-none mt-0.5" aria-hidden="true">📶</span>
             <div className="flex-1 min-w-0">
-              <p className="text-amber-200 font-semibold text-sm mb-1">Guardado sin conexiÃ³n</p>
+              <p className="text-amber-200 font-semibold text-sm mb-1">Guardado sin conexión</p>
               <p className="text-amber-300/80 text-xs leading-relaxed">
-                El movimiento fue guardado localmente en tu dispositivo. El progreso de la categorÃ­a se va a ver al sincronizar.
+                El movimiento fue guardado localmente en tu dispositivo. El progreso de la categoría se va a ver al sincronizar.
               </p>
             </div>
           </div>
@@ -485,7 +485,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           <div ref={filasRef} className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="flex-1 truncate text-sm font-semibold text-slate-200">
-                ðŸ§¾ {ticket?.comercio ?? 'Ticket'}
+                🧾 {ticket?.comercio ?? 'Ticket'}
               </span>
               <button
                 type="button"
@@ -498,7 +498,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
             <div>
               <label htmlFor="categoria-ticket" className="mb-1 block text-xs font-medium text-slate-400">
-                CategorÃ­a para todos
+                Categoría para todos
               </label>
               <select
                 id="categoria-ticket"
@@ -517,7 +517,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             <div>
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-400">
-                  {filas.length} {filas.length === 1 ? 'renglÃ³n' : 'renglones'}
+                  {filas.length} {filas.length === 1 ? 'renglón' : 'renglones'}
                 </span>
                 <span className="font-mono text-xs text-slate-400">
                   {formatearImporte(sumaTicket)}
@@ -527,7 +527,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               <ul className="divide-y divide-slate-700/40 rounded-xl border border-slate-600/50 bg-slate-900/40">
                 {filas.length === 0 && (
                   <li className="px-3 py-3 text-xs text-slate-500">
-                    No quedan renglones. DescartÃ¡ el ticket o cargÃ¡ otra foto.
+                    No quedan renglones. Descartá el ticket o cargá otra foto.
                   </li>
                 )}
 
@@ -548,7 +548,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                         aria-label={`Quitar ${fila.descripcion}`}
                         className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
                       >
-                        Ã—
+                        ×
                       </button>
                     </div>
 
@@ -577,7 +577,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                       <select
                         value={fila.categoriaId}
                         onChange={(e) => actualizarFila(indice, { categoriaId: e.target.value })}
-                        aria-label={`CategorÃ­a de ${fila.descripcion}`}
+                        aria-label={`Categoría de ${fila.descripcion}`}
                         className="min-w-0 flex-1 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 py-1 text-xs text-white focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         {categories.map((cat) => (
@@ -641,7 +641,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         ) : (
           <>
 
-        {/* â•â•â•â•â•â•â• DATOS PRINCIPALES â•â•â•â•â•â•â• */}
+        {/* ═══════ DATOS PRINCIPALES ═══════ */}
         <div className="space-y-3">
 
         <div className={`rounded-xl border p-3 text-center ${isIngreso ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
@@ -665,7 +665,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
         <div>
           <label className="block text-sm font-medium text-slate-100 mb-1">
-            DescripciÃ³n *
+            Descripción *
           </label>
           <input
             ref={descRef}
@@ -677,9 +677,9 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
               // Esperar a que el mousedown de la sugerencia se procese
               setTimeout(() => {
                 setShowSuggestions(false);
-                // Exact match en blur: auto-aplica la categorÃ­a solo al crear.
-                // EdiciÃ³n, toque manual y sin historial quedan excluidos dentro
-                // del helper (no-op benigno si la lista quedÃ³ stale en el debounce).
+                // Exact match en blur: auto-aplica la categoría solo al crear.
+                // Edición, toque manual y sin historial quedan excluidos dentro
+                // del helper (no-op benigno si la lista quedó stale en el debounce).
                 aplicarCategoriaSugerida(descripcion);
               }, 200);
             }}
@@ -713,7 +713,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                 >
                   <span>{s.descripcion}</span>
                   <span className="text-xs text-slate-400 ml-2 shrink-0">
-                    Ã—{s.frecuencia}
+                    ×{s.frecuencia}
                   </span>
                 </li>
               ))}
@@ -725,21 +725,21 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm font-medium text-slate-100">
-                CategorÃ­a *
+                Categoría *
               </label>
               <button
                 type="button"
                 onClick={() => { setShowNewCat((v) => !v); setNewCatNombre(''); }}
                 className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
               >
-                {showNewCat ? 'âœ• Cancelar' : '+ Nueva'}
+                {showNewCat ? '✕ Cancelar' : '+ Nueva'}
               </button>
             </div>
             <select
               value={categoriaId}
               onChange={(e) => {
                 setCategoriaId(e.target.value);
-                // ElecciÃ³n manual explÃ­cita: la sugerencia no debe pisarla
+                // Elección manual explícita: la sugerencia no debe pisarla
                 categoriaTouchedRef.current = true;
               }}
               className={`w-full px-4 py-3 rounded-lg bg-slate-700/80 border border-slate-500/80 text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${isIngreso ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
@@ -757,7 +757,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
                   value={newCatNombre}
                   onChange={(e) => setNewCatNombre(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
-                  placeholder="Nombre de la categorÃ­a"
+                  placeholder="Nombre de la categoría"
                   autoFocus
                   className="flex-1 px-3 py-2 rounded-lg bg-slate-700/80 border border-blue-500/50 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
@@ -788,7 +788,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
 
         </div> {/* fin: datos principales */}
 
-        {/* â”€â”€â”€â”€â”€â”€â”€â”€ DETALLES OPCIONALES â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ──────── DETALLES OPCIONALES ──────── */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-slate-600/30" />
@@ -809,7 +809,7 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
             rows={2}
             value={nota}
             onChange={(e) => setNota(e.target.value)}
-            placeholder="InformaciÃ³n adicional"
+            placeholder="Información adicional"
             className="w-full resize-y rounded-lg border border-slate-500/80 bg-slate-700/80 px-3 py-2 text-sm text-white placeholder:text-slate-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -819,13 +819,13 @@ function MovimientoForm({ onMovimientoCreated, onMovimientoUpdated, movimientoTo
         {!isIngreso && (
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-400">
-              ClasificaciÃ³n
+              Clasificación
             </label>
             <div className="flex gap-1 rounded-xl border border-slate-600/30 bg-slate-900/60 p-1">
               {[
-                { value: '', label: 'â€” Sin clasificar' },
-                { value: 'necesidad', label: 'ðŸ  Necesidad' },
-                { value: 'deseo', label: 'âœ¨ Deseo' },
+                { value: '', label: '— Sin clasificar' },
+                { value: 'necesidad', label: '🏠 Necesidad' },
+                { value: 'deseo', label: '✨ Deseo' },
               ].map(opt => (
                 <button
                   key={opt.value}
